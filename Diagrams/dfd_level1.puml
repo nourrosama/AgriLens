@@ -1,5 +1,5 @@
 @startuml
-title AgriLens - Horizontal Data Flow Diagram (Updated with Chatbot)
+title AgriLens - Horizontal Data Flow Diagram
 
 left to right direction
 skinparam rectangle {
