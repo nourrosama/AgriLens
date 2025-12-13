@@ -1,0 +1,49 @@
+@startuml
+title AgriLens - Horizontal Data Flow Diagram (Updated with Chatbot)
+
+left to right direction
+skinparam rectangle {
+    roundCorner 20
+    shadowing false
+}
+
+' External Entities
+rectangle "Farmer\n(Mobile App)" as Farmer
+rectangle "Fixed Cameras" as FixedCam
+rectangle "Drone Camera" as Drone
+rectangle "Weather API" as Weather
+rectangle "Satellite API\n(Google Earth Engine)" as Satellite
+
+' Processes
+rectangle "1.0\nData Acquisition Layer\n(Images, Sensors, Weather, Satellite)" as P1
+rectangle "2.0\nPreprocessing Pipeline\n(Enhance, Normalize, Format)" as P2
+rectangle "3.0\nDisease Detection Model\n(CNN / YOLO)" as P3
+rectangle "4.0\nForecasting Model\n(Risk Score + Spread Map)" as P4
+rectangle "5.0\nCentral Database + Backend API\n(Storage + Retrieval)" as P5
+rectangle "6.0\nUser Dashboard\n(Web & Mobile)" as P6
+rectangle "7.0\nChatbot Assistant\n(LLM Recommendations)" as P7
+rectangle "8.0\nNotification System\n(SMS / Push Alerts)" as P8
+
+' Flows from entities → P1
+Farmer --> P1 : Captured Images\nMetadata
+FixedCam --> P1 : Scheduled Images
+Drone --> P1 : Aerial Images
+Weather --> P1 : Weather Data
+Satellite --> P1 : Satellite Indices
+
+' Main flow
+P1 --> P2 : Raw Data
+P2 --> P3 : Cleaned + Normalized Images
+P3 --> P4 : Disease\nDetection Results
+P3 --> P7 : Disease Info\n(Used to answer questions)
+P4 --> P5 : Forecast Outputs\nRisk Scores / Spread Maps
+P3 --> P5 : Detection Results
+P1 --> P5 : Metadata Logs
+P5 --> P6 : Dashboard Data\n(Charts, Maps, History)
+P6 --> P5 : User Requests\n(Uploads, Filters)
+P5 --> P7 : Context\n(Historical Data)
+P7 --> Farmer : Chat Responses\nRecommendations
+P5 --> P8 : High-Risk Trigger
+P8 --> Farmer : SMS / Push Alerts
+
+@enduml
