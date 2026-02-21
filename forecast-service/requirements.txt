@@ -1,0 +1,7 @@
+flask==3.1.0
+flask-cors==5.0.1
+python-dotenv==1.0.1
+numpy==2.2.3
+pandas==2.2.3
+pytest==8.3.4
+# DSAI team will add: prophet, statsmodels (ARIMA), torch (LSTM), etc.
