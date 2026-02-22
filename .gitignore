@@ -1,0 +1,46 @@
+# ==== Python ====
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+venv/
+.env
+*.egg
+
+# ==== Node ====
+node_modules/
+
+# ==== Flutter / Dart ====
+.dart_tool/
+.packages
+build/
+*.iml
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# ==== Docker ====
+docker-compose.override.yml
+
+# ==== IDE ====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ==== OS ====
+.DS_Store
+Thumbs.db
+
+# ==== Logs ====
+*.log
+logs/
+
+# ==== Data / Models ====
+*.h5
+*.pt
+*.pth
+*.onnx
+*.tflite
+datasets/
