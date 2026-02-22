@@ -1,0 +1,44 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:agrilens/core/theme.dart';
+import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/router.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const AgriLensApp());
+}
+
+class AgriLensApp extends StatelessWidget {
+  const AgriLensApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ChangeNotifierProvider(
+      create: (_) => LanguageProvider(),
+      child: Consumer<LanguageProvider>(
+        builder: (context, lang, _) {
+          return MaterialApp.router(
+            title: 'AgriLens',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme.copyWith(
+              textTheme: lang.isRTL
+                  ? GoogleFonts.notoSansArabicTextTheme(
+                      AppTheme.lightTheme.textTheme)
+                  : GoogleFonts.interTextTheme(AppTheme.lightTheme.textTheme),
+            ),
+            routerConfig: appRouter,
+            builder: (context, child) {
+              return Directionality(
+                textDirection:
+                    lang.isRTL ? TextDirection.rtl : TextDirection.ltr,
+                child: child!,
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
