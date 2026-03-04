@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
@@ -14,10 +15,10 @@ class BottomNav extends StatelessWidget {
     final lang = context.watch<LanguageProvider>();
 
     final items = [
-      _NavItem('home', Icons.home_rounded, lang.t('nav.home')),
-      _NavItem('fields', Icons.eco_rounded, lang.t('nav.fields')),
-      _NavItem('reports', Icons.bar_chart_rounded, lang.t('nav.reports')),
-      _NavItem('profile', Icons.person_rounded, lang.t('nav.profile')),
+      _NavItem('home', Icons.home_rounded, lang.t('nav.home'), '/home'),
+      _NavItem('fields', Icons.eco_rounded, lang.t('nav.fields'), '/fields'),
+      _NavItem('reports', Icons.bar_chart_rounded, lang.t('nav.reports'), '/reports'),
+      _NavItem('profile', Icons.person_rounded, lang.t('nav.profile'), '/profile'),
     ];
 
     return Container(
@@ -44,7 +45,7 @@ class BottomNav extends StatelessWidget {
               final isActive = item.id == active;
               return GestureDetector(
                 onTap: () {
-                  // TODO: navigate to respective screens
+                  if (!isActive) context.go(item.route);
                 },
                 child: SizedBox(
                   width: 70,
@@ -84,6 +85,7 @@ class _NavItem {
   final String id;
   final IconData icon;
   final String label;
+  final String route;
 
-  _NavItem(this.id, this.icon, this.label);
+  _NavItem(this.id, this.icon, this.label, this.route);
 }

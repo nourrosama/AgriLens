@@ -1,27 +1,110 @@
+"""
+AgriLens Backend API — Application factory.
+Initialises MongoDB, Redis, RabbitMQ, Firebase, Swagger, and all blueprints.
+"""
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
+from flasgger import Swagger
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
 def create_app():
-    """Application factory pattern for Flask."""
+    """Application factory pattern."""
     app = Flask(__name__)
     CORS(app)
 
-    # Configuration
-    app.config['MONGO_URI'] = os.getenv('MONGO_URI', 'mongodb://localhost:27017/agrilens')
-    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key')
-    app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'uploads')
-    app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload
+    # ── Load configuration ────────────────────────────────────
+    from app.config.settings import Config
+    app.config.from_object(Config)
 
-    # Ensure upload directory exists
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    # Ensure upload directory exists (local fallback)
+    os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
 
-    # Register blueprints (controllers)
+    # ── Initialise services ───────────────────────────────────
+    from app.models.db import init_db
+    init_db(app)
+
+    from app.services.auth_service import init_auth_service
+    init_auth_service(app)
+
+    from app.services.storage_service import init_storage
+    init_storage(app)
+
+    from app.services.cache import init_cache
+    init_cache(app)
+
+    from app.observers.event_publisher import init_publisher
+    init_publisher(app)
+
+    # ── Swagger / OpenAPI ─────────────────────────────────────
+    swagger_config = {
+        'headers': [],
+        'specs': [{
+            'endpoint': 'apispec',
+            'route': '/apispec.json',
+            'rule_filter': lambda rule: True,
+            'model_filter': lambda tag: True,
+        }],
+        'static_url_path': '/flasgger_static',
+        'swagger_ui': True,
+        'specs_route': '/api/docs',
+    }
+    swagger_template = {
+        'info': {
+            'title': 'AgriLens API',
+            'description': 'AI-based crop disease detection & forecasting platform',
+            'version': '1.0.0',
+        },
+        'securityDefinitions': {
+            'Bearer': {
+                'type': 'apiKey',
+                'name': 'Authorization',
+                'in': 'header',
+                'description': 'JWT token — enter as: Bearer <token>',
+            },
+        },
+        'tags': [
+            {'name': 'Auth', 'description': 'OTP login & user profile'},
+            {'name': 'Farms', 'description': 'Farm & field management'},
+            {'name': 'Scans', 'description': 'Image upload & detection'},
+            {'name': 'Health', 'description': 'Service status'},
+        ],
+    }
+    Swagger(app, config=swagger_config, template=swagger_template)
+
+    # ── Register blueprints ───────────────────────────────────
     from app.controllers.health_controller import health_bp
+    from app.controllers.auth_controller import auth_bp
+    from app.controllers.farm_controller import farm_bp
+    from app.controllers.scan_controller import scan_bp
+
     app.register_blueprint(health_bp)
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(farm_bp)
+    app.register_blueprint(scan_bp)
+
+    # ── Global error handlers ─────────────────────────────────
+    @app.errorhandler(400)
+    def bad_request(e):
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+    @app.errorhandler(404)
+    def not_found(e):
+        return jsonify({'status': 'error', 'message': 'Resource not found'}), 404
+
+    @app.errorhandler(413)
+    def too_large(e):
+        return jsonify({'status': 'error', 'message': 'File too large (max 50 MB)'}), 413
+
+    @app.errorhandler(429)
+    def rate_limited(e):
+        return jsonify({'status': 'error', 'message': 'Rate limit exceeded'}), 429
+
+    @app.errorhandler(500)
+    def server_error(e):
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
     return app
