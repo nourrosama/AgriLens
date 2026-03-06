@@ -3,6 +3,11 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/fields_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
+import 'package:agrilens/core/notifications_provider.dart';
+import 'package:agrilens/core/scan_history_provider.dart';
+import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/core/router.dart';
 
 void main() {
@@ -15,8 +20,15 @@ class AgriLensApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => LanguageProvider(),
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+        ChangeNotifierProvider(create: (_) => FieldsProvider()),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
+        ChangeNotifierProvider(create: (_) => ScanHistoryProvider()),
+        ChangeNotifierProvider(create: (_) => WeatherProvider()),
+      ],
       child: Consumer<LanguageProvider>(
         builder: (context, lang, _) {
           return MaterialApp.router(

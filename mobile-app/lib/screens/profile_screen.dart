@@ -3,6 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
+import 'package:agrilens/core/fields_provider.dart';
+import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
 
@@ -12,6 +15,11 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final userProvider = context.watch<UserProvider>();
+    final fieldsProvider = context.watch<FieldsProvider>();
+    final scanProvider = context.watch<ScanHistoryProvider>();
+    final user = userProvider.user;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -32,13 +40,13 @@ class ProfileScreen extends StatelessWidget {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(children: [
-                  _userInfo(lang),
+                  _userInfo(lang, user, fieldsProvider, scanProvider),
                   const SizedBox(height: 24),
                   _subscriptionCard(context, lang),
                   const SizedBox(height: 24),
                   _menuOptions(context, lang),
                   const SizedBox(height: 24),
-                  _logoutBtn(context, lang),
+                  _logoutBtn(context, lang, userProvider),
                   const SizedBox(height: 80),
                 ]),
               ),
@@ -51,7 +59,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _userInfo(LanguageProvider lang) {
+  Widget _userInfo(LanguageProvider lang, UserData user, FieldsProvider fieldsProvider, ScanHistoryProvider scanProvider) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
@@ -60,23 +68,34 @@ class ProfileScreen extends StatelessWidget {
           Container(
             width: 80, height: 80,
             decoration: const BoxDecoration(color: Color(0xFFE8F5E9), shape: BoxShape.circle),
-            child: const Icon(Icons.person, size: 40, color: AppColors.primary),
+            child: user.profilePhotoPath != null
+                ? ClipOval(
+                    child: Image.asset(
+                      user.profilePhotoPath!,
+                      fit: BoxFit.cover,
+                      width: 80,
+                      height: 80,
+                      errorBuilder: (_, __, ___) => const Icon(Icons.person, size: 40, color: AppColors.primary),
+                    ),
+                  )
+                : const Icon(Icons.person, size: 40, color: AppColors.primary),
           ),
           const SizedBox(width: 16),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(lang.isRTL ? 'أحمد حسن' : 'Ahmed Hassan',
+            Text(user.fullName.isNotEmpty ? user.fullName : (lang.isRTL ? 'أحمد حسن' : 'Ahmed Hassan'),
                 style: const TextStyle(color: AppColors.primaryDark, fontSize: 18, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            const Text('+20 123 456 7890', style: TextStyle(color: AppColors.textSecondary, fontSize: 16)),
+            Text(user.phone.isNotEmpty ? user.phone : '+20 123 456 7890',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 16)),
           ])),
         ]),
         const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: _stat('70', lang.t('nav.scan'))),
-          Expanded(child: _stat('3', lang.t('nav.fields'))),
-          Expanded(child: _stat('83${lang.t('units.percent')}', lang.t('fields.healthScore'))),
+          Expanded(child: _stat('${scanProvider.totalScans}', lang.t('nav.scan'))),
+          Expanded(child: _stat('${fieldsProvider.fields.length}', lang.t('nav.fields'))),
+          Expanded(child: _stat('${fieldsProvider.averageHealth}${lang.t('units.percent')}', lang.t('fields.healthScore'))),
         ]),
       ]),
     );
@@ -151,9 +170,12 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _logoutBtn(BuildContext context, LanguageProvider lang) {
+  Widget _logoutBtn(BuildContext context, LanguageProvider lang, UserProvider userProvider) {
     return GestureDetector(
-      onTap: () => context.go('/'),
+      onTap: () {
+        userProvider.logout();
+        context.go('/');
+      },
       child: Container(
         width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),

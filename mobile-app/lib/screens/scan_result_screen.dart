@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -5,8 +6,24 @@ import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
 
 /// Scan result screen — shows detected disease info with static data
-class ScanResultScreen extends StatelessWidget {
+class ScanResultScreen extends StatefulWidget {
   const ScanResultScreen({super.key});
+
+  @override
+  State<ScanResultScreen> createState() => _ScanResultScreenState();
+}
+
+class _ScanResultScreenState extends State<ScanResultScreen> {
+  String? _imagePath;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final extra = GoRouterState.of(context).extra as Map<String, dynamic>?;
+    if (extra != null && _imagePath == null) {
+      _imagePath = extra['imagePath'] as String?;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +34,6 @@ class ScanResultScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -49,7 +65,6 @@ class ScanResultScreen extends StatelessWidget {
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   children: [
-                    // Captured image placeholder
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -60,26 +75,14 @@ class ScanResultScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(16),
                         child: AspectRatio(
                           aspectRatio: 16 / 9,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  AppColors.primary.withValues(alpha: 0.2),
-                                  AppColors.primaryDark.withValues(alpha: 0.2),
-                                ],
-                              ),
-                            ),
-                            child: Center(
-                              child: Text(
-                                lang.isRTL
-                                    ? 'صورة الورقة الملتقطة'
-                                    : 'Captured Leaf Image',
-                                style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 18),
-                              ),
-                            ),
-                          ),
+                          child: _imagePath != null && File(_imagePath!).existsSync()
+                              ? Image.file(
+                                  File(_imagePath!),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      _buildImagePlaceholder(lang),
+                                )
+                              : _buildImagePlaceholder(lang),
                         ),
                       ),
                     ),
@@ -205,8 +208,6 @@ class ScanResultScreen extends StatelessWidget {
                       width: double.infinity,
                       child: OutlinedButton(
                         onPressed: () => context.go('/scan'),
-                        child: Text(lang.t('scan.scanAnother'),
-                            style: const TextStyle(fontSize: 18)),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: AppColors.primary,
                           padding: const EdgeInsets.symmetric(vertical: 20),
@@ -215,6 +216,8 @@ class ScanResultScreen extends StatelessWidget {
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(16)),
                         ),
+                        child: Text(lang.t('scan.scanAnother'),
+                            style: const TextStyle(fontSize: 18)),
                       ),
                     ),
                   ],
@@ -251,6 +254,39 @@ class ScanResultScreen extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildImagePlaceholder(LanguageProvider lang) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.primary.withValues(alpha: 0.2),
+            AppColors.primaryDark.withValues(alpha: 0.2),
+          ],
+        ),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.eco_rounded,
+              size: 48,
+              color: AppColors.primary.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              lang.isRTL ? 'صورة الورقة الملتقطة' : 'Captured Leaf Image',
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 

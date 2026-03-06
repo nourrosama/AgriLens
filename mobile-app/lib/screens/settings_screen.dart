@@ -25,7 +25,7 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 _sectionTitle(lang.t('settings.privacy')),
                 const SizedBox(height: 12),
-                _privacySection(lang),
+                _privacySection(context, lang),
                 const SizedBox(height: 24),
                 _sectionTitle(lang.t('settings.help')),
                 const SizedBox(height: 12),
@@ -71,26 +71,31 @@ class SettingsScreen extends StatelessWidget {
 
   Widget _accountSection(BuildContext context, LanguageProvider lang) {
     return _menuGroup([
-      _menuItem(Icons.person, lang.t('settings.editProfile'), lang),
+      _menuItem(Icons.person, lang.t('settings.editProfile'), lang,
+          onTap: () => context.push('/edit-profile')),
       _languageToggle(lang),
-      _menuItem(Icons.notifications, lang.t('settings.notifications'), lang),
+      _menuItem(Icons.notifications, lang.t('settings.notifications'), lang,
+          onTap: () => context.push('/notifications')),
     ]);
   }
 
-  Widget _privacySection(LanguageProvider lang) {
+  Widget _privacySection(BuildContext context, LanguageProvider lang) {
     return _menuGroup([
-      _menuItem(Icons.shield, lang.t('settings.dataPrivacy'), lang),
-      _menuItem(Icons.description, lang.t('settings.termsConditions'), lang),
+      _menuItem(Icons.shield, lang.t('settings.dataPrivacy'), lang,
+          onTap: () => context.push('/data-privacy')),
+      _menuItem(Icons.description, lang.t('settings.termsConditions'), lang,
+          onTap: () => context.push('/terms-conditions')),
     ]);
   }
 
   Widget _helpSection(BuildContext context, LanguageProvider lang) {
     return _menuGroup([
       _menuItem(Icons.menu_book, lang.t('settings.tutorial'), lang,
-          onTap: () => context.push('/chatbot')),
+          onTap: () => context.push('/app-tutorial')),
       _menuItem(Icons.chat, lang.t('settings.contactSupport'), lang,
-          onTap: () => context.push('/chatbot')),
-      _menuItem(Icons.help_outline, lang.t('settings.faq'), lang),
+          onTap: () => context.push('/contact-support')),
+      _menuItem(Icons.help_outline, lang.t('settings.faq'), lang,
+          onTap: () => context.push('/faq')),
     ]);
   }
 

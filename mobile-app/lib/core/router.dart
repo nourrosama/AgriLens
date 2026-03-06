@@ -5,6 +5,7 @@ import 'package:agrilens/screens/language_selection_screen.dart';
 import 'package:agrilens/screens/login_phone_screen.dart';
 import 'package:agrilens/screens/login_otp_screen.dart';
 import 'package:agrilens/screens/login_success_screen.dart';
+import 'package:agrilens/screens/user_registration_screen.dart';
 import 'package:agrilens/screens/home_screen.dart';
 import 'package:agrilens/screens/camera_scan_screen.dart';
 import 'package:agrilens/screens/scan_result_screen.dart';
@@ -18,6 +19,7 @@ import 'package:agrilens/screens/forecasting_screen.dart';
 import 'package:agrilens/screens/reports_screen.dart';
 import 'package:agrilens/screens/notifications_screen.dart';
 import 'package:agrilens/screens/profile_screen.dart';
+import 'package:agrilens/screens/edit_profile_screen.dart';
 import 'package:agrilens/screens/settings_screen.dart';
 import 'package:agrilens/screens/chatbot_screen.dart';
 import 'package:agrilens/screens/subscription_overview_screen.dart';
@@ -25,46 +27,64 @@ import 'package:agrilens/screens/subscription_plans_screen.dart';
 import 'package:agrilens/screens/subscription_payment_screen.dart';
 import 'package:agrilens/screens/subscription_confirmation_screen.dart';
 import 'package:agrilens/screens/active_subscription_screen.dart';
+import 'package:agrilens/screens/faq_screen.dart';
+import 'package:agrilens/screens/terms_conditions_screen.dart';
+import 'package:agrilens/screens/data_privacy_screen.dart';
+import 'package:agrilens/screens/contact_support_screen.dart';
+import 'package:agrilens/screens/app_tutorial_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
   routes: [
-    // Auth flow
-    GoRoute(path: '/', builder: (context, state) => const SplashScreen()),
-    GoRoute(path: '/onboarding', builder: (context, state) => const OnboardingScreen()),
-    GoRoute(path: '/language', builder: (context, state) => const LanguageSelectionScreen()),
-    GoRoute(path: '/login', builder: (context, state) => const LoginPhoneScreen()),
-    GoRoute(path: '/login-otp', builder: (context, state) => const LoginOtpScreen()),
-    GoRoute(path: '/login-success', builder: (context, state) => const LoginSuccessScreen()),
+    // Auth & onboarding flow
+    GoRoute(path: '/', builder: (ctx, s) => const SplashScreen()),
+    GoRoute(path: '/onboarding', builder: (ctx, s) => const OnboardingScreen()),
+    GoRoute(path: '/language', builder: (ctx, s) => const LanguageSelectionScreen()),
+    // Registration — matches TSX route /registration
+    GoRoute(path: '/registration', builder: (ctx, s) => const UserRegistrationScreen()),
+    GoRoute(path: '/register', redirect: (ctx, s) => '/registration'),
+    GoRoute(path: '/login', builder: (ctx, s) => const LoginPhoneScreen()),
+    GoRoute(path: '/login-otp', builder: (ctx, s) => const LoginOtpScreen()),
+    GoRoute(path: '/login-success', builder: (ctx, s) => const LoginSuccessScreen()),
 
     // Main app
-    GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-    GoRoute(path: '/scan', builder: (context, state) => const CameraScanScreen()),
-    GoRoute(path: '/scan-result', builder: (context, state) => const ScanResultScreen()),
-    GoRoute(path: '/disease-details', builder: (context, state) => const DiseaseDetailsScreen()),
+    GoRoute(path: '/home', builder: (ctx, s) => const HomeScreen()),
+    GoRoute(path: '/scan', builder: (ctx, s) => const CameraScanScreen()),
+    GoRoute(path: '/scan-result', builder: (ctx, s) => const ScanResultScreen()),
+    GoRoute(path: '/disease-details', builder: (ctx, s) => const DiseaseDetailsScreen()),
 
     // Fields
-    GoRoute(path: '/fields', builder: (context, state) => const MyFieldsScreen()),
-    GoRoute(path: '/add-field', builder: (context, state) => const AddFieldScreen()),
-    GoRoute(path: '/edit-field/:id', builder: (context, state) => EditFieldScreen(fieldId: state.pathParameters['id'] ?? '1')),
-    GoRoute(path: '/field-overview/:id', builder: (context, state) => FieldOverviewScreen(fieldId: state.pathParameters['id'] ?? '1')),
-    GoRoute(path: '/disease-map', builder: (context, state) => const DiseaseMapScreen()),
+    GoRoute(path: '/fields', builder: (ctx, s) => const MyFieldsScreen()),
+    GoRoute(path: '/add-field', builder: (ctx, s) => const AddFieldScreen()),
+    GoRoute(path: '/edit-field/:id', builder: (ctx, s) =>
+        EditFieldScreen(fieldId: s.pathParameters['id'] ?? '1')),
+    GoRoute(path: '/field-overview/:id', builder: (ctx, s) =>
+        FieldOverviewScreen(fieldId: s.pathParameters['id'] ?? '1')),
+    GoRoute(path: '/disease-map', builder: (ctx, s) => const DiseaseMapScreen()),
 
     // Analytics
-    GoRoute(path: '/forecasting', builder: (context, state) => const ForecastingScreen()),
-    GoRoute(path: '/reports', builder: (context, state) => const ReportsScreen()),
+    GoRoute(path: '/forecasting', builder: (ctx, s) => const ForecastingScreen()),
+    GoRoute(path: '/reports', builder: (ctx, s) => const ReportsScreen()),
 
     // User
-    GoRoute(path: '/notifications', builder: (context, state) => const NotificationsScreen()),
-    GoRoute(path: '/profile', builder: (context, state) => const ProfileScreen()),
-    GoRoute(path: '/settings', builder: (context, state) => const SettingsScreen()),
-    GoRoute(path: '/chatbot', builder: (context, state) => const ChatbotScreen()),
+    GoRoute(path: '/notifications', builder: (ctx, s) => const NotificationsScreen()),
+    GoRoute(path: '/profile', builder: (ctx, s) => const ProfileScreen()),
+    GoRoute(path: '/edit-profile', builder: (ctx, s) => const EditProfileScreen()),
+    GoRoute(path: '/settings', builder: (ctx, s) => const SettingsScreen()),
+    GoRoute(path: '/chatbot', builder: (ctx, s) => const ChatbotScreen()),
+
+    // Help & Legal
+    GoRoute(path: '/faq', builder: (ctx, s) => const FaqScreen()),
+    GoRoute(path: '/terms-conditions', builder: (ctx, s) => const TermsConditionsScreen()),
+    GoRoute(path: '/data-privacy', builder: (ctx, s) => const DataPrivacyScreen()),
+    GoRoute(path: '/contact-support', builder: (ctx, s) => const ContactSupportScreen()),
+    GoRoute(path: '/app-tutorial', builder: (ctx, s) => const AppTutorialScreen()),
 
     // Subscription
-    GoRoute(path: '/subscription', builder: (context, state) => const SubscriptionOverviewScreen()),
-    GoRoute(path: '/subscription-plans', builder: (context, state) => const SubscriptionPlansScreen()),
-    GoRoute(path: '/subscription-payment', builder: (context, state) => const SubscriptionPaymentScreen()),
-    GoRoute(path: '/subscription-confirmation', builder: (context, state) => const SubscriptionConfirmationScreen()),
-    GoRoute(path: '/active-subscription', builder: (context, state) => const ActiveSubscriptionScreen()),
+    GoRoute(path: '/subscription', builder: (ctx, s) => const SubscriptionOverviewScreen()),
+    GoRoute(path: '/subscription-plans', builder: (ctx, s) => const SubscriptionPlansScreen()),
+    GoRoute(path: '/subscription-payment', builder: (ctx, s) => const SubscriptionPaymentScreen()),
+    GoRoute(path: '/subscription-confirmation', builder: (ctx, s) => const SubscriptionConfirmationScreen()),
+    GoRoute(path: '/active-subscription', builder: (ctx, s) => const ActiveSubscriptionScreen()),
   ],
 );

@@ -84,7 +84,7 @@ class ReportsScreen extends StatelessWidget {
     ];
     return GridView.count(
       crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16, crossAxisSpacing: 16, childAspectRatio: 1.3,
+      mainAxisSpacing: 16, crossAxisSpacing: 16, childAspectRatio: 1.1,
       children: items.map((i) => Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.border)),
@@ -206,7 +206,11 @@ class _LinePainter extends CustomPainter {
     for (int i = 0; i < data.length; i++) {
       final x = i * size.width / (data.length - 1);
       final y = size.height - ((data[i] - minVal) / range) * size.height * 0.8 - size.height * 0.1;
-      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+      if (i == 0) {
+        path.moveTo(x, y);
+      } else {
+        path.lineTo(x, y);
+      }
       canvas.drawCircle(Offset(x, y), 4, dotPaint);
     }
     canvas.drawPath(path, paint);

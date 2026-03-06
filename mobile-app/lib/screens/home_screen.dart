@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
@@ -51,7 +52,7 @@ class HomeScreen extends StatelessWidget {
                   Stack(
                     children: [
                       IconButton(
-                        onPressed: () {},
+                        onPressed: () => context.push('/notifications'),
                         icon: const Icon(
                           Icons.notifications_outlined,
                           color: AppColors.textPrimary,
@@ -149,7 +150,7 @@ class HomeScreen extends StatelessWidget {
 
                     // Quick Scan Button
                     GestureDetector(
-                      onTap: () {},
+                      onTap: () => context.push('/scan'),
                       child: Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(24),
@@ -212,7 +213,7 @@ class HomeScreen extends StatelessWidget {
                                 ),
                               ),
                               TextButton(
-                                onPressed: () {},
+                                onPressed: () => context.push('/notifications'),
                                 child: Text(
                                   lang.t('home.viewAll'),
                                   style: const TextStyle(
@@ -385,7 +386,7 @@ class HomeScreen extends StatelessWidget {
                           child: _buildQuickAction(
                             icon: Icons.eco_rounded,
                             label: lang.t('home.myFields'),
-                            onTap: () {},
+                            onTap: () => context.go('/fields'),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -393,7 +394,7 @@ class HomeScreen extends StatelessWidget {
                           child: _buildQuickAction(
                             icon: Icons.trending_up_rounded,
                             label: lang.t('home.forecasting'),
-                            onTap: () {},
+                            onTap: () => context.push('/forecasting'),
                           ),
                         ),
                       ],

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/fields_provider.dart';
 
 class AddFieldScreen extends StatefulWidget {
   const AddFieldScreen({super.key});
@@ -19,7 +20,17 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      debugPrint('Field: $_name, Location: $_location, Area: $_area');
+      
+      // Save to provider
+      context.read<FieldsProvider>().addField(
+        name: _name,
+        location: _location,
+        area: _area,
+        cropType: _cropType,
+        soilType: _soilType,
+        irrigationType: _irrigationType,
+      );
+
       setState(() => _showSuccess = true);
       Future.delayed(const Duration(seconds: 2), () {
         if (mounted) context.go('/fields');
@@ -179,7 +190,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
-        validator: required ? (v) => (v == null || v.isEmpty) ? '' : null : null,
+        validator: required ? (v) => (v == null || v.trim().isEmpty) ? '' : null : null,
         onSaved: (v) => onSaved(v ?? ''),
       ),
     ]);
@@ -200,7 +211,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
-        validator: (v) => (v == null || v.isEmpty) ? '' : null,
+        validator: (v) => (v == null || v.trim().isEmpty) ? '' : null,
         onSaved: (v) => _location = v ?? '',
       ),
       const SizedBox(height: 16),
@@ -218,7 +229,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
       Text('$label${required ? ' *' : ''}', style: const TextStyle(color: AppColors.primaryDark, fontSize: 18)),
       const SizedBox(height: 12),
       DropdownButtonFormField<String>(
-        value: value,
+        initialValue: value,
         items: items,
         onChanged: onChanged,
         decoration: InputDecoration(

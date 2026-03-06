@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/fields_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
 
@@ -12,14 +13,8 @@ class MyFieldsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
-    final fields = [
-      _Field(1, lang.isRTL ? 'الحقل أ' : 'Field A',
-          lang.isRTL ? 'القسم الشمالي' : 'North Section', '2.5', 'healthy', 92),
-      _Field(2, lang.isRTL ? 'الحقل ب' : 'Field B',
-          lang.isRTL ? 'القسم الشرقي' : 'East Section', '3.2', 'warning', 68),
-      _Field(3, lang.isRTL ? 'الحقل ج' : 'Field C',
-          lang.isRTL ? 'القسم الجنوبي' : 'South Section', '1.8', 'healthy', 88),
-    ];
+    final fieldsProvider = context.watch<FieldsProvider>();
+    final fields = fieldsProvider.fields;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -82,10 +77,21 @@ class MyFieldsScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         // Field cards
-                        ...fields.map((f) => _fieldCard(context, lang, f)),
+                        if (fields.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Center(
+                              child: Text(
+                                lang.isRTL ? 'لا توجد حقول حتى الآن' : 'No fields added yet.',
+                                style: const TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                              ),
+                            ),
+                          )
+                        else
+                          ...fields.map((f) => _fieldCard(context, lang, f)),
                         const SizedBox(height: 16),
                         // Quick stats
-                        _quickStats(lang),
+                        _quickStats(lang, fieldsProvider),
                         const SizedBox(height: 80),
                       ],
                     ),
@@ -101,7 +107,7 @@ class MyFieldsScreen extends StatelessWidget {
     );
   }
 
-  Widget _fieldCard(BuildContext context, LanguageProvider lang, _Field f) {
+  Widget _fieldCard(BuildContext context, LanguageProvider lang, FieldData f) {
     return GestureDetector(
       onTap: () => context.push('/field-overview/${f.id}'),
       child: Container(
@@ -143,17 +149,20 @@ class MyFieldsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Row(children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(lang.t('fields.area'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-                const SizedBox(height: 4),
-                Text('${f.area} ${lang.t('units.feddan')}', style: const TextStyle(color: AppColors.primaryDark, fontSize: 18)),
-              ]),
-              const SizedBox(width: 48),
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(lang.t('fields.healthScore'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-                const SizedBox(height: 4),
-                Text('${f.health}${lang.t('units.percent')}', style: const TextStyle(color: AppColors.primaryDark, fontSize: 18)),
-              ]),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(lang.t('fields.area'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text('${f.area} ${lang.t('units.feddan')}', style: const TextStyle(color: AppColors.primaryDark, fontSize: 18)),
+                ]),
+              ),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(lang.t('fields.healthScore'), style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text('${f.health}${lang.t('units.percent')}', style: const TextStyle(color: AppColors.primaryDark, fontSize: 18)),
+                ]),
+              ),
             ]),
             const SizedBox(height: 12),
             ClipRRect(
@@ -170,7 +179,7 @@ class MyFieldsScreen extends StatelessWidget {
               Row(children: [
                 const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFFFC107)),
                 const SizedBox(width: 8),
-                Text('2 ${lang.t('fields.riskDetected')}',
+                Text('Risks detected',
                     style: const TextStyle(color: Color(0xFFFFC107), fontSize: 14)),
               ]),
             ],
@@ -180,7 +189,7 @@ class MyFieldsScreen extends StatelessWidget {
     );
   }
 
-  Widget _quickStats(LanguageProvider lang) {
+  Widget _quickStats(LanguageProvider lang, FieldsProvider provider) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -193,9 +202,9 @@ class MyFieldsScreen extends StatelessWidget {
           Text(lang.t('fields.overview'), style: const TextStyle(color: AppColors.primaryDark, fontSize: 18, fontWeight: FontWeight.w600)),
           const SizedBox(height: 16),
           Row(children: [
-            Expanded(child: _statBox(lang.t('fields.totalArea'), '7.5 ${lang.t('units.feddan')}')),
+            Expanded(child: _statBox(lang.t('fields.totalArea'), '${provider.totalArea.toStringAsFixed(1)} ${lang.t('units.feddan')}')),
             const SizedBox(width: 16),
-            Expanded(child: _statBox(lang.t('fields.avgHealth'), '83${lang.t('units.percent')}')),
+            Expanded(child: _statBox(lang.t('fields.avgHealth'), '${provider.averageHealth}${lang.t('units.percent')}')),
           ]),
         ],
       ),
@@ -213,11 +222,4 @@ class MyFieldsScreen extends StatelessWidget {
       ]),
     );
   }
-}
-
-class _Field {
-  final int id;
-  final String name, location, area, status;
-  final int health;
-  _Field(this.id, this.name, this.location, this.area, this.status, this.health);
 }

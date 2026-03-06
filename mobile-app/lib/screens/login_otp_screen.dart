@@ -45,118 +45,129 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Back button
-              GestureDetector(
-                onTap: () => context.go('/login'),
-                child: Icon(
-                  lang.isRTL
-                      ? Icons.arrow_forward_rounded
-                      : Icons.arrow_back_rounded,
-                  size: 28,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              Text(
-                lang.t('login.otpTitle'),
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${lang.t('login.otpSubtitle')} +20 1234567890',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: MediaQuery.of(context).size.height -
+                  MediaQuery.of(context).padding.top -
+                  MediaQuery.of(context).padding.bottom -
+                  96,
+            ),
+            child: IntrinsicHeight(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Back button
+                  GestureDetector(
+                    onTap: () => context.go('/login'),
+                    child: Icon(
+                      lang.isRTL
+                          ? Icons.arrow_forward_rounded
+                          : Icons.arrow_back_rounded,
+                      size: 28,
                       color: AppColors.textPrimary,
                     ),
-              ),
-              const SizedBox(height: 40),
+                  ),
+                  const SizedBox(height: 32),
 
-              // OTP boxes
-              Directionality(
-                textDirection: TextDirection.ltr,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: List.generate(6, (i) {
-                    return SizedBox(
-                      width: 48,
-                      height: 56,
-                      child: TextField(
-                        controller: _controllers[i],
-                        focusNode: _focusNodes[i],
-                        keyboardType: TextInputType.number,
-                        textAlign: TextAlign.center,
-                        maxLength: 1,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
+                  Text(
+                    lang.t('login.otpTitle'),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                           color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w600,
                         ),
-                        decoration: InputDecoration(
-                          counterText: '',
-                          contentPadding: EdgeInsets.zero,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                                color: AppColors.border, width: 2),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(
-                                color: AppColors.primary, width: 2),
-                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${lang.t('login.otpSubtitle')} +20 1234567890',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: AppColors.textPrimary,
                         ),
-                        onChanged: (v) => _onDigitChanged(i, v),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-              const SizedBox(height: 24),
+                  ),
+                  const SizedBox(height: 40),
 
-              // Resend
-              Center(
-                child: TextButton(
-                  onPressed: () {},
-                  child: Text(
-                    lang.t('login.resend'),
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 16,
+                  // OTP boxes
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(6, (i) {
+                        return SizedBox(
+                          width: 48,
+                          height: 56,
+                          child: TextField(
+                            controller: _controllers[i],
+                            focusNode: _focusNodes[i],
+                            keyboardType: TextInputType.number,
+                            textAlign: TextAlign.center,
+                            maxLength: 1,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryDark,
+                            ),
+                            decoration: InputDecoration(
+                              counterText: '',
+                              contentPadding: EdgeInsets.zero,
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                    color: AppColors.border, width: 2),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                    color: AppColors.primary, width: 2),
+                              ),
+                            ),
+                            onChanged: (v) => _onDigitChanged(i, v),
+                          ),
+                        );
+                      }),
                     ),
                   ),
-                ),
-              ),
+                  const SizedBox(height: 24),
 
-              const Spacer(),
+                  // Resend
+                  Center(
+                    child: TextButton(
+                      onPressed: () {},
+                      child: Text(
+                        lang.t('login.resend'),
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
 
-              // Verify button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isComplete
-                      ? () => context.go('/login-success')
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor:
-                        _isComplete ? AppColors.primary : AppColors.border,
-                    foregroundColor:
-                        _isComplete ? Colors.white : AppColors.textSecondary,
+                  const Spacer(),
+                  const SizedBox(height: 32),
+
+                  // Verify button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isComplete
+                          ? () => context.go('/login-success')
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            _isComplete ? AppColors.primary : AppColors.border,
+                        foregroundColor:
+                            _isComplete ? Colors.white : AppColors.textSecondary,
+                      ),
+                      child: Text(
+                        lang.t('login.verify'),
+                        style: const TextStyle(fontSize: 20),
+                      ),
+                    ),
                   ),
-                  child: Text(
-                    lang.t('login.verify'),
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
