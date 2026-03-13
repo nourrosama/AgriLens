@@ -3,7 +3,7 @@ Disease Detection Controller
 Real CNN inference using trained paddy and tomato models.
 """
 from flask import Blueprint, request, jsonify
-from services.paddy_service import predict as paddy_predict
+from services.paddy_services import predict as paddy_predict
 from services.tomato_service import predict as tomato_predict
 
 detection_bp = Blueprint('detection', __name__)
