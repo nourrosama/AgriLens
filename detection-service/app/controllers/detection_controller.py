@@ -1,57 +1,66 @@
 """
-Disease Detection Controller (STUB)
-Returns mock detection results.
-DSAI team will replace with real CNN/YOLO inference.
+Disease Detection Controller
+Real CNN inference using trained paddy and tomato models.
 """
-import random
 from flask import Blueprint, request, jsonify
+from services.paddy_services import predict as paddy_predict
+from services.tomato_service import predict as tomato_predict
 
 detection_bp = Blueprint('detection', __name__)
-
-# Mock disease classes from the tomato dataset
-DISEASE_CLASSES = [
-    'Tomato___Bacterial_spot',
-    'Tomato___Early_blight',
-    'Tomato___Late_blight',
-    'Tomato___Leaf_Mold',
-    'Tomato___Septoria_leaf_spot',
-    'Tomato___Spider_mites Two-spotted_spider_mite',
-    'Tomato___Target_Spot',
-    'Tomato___Tomato_Yellow_Leaf_Curl_Virus',
-    'Tomato___Tomato_mosaic_virus',
-    'Tomato___healthy',
-]
 
 
 @detection_bp.route('/api/detect', methods=['POST'])
 def detect_disease():
     """
-    Accepts an image and returns disease detection results.
+    Accepts an image and crop_type, returns disease detection results.
 
-    Request: multipart/form-data with 'image' file
+    Request: multipart/form-data with:
+        - 'image'     : image file (jpg, png, webp)
+        - 'crop_type' : 'paddy' or 'tomato'
+
     Response: {
         "disease": str,
         "confidence": float,
         "severity": str,
         "is_healthy": bool,
-        "bbox": [x, y, width, height]
+        "probabilities": dict
     }
     """
     if 'image' not in request.files:
         return jsonify({'error': 'No image provided'}), 400
 
-    # STUB: Return mock detection result
-    # TODO: Replace with actual model inference
-    disease = random.choice(DISEASE_CLASSES)
-    confidence = round(random.uniform(0.75, 0.99), 4)
-    is_healthy = disease == 'Tomato___healthy'
+    crop_type = request.form.get('crop_type', 'tomato').lower()
+    if crop_type not in ('paddy', 'tomato'):
+        return jsonify({'error': 'crop_type must be paddy or tomato'}), 400
 
-    severity_map = {True: 'none', False: random.choice(['low', 'medium', 'high', 'critical'])}
+    image_bytes = request.files['image'].read()
+
+    # ── Run real model inference ──
+    if crop_type == 'paddy':
+        result = paddy_predict(image_bytes)
+    else:
+        result = tomato_predict(image_bytes)
+
+    disease    = result['predicted_class']
+    confidence = result['confidence']
+    is_healthy = 'healthy' in disease.lower()
+
+    # Map confidence to severity
+    if is_healthy:
+        severity = 'none'
+    elif confidence >= 0.90:
+        severity = 'critical'
+    elif confidence >= 0.75:
+        severity = 'high'
+    elif confidence >= 0.50:
+        severity = 'medium'
+    else:
+        severity = 'low'
 
     return jsonify({
-        'disease': disease,
-        'confidence': confidence,
-        'severity': severity_map[is_healthy],
-        'is_healthy': is_healthy,
-        'bbox': [50, 50, 200, 200],
+        'disease':       disease,
+        'confidence':    confidence,
+        'severity':      severity,
+        'is_healthy':    is_healthy,
+        'probabilities': result['probabilities'],
     }), 200

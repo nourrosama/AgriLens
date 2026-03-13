@@ -2,6 +2,10 @@ flask==3.1.0
 flask-cors==5.0.1
 python-dotenv==1.0.1
 numpy==2.2.3
-Pillow==11.1.0
 pytest==8.3.4
-# DSAI team will add: tensorflow or torch, ultralytics (YOLO), etc.
+torch>=2.0
+torchvision>=0.15
+timm>=0.9
+albumentations>=1.3
+h5py>=3.9
+Pillow>=10.0
