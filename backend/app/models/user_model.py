@@ -27,6 +27,7 @@ def create_user(
         'plan': 'free',
         'profile_completed': bool(name or country),
         'farms': [],
+        'fcm_tokens': [],
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
     }
@@ -73,6 +74,30 @@ def remove_farm_ref(user_id: str, farm_id) -> bool:
     return result.modified_count > 0
 
 
+def add_fcm_token(user_id: str, token: str) -> bool:
+    """Attach a device FCM token to the user."""
+    result = users_col().update_one(
+        {'_id': ObjectId(user_id)},
+        {
+            '$addToSet': {'fcm_tokens': token},
+            '$set': {'updated_at': datetime.now(timezone.utc)},
+        },
+    )
+    return result.modified_count > 0
+
+
+def remove_fcm_token(user_id: str, token: str) -> bool:
+    """Remove a stored device FCM token from the user."""
+    result = users_col().update_one(
+        {'_id': ObjectId(user_id)},
+        {
+            '$pull': {'fcm_tokens': token},
+            '$set': {'updated_at': datetime.now(timezone.utc)},
+        },
+    )
+    return result.modified_count > 0
+
+
 def serialize(user: dict) -> dict:
     """Convert a user document to JSON-safe dict."""
     if user is None:
@@ -89,6 +114,7 @@ def serialize(user: dict) -> dict:
         'plan': user.get('plan', 'free'),
         'profile_completed': user.get('profile_completed', False),
         'farms': [str(f) for f in user.get('farms', [])],
+        'fcm_tokens': user.get('fcm_tokens', []),
         'created_at': user.get('created_at', '').isoformat() if user.get('created_at') else None,
         'updated_at': user.get('updated_at', '').isoformat() if user.get('updated_at') else None,
     }

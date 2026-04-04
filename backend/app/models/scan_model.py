@@ -118,12 +118,14 @@ def serialize(scan: dict) -> dict:
     if scan is None:
         return None
     det = scan.get('detection_result')
+    image_url = scan.get('image_url', '')
     return {
         'id': str(scan['_id']),
         'user_id': str(scan.get('user_id', '')),
         'farm_id': str(scan['farm_id']) if scan.get('farm_id') else None,
         'field_id': str(scan['field_id']) if scan.get('field_id') else None,
-        'image_url': scan.get('image_url', ''),
+        'image_url': image_url,
+        'storage_backend': 'firebase' if image_url.startswith('http') else 'local',
         'scan_type': scan.get('scan_type', 'image'),
         'crop_type': scan.get('crop_type', ''),
         'media_type': scan.get('media_type', 'image'),

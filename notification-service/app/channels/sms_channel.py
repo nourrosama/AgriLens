@@ -1,23 +1,17 @@
-"""
-SMS notification channel via Twilio.
-Logs notifications until Twilio SMS is fully integrated.
-"""
+"""SMS notification channel via Twilio."""
 import logging
+
+from app.services import runtime
 
 logger = logging.getLogger(__name__)
 
 
 def send(user_id: str, message: str):
-    """Send SMS via Twilio.
-
-    TODO: Look up user's phone from DB and send via Twilio API.
-    """
-    logger.info(f'📱 [SMS STUB] to user={user_id} | {message}')
-    # When ready:
-    # from twilio.rest import Client
-    # client = Client(account_sid, auth_token)
-    # client.messages.create(
-    #     body=message,
-    #     from_=twilio_phone,
-    #     to=user_phone,
-    # )
+    """Look up the user's phone number and send an SMS alert."""
+    user = runtime.get_user(user_id)
+    if not user:
+        logger.warning('SMS skipped; user %s not found', user_id)
+        return
+    sid = runtime.send_sms(user.get('phone', ''), message)
+    if sid:
+        logger.info('SMS sent to user=%s sid=%s', user_id, sid)

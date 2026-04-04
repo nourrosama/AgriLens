@@ -32,6 +32,12 @@ class FieldData {
   String? season;
   String status;
   int health;
+  double? get latitude => _toDouble(
+    locationData['lat'] ?? locationData['latitude'],
+  );
+  double? get longitude => _toDouble(
+    locationData['lng'] ?? locationData['lon'] ?? locationData['longitude'],
+  );
 
   factory FieldData.fromJson(
     Map<String, dynamic> json, {
@@ -64,6 +70,16 @@ class FieldData {
       health: healthScore,
       locationData: location is Map<String, dynamic> ? location : const {},
     );
+  }
+
+  static double? _toDouble(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    if (value is num) {
+      return value.toDouble();
+    }
+    return double.tryParse(value.toString());
   }
 }
 
@@ -128,6 +144,8 @@ class FieldsProvider extends ChangeNotifier {
     required String name,
     required String location,
     required String area,
+    double? latitude,
+    double? longitude,
     String? cropType,
     String? soilType,
     String? irrigationType,
@@ -135,7 +153,12 @@ class FieldsProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      final farmId = await _ensureFarm();
+      final locationPayload = {
+        'label': location,
+        if (latitude != null) 'lat': latitude,
+        if (longitude != null) 'lng': longitude,
+      };
+      final farmId = await _ensureFarm(locationPayload);
       await _apiClient.post(
         '/api/farms/$farmId/fields',
         auth: true,
@@ -143,7 +166,7 @@ class FieldsProvider extends ChangeNotifier {
           'name': name,
           'crop_type': cropType ?? '',
           'area_hectares': double.tryParse(area) ?? 0,
-          'location': {'label': location},
+          'location': locationPayload,
           'soil_type': soilType ?? '',
           'irrigation_type': irrigationType ?? '',
           'season': season ?? '',
@@ -162,6 +185,8 @@ class FieldsProvider extends ChangeNotifier {
     String? name,
     String? location,
     String? area,
+    double? latitude,
+    double? longitude,
     String? cropType,
     String? soilType,
     String? irrigationType,
@@ -186,6 +211,15 @@ class FieldsProvider extends ChangeNotifier {
               ? null
               : {
                   'location': {'label': location},
+                }),
+          ...?(latitude == null && longitude == null
+              ? null
+              : {
+                  'location': {
+                    'label': location ?? field.location,
+                    if (latitude != null) 'lat': latitude,
+                    if (longitude != null) 'lng': longitude,
+                  },
                 }),
           ...?(soilType == null ? null : {'soil_type': soilType}),
           ...?(irrigationType == null
@@ -233,12 +267,15 @@ class FieldsProvider extends ChangeNotifier {
     return (sum / _fields.length).round();
   }
 
-  Future<String> _ensureFarm() async {
+  Future<String> _ensureFarm(Map<String, dynamic>? location) async {
     if (_farms.isEmpty) {
       final response = await _apiClient.post(
         '/api/farms',
         auth: true,
-        body: {'name': 'Main Farm'},
+        body: {
+          'name': 'Main Farm',
+          if (location != null) 'location': location,
+        },
       );
       final farm =
           (response['data'] as Map<String, dynamic>)['farm']

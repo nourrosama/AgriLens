@@ -14,3 +14,4 @@ flasgger==0.9.7.1
 twilio==9.4.3
 firebase-admin==6.6.0
 requests==2.32.3
+certifi==2025.1.31

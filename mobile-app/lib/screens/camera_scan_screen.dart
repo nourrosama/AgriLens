@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:io';
+
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -16,19 +18,117 @@ class CameraScanScreen extends StatefulWidget {
   State<CameraScanScreen> createState() => _CameraScanScreenState();
 }
 
-class _CameraScanScreenState extends State<CameraScanScreen> {
+class _CameraScanScreenState extends State<CameraScanScreen>
+    with WidgetsBindingObserver {
+  final ImagePicker _picker = ImagePicker();
+
+  CameraController? _cameraController;
+  List<CameraDescription> _cameras = const [];
+  int _selectedCameraIndex = 0;
+
   bool _scanning = false;
   bool _showCropSelection = true;
-  String _captureMode = 'photo';
+  bool _isCameraLoading = true;
   bool _isRecording = false;
+  String _captureMode = 'photo';
+  String? _cameraError;
   int _recordingTime = 0;
   Timer? _timer;
-  final ImagePicker _picker = ImagePicker();
+
+  bool get _cameraReady =>
+      _cameraController != null && _cameraController!.value.isInitialized;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final crop = context.read<CropProvider>();
+    if (crop.hasCropSelected) {
+      _showCropSelection = false;
+    }
+    unawaited(_initializeCamera());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _cameraController;
+    if (controller == null) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      unawaited(controller.dispose());
+      _cameraController = null;
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed && !_scanning) {
+      unawaited(_initializeCamera(cameraIndex: _selectedCameraIndex));
+    }
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
+    unawaited(_cameraController?.dispose());
     super.dispose();
+  }
+
+  Future<void> _initializeCamera({int? cameraIndex}) async {
+    setState(() {
+      _isCameraLoading = true;
+      _cameraError = null;
+    });
+
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        throw StateError('No camera was found on this device.');
+      }
+
+      _cameras = cameras;
+      final preferredIndex = cameraIndex ?? _findBackCameraIndex(cameras);
+      _selectedCameraIndex = preferredIndex < 0
+          ? 0
+          : (preferredIndex >= cameras.length
+                ? cameras.length - 1
+                : preferredIndex);
+
+      final nextController = CameraController(
+        cameras[_selectedCameraIndex],
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+      await nextController.initialize();
+
+      final previousController = _cameraController;
+      _cameraController = nextController;
+      await previousController?.dispose();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isCameraLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _cameraError = error.toString();
+        _isCameraLoading = false;
+      });
+    }
+  }
+
+  int _findBackCameraIndex(List<CameraDescription> cameras) {
+    final backIndex = cameras.indexWhere(
+      (camera) => camera.lensDirection == CameraLensDirection.back,
+    );
+    return backIndex >= 0 ? backIndex : 0;
   }
 
   String _formatTime(int seconds) {
@@ -37,68 +137,140 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
     return '$mins:${secs.toString().padLeft(2, '0')}';
   }
 
-  @override
-  void initState() {
-    super.initState();
-    final crop = context.read<CropProvider>();
-    if (crop.hasCropSelected) {
-      _showCropSelection = false;
-    }
-  }
-
   Future<void> _handleCapture() async {
+    if (_scanning) {
+      return;
+    }
+
     final crop = context.read<CropProvider>();
     if (!crop.hasCropSelected) {
       setState(() => _showCropSelection = true);
       return;
     }
 
-    if (_captureMode == 'photo') {
-      final photo = await _picker.pickImage(source: ImageSource.camera);
-      if (photo != null) {
-        _submitScan(File(photo.path));
-      }
-    } else {
-      // Start/Stop video recording
-      if (_isRecording) {
-        // Stop recording
-        _timer?.cancel();
-        setState(() {
-          _isRecording = false;
-          _scanning = true;
-        });
-        
-        Future.delayed(const Duration(seconds: 2), () {
-          if (!mounted) return;
-          setState(() => _scanning = false);
-          context.push('/scan-result');
-        });
-      } else {
-        // Start recording
-        setState(() {
-          _isRecording = true;
-          _recordingTime = 0;
-        });
-        
-        _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-          setState(() {
-            if (_recordingTime >= 30) {
-              _timer?.cancel();
-              _isRecording = false;
-              _scanning = true;
-              Future.delayed(const Duration(seconds: 2), () {
-                if (!mounted) return;
-                setState(() => _scanning = false);
-                context.push('/scan-result');
-              });
-              _recordingTime = 0;
-            } else {
-              _recordingTime++;
-            }
-          });
-        });
-      }
+    if (!_cameraReady) {
+      _showError('Camera is still loading. Please wait a moment.');
+      return;
     }
+
+    if (_captureMode == 'photo') {
+      await _capturePhoto();
+      return;
+    }
+
+    if (_isRecording) {
+      await _stopVideoRecording();
+    } else {
+      await _startVideoRecording();
+    }
+  }
+
+  Future<void> _capturePhoto() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    try {
+      final photo = await controller.takePicture();
+      await _submitScan(File(photo.path));
+    } catch (error) {
+      _showError('Failed to capture photo: $error');
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    if (_scanning) {
+      return;
+    }
+
+    final crop = context.read<CropProvider>();
+    if (!crop.hasCropSelected) {
+      setState(() => _showCropSelection = true);
+      return;
+    }
+
+    try {
+      if (_captureMode == 'photo') {
+        final photo = await _picker.pickImage(source: ImageSource.gallery);
+        if (photo != null) {
+          await _submitScan(File(photo.path));
+        }
+        return;
+      }
+
+      final video = await _picker.pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(seconds: 30),
+      );
+      if (video != null) {
+        await _submitVideo(File(video.path));
+      }
+    } catch (error) {
+      _showError('Failed to open gallery: $error');
+    }
+  }
+
+  Future<void> _startVideoRecording() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    try {
+      await controller.startVideoRecording();
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        if (_recordingTime >= 29) {
+          timer.cancel();
+          unawaited(_stopVideoRecording());
+          return;
+        }
+        setState(() => _recordingTime += 1);
+      });
+      setState(() {
+        _isRecording = true;
+        _recordingTime = 0;
+      });
+    } catch (error) {
+      _showError('Failed to start video recording: $error');
+    }
+  }
+
+  Future<void> _stopVideoRecording() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isRecordingVideo) {
+      return;
+    }
+
+    try {
+      final video = await controller.stopVideoRecording();
+      _timer?.cancel();
+      setState(() {
+        _isRecording = false;
+        _recordingTime = 0;
+      });
+      await _submitVideo(File(video.path));
+    } catch (error) {
+      _timer?.cancel();
+      setState(() {
+        _isRecording = false;
+        _recordingTime = 0;
+      });
+      _showError('Failed to stop video recording: $error');
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (_cameras.length < 2 || _scanning || _isRecording) {
+      return;
+    }
+    final nextIndex = (_selectedCameraIndex + 1) % _cameras.length;
+    await _initializeCamera(cameraIndex: nextIndex);
   }
 
   Future<void> _submitScan(File imageFile) async {
@@ -109,18 +281,108 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       imageFile: imageFile,
       cropType: crop.selectedCrop,
     );
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
     setState(() => _scanning = false);
     if (result != null) {
       context.push('/scan-result', extra: result);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(scanProvider.errorMessage ?? 'Scan failed'),
-          backgroundColor: const Color(0xFFF44336),
+      _showError(scanProvider.errorMessage ?? 'Scan failed');
+    }
+  }
+
+  Future<void> _submitVideo(File videoFile) async {
+    setState(() => _scanning = true);
+    final crop = context.read<CropProvider>();
+    final scanProvider = context.read<ScanHistoryProvider>();
+    final result = await scanProvider.submitVideoScan(
+      videoFile: videoFile,
+      cropType: crop.selectedCrop,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _scanning = false);
+    if (result != null) {
+      context.push('/scan-result', extra: result);
+    } else {
+      _showError(scanProvider.errorMessage ?? 'Video upload failed');
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFF44336),
+      ),
+    );
+  }
+
+  Widget _buildPreview(LanguageProvider lang) {
+    if (_cameraError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.camera_alt_outlined,
+                color: Colors.white70,
+                size: 56,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _cameraError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
         ),
       );
     }
+
+    if (_isCameraLoading || !_cameraReady) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Color(0xFF4CAF50)),
+            const SizedBox(height: 16),
+            Text(
+              lang.t('common.loading'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final controller = _cameraController!;
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) {
+      return const SizedBox.shrink();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: previewSize.height,
+            height: previewSize.width,
+            child: CameraPreview(controller),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -132,20 +394,18 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // Camera View Placeholder
           Center(
             child: Container(
-              width: MediaQuery.of(context).size.width * 0.85,
-              height: MediaQuery.of(context).size.width * 0.85 * 4 / 3,
+              width: MediaQuery.of(context).size.width * 0.88,
+              height: MediaQuery.of(context).size.width * 0.88 * 4 / 3,
               decoration: BoxDecoration(
-                border: Border.all(
-                  color: const Color(0xFF4CAF50),
-                  width: 4,
-                ),
+                border: Border.all(color: const Color(0xFF4CAF50), width: 4),
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Stack(
+                fit: StackFit.expand,
                 children: [
+                  _buildPreview(lang),
                   if (_isRecording)
                     Positioned(
                       top: 16,
@@ -155,7 +415,10 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.red[600],
                               borderRadius: BorderRadius.circular(24),
@@ -182,7 +445,10 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(24),
@@ -199,32 +465,33 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                       ),
                     ),
                   if (_scanning)
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.bolt_rounded,
-                            color: Color(0xFF4CAF50),
-                            size: 64,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            lang.t('scan.analyzing'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.bolt_rounded,
+                              color: Color(0xFF4CAF50),
+                              size: 64,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 16),
+                            Text(
+                              lang.t('scan.analyzing'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
           ),
-
-          // Top Bar - Close button
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 24,
@@ -237,16 +504,10 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                   color: Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 28,
-                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 28),
               ),
             ),
           ),
-
-          // Crop Selection Overlay
           if (_showCropSelection)
             Container(
               color: Colors.black.withValues(alpha: 0.9),
@@ -333,8 +594,6 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                 ),
               ),
             ),
-
-          // Bottom Controls
           Positioned(
             bottom: 0,
             left: 0,
@@ -351,7 +610,7 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.8),
+                    Colors.black.withValues(alpha: 0.82),
                     Colors.transparent,
                   ],
                 ),
@@ -359,11 +618,9 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Selected Crop Indicator
                   if (crop.hasCropSelected && !_showCropSelection)
                     GestureDetector(
-                      onTap: () =>
-                          setState(() => _showCropSelection = true),
+                      onTap: () => setState(() => _showCropSelection = true),
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.symmetric(
@@ -402,37 +659,13 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                         ),
                       ),
                     ),
-
-                  // Instructions
-                  Text(
-                    _captureMode == 'photo' 
-                      ? lang.t('scan.instruction') 
-                      : lang.t('scan.videoInstruction'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _captureMode == 'photo' 
-                      ? lang.t('scan.tip1') 
-                      : lang.t('scan.videoTip'),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-
-                  // Buttons row
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Photo Mode Button
-                      GestureDetector(
+                      _ModeChip(
+                        label: lang.t('scan.photoMode'),
+                        icon: Icons.photo_camera_rounded,
+                        selected: _captureMode == 'photo',
                         onTap: () {
                           setState(() {
                             _captureMode = 'photo';
@@ -441,66 +674,12 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                             _timer?.cancel();
                           });
                         },
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: _captureMode == 'photo' 
-                              ? const Color(0xFF4CAF50) 
-                              : Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                            border: _captureMode == 'photo' 
-                                ? Border.all(color: Colors.white, width: 2)
-                                : null,
-                          ),
-                          child: Icon(
-                            Icons.image_rounded,
-                            color: _captureMode == 'photo' ? Colors.white : Colors.white.withValues(alpha: 0.7),
-                            size: 28,
-                          ),
-                        ),
                       ),
-                      const SizedBox(width: 24),
-
-                      // Capture button
-                      GestureDetector(
-                        onTap: _scanning ? null : _handleCapture,
-                        child: Container(
-                          width: 80,
-                          height: 80,
-                          decoration: BoxDecoration(
-                            color: _isRecording 
-                                ? Colors.red[600] 
-                                : (_scanning 
-                                    ? const Color(0xFF4CAF50).withValues(alpha: 0.5) 
-                                    : const Color(0xFF4CAF50)),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white,
-                              width: 4,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: (_isRecording ? Colors.red : const Color(0xFF4CAF50))
-                                    .withValues(alpha: 0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Icon(
-                            _captureMode == 'photo'
-                                ? Icons.camera_alt_rounded
-                                : (_isRecording ? Icons.stop_circle_rounded : Icons.videocam_rounded),
-                            color: Colors.white,
-                            size: 40,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-
-                      // Video Mode Button
-                      GestureDetector(
+                      const SizedBox(width: 12),
+                      _ModeChip(
+                        label: lang.t('scan.videoMode'),
+                        icon: Icons.videocam_rounded,
+                        selected: _captureMode == 'video',
                         onTap: () {
                           setState(() {
                             _captureMode = 'video';
@@ -509,37 +688,83 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
                             _timer?.cancel();
                           });
                         },
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: _captureMode == 'video' 
-                              ? const Color(0xFF4CAF50) 
-                              : Colors.white.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                            border: _captureMode == 'video' 
-                                ? Border.all(color: Colors.white, width: 2)
-                                : null,
-                          ),
-                          child: Icon(
-                            Icons.videocam_rounded,
-                            color: _captureMode == 'video' ? Colors.white : Colors.white.withValues(alpha: 0.7),
-                            size: 28,
-                          ),
-                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
-                  // Mode Label
                   Text(
-                    _captureMode == 'photo' ? lang.t('scan.photoMode') : lang.t('scan.videoMode'),
+                    _captureMode == 'photo'
+                        ? lang.t('scan.instruction')
+                        : lang.t('scan.videoInstruction'),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _captureMode == 'photo'
+                        ? lang.t('scan.tip1')
+                        : lang.t('scan.videoTip'),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 14,
+                      fontSize: 16,
                     ),
                     textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _RoundActionButton(
+                        icon: Icons.photo_library_rounded,
+                        label: lang.t('scan.gallery'),
+                        onTap: () => unawaited(_pickFromGallery()),
+                      ),
+                      const SizedBox(width: 24),
+                      GestureDetector(
+                        onTap: () => unawaited(_handleCapture()),
+                        child: Container(
+                          width: 84,
+                          height: 84,
+                          decoration: BoxDecoration(
+                            color: _isRecording
+                                ? Colors.red[600]
+                                : (_scanning
+                                      ? const Color(
+                                          0xFF4CAF50,
+                                        ).withValues(alpha: 0.5)
+                                      : const Color(0xFF4CAF50)),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 4),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    (_isRecording
+                                            ? Colors.red
+                                            : const Color(0xFF4CAF50))
+                                        .withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            _captureMode == 'photo'
+                                ? Icons.camera_alt_rounded
+                                : (_isRecording
+                                      ? Icons.stop_circle_rounded
+                                      : Icons.videocam_rounded),
+                            color: Colors.white,
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      _RoundActionButton(
+                        icon: Icons.cameraswitch_rounded,
+                        label: '',
+                        onTap: () => unawaited(_switchCamera()),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -547,6 +772,96 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF4CAF50)
+              : Colors.white.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: selected ? Colors.white : Colors.white24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundActionButton extends StatelessWidget {
+  const _RoundActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+        ),
+        if (label.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

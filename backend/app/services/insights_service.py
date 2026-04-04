@@ -3,7 +3,14 @@ Derived dashboard, weather, forecast, and chatbot helpers for the mobile app.
 """
 from datetime import datetime, timedelta, timezone
 import hashlib
+import logging
+
+import requests
+from flask import current_app
+
 from app.models import farm_model, notification_model, scan_model
+
+logger = logging.getLogger(__name__)
 
 
 def risk_level_from_score(score: float) -> str:
@@ -17,8 +24,47 @@ def risk_level_from_score(score: float) -> str:
     return 'low'
 
 
-def build_weather(location: dict = None, days: int = 7) -> dict:
-    """Return a deterministic weather payload suitable for demo/mobile flows."""
+def _best_location(farms: list[dict]) -> dict:
+    for farm in farms:
+        location = farm.get('location') or {}
+        if _extract_coordinates(location):
+            return location
+        for field in farm.get('fields', []):
+            field_location = field.get('location') or {}
+            if _extract_coordinates(field_location):
+                return field_location
+    return {}
+
+
+def _extract_coordinates(location: dict | None) -> tuple[float, float] | None:
+    if not isinstance(location, dict):
+        return None
+    lat = location.get('lat', location.get('latitude'))
+    lng = location.get('lng', location.get('lon', location.get('longitude')))
+    if lat is None or lng is None:
+        return None
+    try:
+        return float(lat), float(lng)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalize_condition(value: str) -> str:
+    mapping = {
+        'clear': 'Sunny',
+        'clouds': 'Cloudy',
+        'mist': 'Cloudy',
+        'fog': 'Cloudy',
+        'haze': 'Cloudy',
+        'drizzle': 'Rainy',
+        'rain': 'Rainy',
+        'thunderstorm': 'Rainy',
+    }
+    return mapping.get((value or '').strip().lower(), 'Partly Cloudy')
+
+
+def _fallback_weather(location: dict | None = None, days: int = 7) -> dict:
+    """Return deterministic weather data when the live API is unavailable."""
     seed_source = str(location or 'agrilens-weather')
     digest = int(hashlib.md5(seed_source.encode('utf-8')).hexdigest()[:8], 16)
     base_temp = 21 + (digest % 8)
@@ -44,7 +90,91 @@ def build_weather(location: dict = None, days: int = 7) -> dict:
         'condition': forecast[0]['condition'],
         'forecast': forecast,
         'generated_at': datetime.now(timezone.utc).isoformat(),
+        'source': 'fallback',
     }
+
+
+def _parse_openweather(payload: dict, days: int) -> dict:
+    current = payload.get('current') or {}
+    daily = payload.get('daily') or []
+    forecast = []
+
+    for index, entry in enumerate(daily[:days]):
+        temp_source = entry.get('temp')
+        if isinstance(temp_source, dict):
+            temperature = temp_source.get('day', current.get('temp', 0))
+        else:
+            temperature = temp_source if temp_source is not None else current.get('temp', 0)
+        weather_items = entry.get('weather') or current.get('weather') or [{}]
+        condition = _normalize_condition(weather_items[0].get('main', 'Clouds'))
+        wind_speed = entry.get('wind_speed', current.get('wind_speed', 0))
+        forecast.append({
+            'day': datetime.fromtimestamp(
+                entry.get('dt', int(datetime.now(timezone.utc).timestamp())),
+                tz=timezone.utc,
+            ).strftime('%a'),
+            'temperature': round(float(temperature)),
+            'humidity': round(float(entry.get('humidity', current.get('humidity', 0)))),
+            'wind_kmh': round(float(wind_speed) * 3.6),
+            'condition': condition,
+        })
+
+    if not forecast:
+        condition = _normalize_condition(
+            ((current.get('weather') or [{}])[0]).get('main', 'Clouds')
+        )
+        forecast = [{
+            'day': datetime.now(timezone.utc).strftime('%a'),
+            'temperature': round(float(current.get('temp', 0))),
+            'humidity': round(float(current.get('humidity', 0))),
+            'wind_kmh': round(float(current.get('wind_speed', 0)) * 3.6),
+            'condition': condition,
+        }]
+
+    return {
+        'temperature': forecast[0]['temperature'],
+        'humidity': forecast[0]['humidity'],
+        'wind_kmh': forecast[0]['wind_kmh'],
+        'condition': forecast[0]['condition'],
+        'forecast': forecast,
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'source': 'openweather',
+    }
+
+
+def build_weather(location: dict | None = None, days: int = 7) -> dict:
+    """Return normalized weather data, preferring OpenWeather when configured."""
+    coords = _extract_coordinates(location)
+    api_key = current_app.config.get('OPENWEATHER_API_KEY', '')
+    if not coords or not api_key:
+        return _fallback_weather(location, days)
+
+    lat, lng = coords
+    params = {
+        'lat': lat,
+        'lon': lng,
+        'appid': api_key,
+        'units': 'metric',
+        'exclude': 'minutely,hourly,alerts',
+    }
+    urls = []
+    primary = current_app.config.get('OPENWEATHER_API_URL', '')
+    fallback = current_app.config.get('OPENWEATHER_FALLBACK_URL', '')
+    if primary:
+        urls.append(primary)
+    if fallback and fallback not in urls:
+        urls.append(fallback)
+
+    for url in urls:
+        try:
+            response = requests.get(url, params=params, timeout=10)
+            if response.ok:
+                return _parse_openweather(response.json(), days)
+            logger.warning('OpenWeather request failed (%s): %s', response.status_code, response.text)
+        except requests.RequestException as exc:
+            logger.warning('OpenWeather request error: %s', exc)
+
+    return _fallback_weather(location, days)
 
 
 def compute_forecast(scans: list, weather: dict, days_ahead: int = 7) -> dict:
@@ -96,6 +226,7 @@ def compute_forecast(scans: list, weather: dict, days_ahead: int = 7) -> dict:
             'humidity': weather.get('humidity', 0),
             'temperature': weather.get('temperature', 0),
             'wind_kmh': weather.get('wind_kmh', 0),
+            'source': weather.get('source', 'fallback'),
         },
     }
 
@@ -117,8 +248,7 @@ def build_dashboard_summary(user_id: str) -> dict:
                 healthy_fields += 1
     avg_health = round(sum(health_scores) / len(health_scores), 1) if health_scores else 0
     unread = sum(1 for item in notifications if not item.get('is_read'))
-    latest_farm_location = farms[0].get('location', {}) if farms else {}
-    weather = build_weather(latest_farm_location)
+    weather = build_weather(_best_location(farms))
     current_risk = compute_forecast(scans, weather, 7)
     return {
         'total_farms': len(farms),
@@ -142,7 +272,7 @@ def build_chat_response(message: str) -> dict:
         'When should I water my crops?',
     ]
     if 'tomato' in normalized or 'طماطم' in normalized:
-        reply = 'Tomatoes are commonly affected by early blight, late blight, and leaf spot. Scan suspicious leaves early and keep humidity under control.'
+        reply = 'Tomatoes are commonly affected by early blight, late blight, leaf mold, and viral infections. Scan suspicious leaves early and keep humidity under control.'
     elif 'blight' in normalized or 'لفحة' in normalized:
         reply = 'To reduce blight risk, improve airflow, avoid wet foliage at night, and remove infected leaves quickly. Forecast and humidity trends help plan prevention.'
     elif 'fertilizer' in normalized or 'سماد' in normalized:
