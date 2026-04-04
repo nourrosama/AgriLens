@@ -1,8 +1,7 @@
-# AgriLens — Docker Compose
-# Orchestrates all microservices for local development
+# AgriLens Docker Compose
+# Local development stack for the mobile demo.
 
 services:
-  # ── Backend API ──────────────────────────────
   backend:
     build: ./backend
     ports:
@@ -10,42 +9,46 @@ services:
     env_file:
       - ./backend/.env
     depends_on:
-      - mongodb
       - rabbitmq
       - redis
+      - mongodb
+      - detection-service
     volumes:
       - ./backend:/app
+      - ./secrets:/app/secrets:ro
       - backend_uploads:/app/uploads
 
-  # ── Detection Service ────────────────────────
   detection-service:
     build: ./detection-service
     ports:
       - "5001:5001"
+    environment:
+      MODEL_PATH: /models/tomato_model.h5
+      MODEL_FORCE_CPU: "true"
     volumes:
       - ./detection-service:/app
+      - ./models:/models:ro
 
-  # ── Forecast Service ─────────────────────────
   forecast-service:
     build: ./forecast-service
     ports:
       - "5002:5002"
-    depends_on:
-      - mongodb
     volumes:
       - ./forecast-service:/app
 
-  # ── Notification Service ─────────────────────
   notification-service:
     build: ./notification-service
     ports:
       - "5003:5003"
+    env_file:
+      - ./backend/.env
     depends_on:
       - rabbitmq
+      - mongodb
     volumes:
       - ./notification-service:/app
+      - ./secrets:/app/secrets:ro
 
-  # ── MongoDB ──────────────────────────────────
   mongodb:
     image: mongo:7
     ports:
@@ -54,17 +57,15 @@ services:
       - mongo_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
-  # ── RabbitMQ (Observer Pattern message broker) ─
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672" # AMQP protocol
-      - "15672:15672" # Management UI (http://localhost:15672)
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
 
-  # ── Redis (Caching + Rate Limiting) ──────────
   redis:
     image: redis:7-alpine
     ports:

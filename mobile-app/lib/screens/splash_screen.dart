@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:agrilens/core/theme.dart';
+import 'package:provider/provider.dart';
+import 'package:agrilens/core/scan_history_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
 
 /// Splash screen — shows logo + tagline for 2.5s then navigates to language
 class SplashScreen extends StatefulWidget {
@@ -26,7 +29,14 @@ class _SplashScreenState extends State<SplashScreen>
     _controller.forward();
 
     Future.delayed(const Duration(milliseconds: 2500), () {
-      if (mounted) context.go('/onboarding');
+      if (!mounted) {
+        return;
+      }
+      final userProvider = context.read<UserProvider>();
+      if (userProvider.isLoggedIn) {
+        context.read<ScanHistoryProvider>().syncQueuedScans();
+      }
+      context.go(userProvider.isLoggedIn ? '/home' : '/onboarding');
     });
   }
 
@@ -53,25 +63,21 @@ class _SplashScreenState extends State<SplashScreen>
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Image.asset(
-                'assets/images/logo.png',
-                width: 128,
-                height: 128,
-              ),
+              Image.asset('assets/images/logo.png', width: 128, height: 128),
               const SizedBox(height: 24),
               Text(
                 'AgriLens',
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Smart Crop Disease Detection',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
               ),
             ],
           ),

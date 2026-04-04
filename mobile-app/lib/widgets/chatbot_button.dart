@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:agrilens/core/theme.dart';
 
-/// Floating chatbot button — appears on main screens
 class ChatbotButton extends StatelessWidget {
   const ChatbotButton({super.key});
 
@@ -18,18 +16,24 @@ class ChatbotButton extends StatelessWidget {
           height: 60,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [AppColors.primary, AppColors.primaryDark],
+              colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.4),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: const Icon(Icons.chat_rounded, color: Colors.white, size: 28),
+          child: const Icon(
+            Icons.smart_toy_rounded,
+            color: Colors.white,
+            size: 28,
+          ),
         ),
       ),
     );

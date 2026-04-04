@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
 
 /// Success screen — shown briefly after OTP verification
 class LoginSuccessScreen extends StatefulWidget {
@@ -28,7 +29,11 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
     _controller.forward();
 
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) context.go('/home');
+      if (!mounted) {
+        return;
+      }
+      final userProvider = context.read<UserProvider>();
+      context.go(userProvider.profileCompleted ? '/home' : '/registration');
     });
   }
 
@@ -41,6 +46,7 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final userProvider = context.watch<UserProvider>();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -68,16 +74,18 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
             Text(
               lang.t('login.successTitle'),
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppColors.primaryDark,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: AppColors.primaryDark,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
-              lang.t('login.successMessage'),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
+              userProvider.profileCompleted
+                  ? lang.t('login.successMessage')
+                  : lang.t('registration.subtitle'),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
             ),
           ],
         ),

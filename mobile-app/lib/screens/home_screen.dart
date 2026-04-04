@@ -1,412 +1,533 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:agrilens/core/theme.dart';
-import 'package:agrilens/core/language_provider.dart';
-import 'package:agrilens/widgets/bottom_nav.dart';
 
-/// Home dashboard — plant health, quick scan, alerts, weather, quick actions
+import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/notifications_provider.dart';
+import 'package:agrilens/core/scan_history_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
+import 'package:agrilens/core/weather_provider.dart';
+import 'package:agrilens/widgets/bottom_nav.dart';
+import 'package:agrilens/widgets/chatbot_button.dart';
+
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final user = context.watch<UserProvider>();
+    final scans = context.watch<ScanHistoryProvider>();
+    final notifications = context.watch<NotificationsProvider>();
+    final weather = context.watch<WeatherProvider>();
+
+    // Compute health from scan data
+    final totalScans = scans.totalScans;
+    final activeDiseases = scans.activeDiseasesCount;
+    final healthPercent = totalScans > 0
+        ? ((totalScans - activeDiseases) / totalScans * 100).round()
+        : 85;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ──
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: Row(
-                children: [
-                  Image.asset('assets/images/logo.png', width: 40, height: 40),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          lang.t('app.name'),
-                          style: const TextStyle(
-                            color: AppColors.primaryDark,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          '${lang.t('home.goodMorning')}, ${lang.t('home.farmer')}',
-                          style: const TextStyle(
-                            color: AppColors.textPrimary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Notifications bell
-                  Stack(
-                    children: [
-                      IconButton(
-                        onPressed: () {},
-                        icon: const Icon(
-                          Icons.notifications_outlined,
-                          color: AppColors.textPrimary,
-                          size: 28,
-                        ),
-                      ),
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.warning,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1, color: AppColors.border),
-
-            // ── Body ──
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: Column(
+      backgroundColor: const Color(0xFFF5F5F5),
+      body: Stack(
+        children: [
+          Column(
+            children: [
+              // ── Header ────────────────────────────────────
+              Container(
+                color: Colors.white,
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  MediaQuery.of(context).padding.top + 12,
+                  24,
+                  12,
+                ),
+                child: Row(
                   children: [
-                    // Plant Health Card
-                    _buildCard(
+                    // Logo
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 40,
+                        height: 40,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.eco,
+                            color: Color(0xFF4CAF50),
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                lang.t('home.plantHealth'),
-                                style: const TextStyle(
-                                  color: AppColors.primaryDark,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const Icon(Icons.eco_rounded,
-                                  color: AppColors.primary, size: 24),
-                            ],
+                          Text(
+                            lang.t('app.name'),
+                            style: const TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: LinearProgressIndicator(
-                                    value: 0.85,
-                                    minHeight: 12,
-                                    backgroundColor: AppColors.background,
-                                    valueColor:
-                                        const AlwaysStoppedAnimation<Color>(
-                                            AppColors.primary),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Text(
-                                '85${lang.t('units.percent')}',
-                                style: const TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: lang.isRTL
-                                ? Alignment.centerRight
-                                : Alignment.centerLeft,
-                            child: Text(
-                              lang.t('home.healthyStatus'),
-                              style: const TextStyle(
-                                color: AppColors.textPrimary,
-                                fontSize: 14,
-                              ),
+                          Text(
+                            '${lang.t('home.goodMorning')}, ${user.fullName ?? lang.t('home.farmer')}',
+                            style: const TextStyle(
+                              color: Color(0xFF424242),
+                              fontSize: 14,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Quick Scan Button
+                    // Notification bell
                     GestureDetector(
-                      onTap: () {},
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.3),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  lang.t('home.quickScan'),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  lang.t('home.quickScanDesc'),
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const Icon(Icons.camera_alt_rounded,
-                                color: Colors.white, size: 40),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Active Alerts
-                    _buildCard(
-                      child: Column(
+                      onTap: () => context.push('/notifications'),
+                      child: Stack(
                         children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                lang.t('home.activeAlerts'),
-                                style: const TextStyle(
-                                  color: AppColors.primaryDark,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
+                          const Padding(
+                            padding: EdgeInsets.all(8),
+                            child: Icon(
+                              Icons.notifications_outlined,
+                              size: 24,
+                              color: Color(0xFF424242),
+                            ),
+                          ),
+                          if (notifications.unreadCount > 0)
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Container(
+                                width: 8,
+                                height: 8,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFFFC107),
+                                  shape: BoxShape.circle,
                                 ),
                               ),
-                              TextButton(
-                                onPressed: () {},
-                                child: Text(
-                                  lang.t('home.viewAll'),
-                                  style: const TextStyle(
-                                      color: AppColors.primary),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Warning alert
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.warningLight,
-                              borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.warning_rounded,
-                                    color: AppColors.warning, size: 20),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        lang.t('home.moderateRisk'),
-                                        style: const TextStyle(
-                                            color: AppColors.textPrimary),
-                                      ),
-                                      Text(
-                                        lang.isRTL
-                                            ? 'القسم الشمالي - الحقل أ'
-                                            : 'Field A - North Section',
-                                        style: TextStyle(
-                                          color: AppColors.textPrimary
-                                              .withValues(alpha: 0.7),
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Success alert
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryLight,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.eco_rounded,
-                                    color: AppColors.primary, size: 20),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        lang.t('home.treatmentComplete'),
-                                        style: const TextStyle(
-                                            color: AppColors.textPrimary),
-                                      ),
-                                      Text(
-                                        lang.isRTL
-                                            ? 'القسم الشرقي - الحقل ب'
-                                            : 'Field B - East Section',
-                                        style: TextStyle(
-                                          color: AppColors.textPrimary
-                                              .withValues(alpha: 0.7),
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
-
-                    // Weather Widget
-                    _buildCard(
-                      child: Column(
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                lang.t('home.weatherToday'),
-                                style: const TextStyle(
-                                  color: AppColors.primaryDark,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const Icon(Icons.cloud_rounded,
-                                  color: AppColors.primary, size: 24),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '28${lang.t('units.celsius')}',
-                                    style: const TextStyle(
-                                      color: AppColors.primaryDark,
-                                      fontSize: 36,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  Text(
-                                    lang.t('home.partlyCloudy'),
-                                    style: const TextStyle(
-                                        color: AppColors.textPrimary),
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${lang.t('home.humidity')}: 65${lang.t('units.percent')}',
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${lang.t('home.wind')}: 12 ${lang.t('units.kmh')}',
-                                    style: const TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          const Divider(color: AppColors.border),
-                          const SizedBox(height: 12),
-                          // 7-day forecast bars
-                          _buildWeeklyForecast(),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Quick Actions Grid
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildQuickAction(
-                            icon: Icons.eco_rounded,
-                            label: lang.t('home.myFields'),
-                            onTap: () {},
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildQuickAction(
-                            icon: Icons.trending_up_rounded,
-                            label: lang.t('home.forecasting'),
-                            onTap: () {},
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 80), // Space for bottom nav
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
+              Container(
+                height: 1,
+                color: const Color(0xFFE0E0E0),
+              ),
+
+              // ── Body ──────────────────────────────────────
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
+                  child: Column(
+                    children: [
+                      // Plant Health Status
+                      _buildCard(
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  lang.t('home.plantHealth'),
+                                  style: const TextStyle(
+                                    color: Color(0xFF2E7D32),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.eco_rounded,
+                                  color: Color(0xFF4CAF50),
+                                  size: 24,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: LinearProgressIndicator(
+                                      value: healthPercent / 100,
+                                      minHeight: 12,
+                                      backgroundColor:
+                                          const Color(0xFFF5F5F5),
+                                      valueColor:
+                                          const AlwaysStoppedAnimation(
+                                        Color(0xFF4CAF50),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Text(
+                                  '$healthPercent${lang.t('units.percent')}',
+                                  style: const TextStyle(
+                                    color: Color(0xFF4CAF50),
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                lang.t('home.healthyStatus'),
+                                style: const TextStyle(
+                                  color: Color(0xFF424242),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Quick Scan Button
+                      GestureDetector(
+                        onTap: () => context.push('/scan'),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4CAF50),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF4CAF50)
+                                    .withValues(alpha: 0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      lang.t('home.quickScan'),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      lang.t('home.quickScanDesc'),
+                                      style: TextStyle(
+                                        color: Colors.white
+                                            .withValues(alpha: 0.9),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.camera_alt_rounded,
+                                color: Colors.white,
+                                size: 40,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Active Alerts
+                      _buildCard(
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  lang.t('home.activeAlerts'),
+                                  style: const TextStyle(
+                                    color: Color(0xFF2E7D32),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                GestureDetector(
+                                  onTap: () =>
+                                      context.push('/notifications'),
+                                  child: Text(
+                                    lang.t('home.viewAll'),
+                                    style: const TextStyle(
+                                      color: Color(0xFF4CAF50),
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Dynamic alerts from notifications
+                            _buildAlertBubble(
+                              notifications.notifications.isNotEmpty
+                                  ? (lang.isRTL
+                                      ? notifications.notifications.first.titleAr
+                                      : notifications.notifications.first.titleEn)
+                                  : lang.t('home.moderateRisk'),
+                              notifications.notifications.isNotEmpty
+                                  ? (lang.isRTL
+                                      ? notifications.notifications.first.messageAr
+                                      : notifications.notifications.first.messageEn)
+                                  : (lang.isRTL
+                                      ? 'القسم الشمالي - الحقل أ'
+                                      : 'Field A - North Section'),
+                              const Color(0xFFFFF3E0),
+                              Icons.warning_amber_rounded,
+                              const Color(0xFFFFC107),
+                            ),
+                            const SizedBox(height: 12),
+                            _buildAlertBubble(
+                              lang.t('home.treatmentComplete'),
+                              lang.isRTL
+                                  ? 'القسم الشرقي - الحقل ب'
+                                  : 'Field B - East Section',
+                              const Color(0xFFE8F5E9),
+                              Icons.eco_rounded,
+                              const Color(0xFF4CAF50),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Weather Widget
+                      _buildCard(
+                        child: Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  lang.t('home.weatherToday'),
+                                  style: const TextStyle(
+                                    color: Color(0xFF2E7D32),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.cloud_rounded,
+                                  color: Color(0xFF4CAF50),
+                                  size: 24,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${weather.temperature}${lang.t('units.celsius')}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E7D32),
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      weather.condition(lang.isRTL).isNotEmpty
+                                          ? weather.condition(lang.isRTL)
+                                          : lang.t('home.partlyCloudy'),
+                                      style: const TextStyle(
+                                        color: Color(0xFF424242),
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '${lang.t('home.humidity')}: ${weather.humidity}${lang.t('units.percent')}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF424242),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${lang.t('home.wind')}: ${weather.wind} ${lang.t('units.kmh')}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF424242),
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              height: 1,
+                              color: const Color(0xFFE0E0E0),
+                            ),
+                            const SizedBox(height: 16),
+                            // 7-day forecast bars
+                            SizedBox(
+                              height: 100,
+                              child: Row(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.end,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children:
+                                    weather.forecast.map((day) {
+                                  return Column(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.end,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: (day.temp / 40) * 70,
+                                        decoration: BoxDecoration(
+                                          color:
+                                              const Color(0xFF4CAF50),
+                                          borderRadius:
+                                              BorderRadius.circular(4),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        '${day.temp}°',
+                                        style: const TextStyle(
+                                          color: Color(0xFF424242),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                      Text(
+                                        lang.isRTL ? day.dayAr : day.dayEn,
+                                        style: const TextStyle(
+                                          color: Color(0xFF424242),
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Quick Actions Grid
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => context.push('/fields'),
+                              child: _buildCard(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.eco_rounded,
+                                      size: 40,
+                                      color: Color(0xFF4CAF50),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      lang.t('home.myFields'),
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E7D32),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () =>
+                                  context.push('/forecasting'),
+                              child: _buildCard(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.trending_up_rounded,
+                                      size: 40,
+                                      color: Color(0xFF4CAF50),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      lang.t('home.forecasting'),
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E7D32),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Bottom Nav
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: BottomNav(active: 'home'),
+          ),
+
+          // Chatbot FAB
+          const ChatbotButton(),
+        ],
       ),
-      bottomNavigationBar: const BottomNav(active: 'home'),
     );
   }
 
@@ -417,89 +538,53 @@ class HomeScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
       ),
       child: child,
     );
   }
 
-  Widget _buildQuickAction({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: AppColors.primary, size: 40),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.primaryDark,
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+  Widget _buildAlertBubble(
+    String title,
+    String subtitle,
+    Color bgColor,
+    IconData icon,
+    Color iconColor,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
       ),
-    );
-  }
-
-  static Widget _buildWeeklyForecast() {
-    final temps = [24, 26, 28, 30, 29, 27, 25];
-    final days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-    return SizedBox(
-      height: 100,
-      child: Directionality(
-        textDirection: TextDirection.ltr,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: List.generate(7, (i) {
-            final heightFraction = temps[i] / 35;
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.end,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: iconColor),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 8,
-                  height: 60 * heightFraction,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 4),
                 Text(
-                  '${temps[i]}°',
+                  title,
                   style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textPrimary,
+                    color: Color(0xFF424242),
+                    fontSize: 15,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  days[i],
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.textPrimary,
+                  subtitle,
+                  style: TextStyle(
+                    color: const Color(0xFF424242).withValues(alpha: 0.7),
+                    fontSize: 13,
                   ),
                 ),
               ],
-            );
-          }),
-        ),
+            ),
+          ),
+        ],
       ),
     );
   }

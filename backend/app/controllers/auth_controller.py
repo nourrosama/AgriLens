@@ -48,7 +48,10 @@ def send_otp():
     if not auth_service.check_otp_rate_limit(phone):
         return error_response('Too many OTP requests. Try again in 10 minutes.', 429)
 
-    result = auth_service.send_otp(phone)
+    try:
+        result = auth_service.send_otp(phone)
+    except auth_service.OtpDeliveryError as exc:
+        return error_response(exc.message, exc.status_code)
 
     # Audit log (user may not exist yet)
     user = user_model.find_by_phone(phone)
@@ -179,8 +182,22 @@ def update_profile():
         allowed['name'] = data['name']
     if 'language' in data and data['language'] in ('ar', 'en'):
         allowed['language'] = data['language']
+    if 'email' in data:
+        allowed['email'] = data['email']
+    if 'country' in data:
+        allowed['country'] = data['country']
+    if 'photo_url' in data:
+        allowed['photo_url'] = data['photo_url']
+    if 'profile_completed' in data:
+        allowed['profile_completed'] = bool(data['profile_completed'])
+    if 'plan' in data:
+        allowed['plan'] = data['plan']
 
     if allowed:
+        if any(key in allowed for key in ('name', 'country', 'photo_url', 'email')):
+            allowed['profile_completed'] = bool(
+                allowed.get('name', g.current_user.get('name')) or allowed.get('country', g.current_user.get('country'))
+            )
         user_model.update_user(str(g.current_user['_id']), allowed)
 
     user = user_model.find_by_id(str(g.current_user['_id']))

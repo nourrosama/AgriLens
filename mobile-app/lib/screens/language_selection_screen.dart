@@ -40,16 +40,16 @@ class LanguageSelectionScreen extends StatelessWidget {
               Text(
                 lang.t('language.title'),
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: AppColors.primaryDark,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 lang.t('language.subtitle'),
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(color: AppColors.textPrimary),
               ),
               const SizedBox(height: 40),
 
