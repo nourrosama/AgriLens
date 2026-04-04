@@ -44,6 +44,37 @@ AgriLens/
 
 ---
 
+## 🤖 ML Model Weights
+
+Model weights are **not included in the repository** due to file size. Download them from Google Drive and place them in the correct folders before running the detection service.
+
+| Model | Crop | Destination | Download |
+|---|---|---|---|
+| `model.h5` | Paddy (Rice) | `detection-service/ml_models/paddy/` | [Download](https://drive.google.com/file/d/1aMWF_ahDYmmSpsZ60HmuUEW1DjDNONgv/view?usp=drive_link) |
+| `tomato_model.h5` | Tomato | `detection-service/ml_models/tomato/` | [Download](https://drive.google.com/file/d/15-69tbpibTl4QElsYuFDG6vWSccRkoh2/view?usp=drive_link) |
+
+
+### Model Details
+
+| Model | Architecture | Classes | Input Size |
+|---|---|---|---|
+| Paddy | EfficientNet-B3 / ResNet50 / ViT-Base | 10 rice diseases | 384×384 |
+| Tomato | EfficientNet-B3 / ResNet50 / ViT-Base | 10 tomato diseases | 384×384 |
+
+### After downloading, your structure should look like:
+```
+detection-service/
+└── ml_models/
+    ├── paddy/
+    │   ├── model.h5                ← downloaded from Drive
+    │   └── label_mapping.json      ← included in repo
+    └── tomato/
+        ├── tomato_model.h5         ← downloaded from Drive
+        └── tomato_label_mapping.json  ← included in repo
+```
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -58,13 +89,52 @@ docker-compose up --build
 ```
 
 ### Run individual services
-```bash
-# Backend API
-cd backend && python -m venv venv && pip install -r requirements.txt
-python -m flask run
 
-# Mobile App
-cd mobile-app && flutter run
+#### 1. Backend API
+```bash
+cd backend
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# Mac/Linux
+source venv/bin/activate
+
+pip install -r requirements.txt
+python -m flask run
+```
+
+#### 2. Detection Service
+```bash
+cd detection-service
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# Mac/Linux
+source venv/bin/activate
+
+pip install -r requirements.txt
+
+# ⚠️ Download model weights from the links in the ML Model Weights section
+# and place them in ml_models/paddy/ and ml_models/tomato/ before running
+
+python run.py
+```
+
+The detection service will start on **http://localhost:5001**
+
+Test it with:
+```bash
+curl -X POST http://127.0.0.1:5001/api/detect \
+  -F "image=@your_image.jpg" \
+  -F "crop_type=paddy"
+```
+
+#### 3. Mobile App
+```bash
+cd mobile-app
+flutter run
 ```
 
 ---

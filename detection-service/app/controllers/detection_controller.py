@@ -1,9 +1,99 @@
-"""Disease detection controller backed by the real tomato classifier."""
-from flask import Blueprint, jsonify, request
+"""
+Disease Detection Controller.
+Uses deterministic demo inference until the production model is integrated.
+"""
+import hashlib
+from flask import Blueprint, request, jsonify
 
-from app.utils import model_loader
+detection_bp = Blueprint('detection', __name__)
 
-detection_bp = Blueprint("detection", __name__)
+CATALOG = {
+    'tomato': [
+        {
+            'disease': 'Tomato Early Blight',
+            'scientific_name': 'Alternaria solani',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Remove affected leaves and start preventive fungicide coverage.',
+        },
+        {
+            'disease': 'Tomato Late Blight',
+            'scientific_name': 'Phytophthora infestans',
+            'severity': 'high',
+            'risk_level': 'high',
+            'recommendation': 'Act quickly, isolate infected plants, and reduce leaf wetness.',
+        },
+        {
+            'disease': 'Tomato Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Keep monitoring and maintain balanced irrigation.',
+        },
+    ],
+    'corn': [
+        {
+            'disease': 'Corn Leaf Blight',
+            'scientific_name': 'Exserohilum turcicum',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Scout neighboring plants and avoid prolonged leaf wetness.',
+        },
+        {
+            'disease': 'Corn Rust',
+            'scientific_name': 'Puccinia sorghi',
+            'severity': 'low',
+            'risk_level': 'low',
+            'recommendation': 'Track humidity and monitor lesion spread over the next week.',
+        },
+        {
+            'disease': 'Corn Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Continue routine scouting.',
+        },
+    ],
+    'wheat': [
+        {
+            'disease': 'Wheat Rust',
+            'scientific_name': 'Puccinia triticina',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Monitor canopy humidity and inspect nearby leaves for spread.',
+        },
+        {
+            'disease': 'Powdery Mildew',
+            'scientific_name': 'Blumeria graminis',
+            'severity': 'low',
+            'risk_level': 'low',
+            'recommendation': 'Increase airflow and continue monitoring susceptible areas.',
+        },
+        {
+            'disease': 'Wheat Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Maintain balanced nutrition and scouting.',
+        },
+    ],
+    'sweetpotato': [
+        {
+            'disease': 'Sweet Potato Leaf Spot',
+            'scientific_name': 'Cercospora spp.',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Remove heavily affected leaves and keep foliage dry where possible.',
+        },
+        {
+            'disease': 'Sweet Potato Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Continue routine monitoring.',
+        },
+    ],
+}
 
 
 def _normalize_crop(crop_type: str) -> str:
