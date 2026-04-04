@@ -1,116 +1,222 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
-/// Scan result data model
-class ScanResult {
-  final int id;
-  final String imagePath;
-  final String diseaseNameEn;
-  final String diseaseNameAr;
-  final String scientificName;
-  final double confidence;
-  final String severity; // 'low', 'medium', 'high'
-  final DateTime scannedAt;
-  final String? fieldName;
+import 'api_client.dart';
+import 'offline_queue_store.dart';
 
+class ScanResult {
   ScanResult({
     required this.id,
+    required this.farmId,
+    required this.fieldId,
     required this.imagePath,
     required this.diseaseNameEn,
     required this.diseaseNameAr,
     required this.scientificName,
     required this.confidence,
     required this.severity,
-    DateTime? scannedAt,
+    required this.status,
+    required this.scannedAt,
+    required this.isHealthy,
+    required this.riskLevel,
+    required this.recommendation,
+    required this.modelVersion,
     this.fieldName,
-  }) : scannedAt = scannedAt ?? DateTime.now();
+    this.cropType = '',
+    this.remoteImageUrl,
+  });
+
+  final String id;
+  final String? farmId;
+  final String? fieldId;
+  final String imagePath;
+  final String diseaseNameEn;
+  final String diseaseNameAr;
+  final String scientificName;
+  final double confidence;
+  final String severity;
+  final String status;
+  final DateTime scannedAt;
+  final bool isHealthy;
+  final String riskLevel;
+  final String recommendation;
+  final String modelVersion;
+  final String? fieldName;
+  final String cropType;
+  final String? remoteImageUrl;
+
+  factory ScanResult.fromJson(Map<String, dynamic> json) {
+    final detection =
+        (json['detection_result'] as Map<String, dynamic>?) ??
+        <String, dynamic>{};
+    final imageUrl = json['image_url']?.toString() ?? '';
+    return ScanResult(
+      id: json['id']?.toString() ?? '',
+      farmId: json['farm_id']?.toString(),
+      fieldId: json['field_id']?.toString(),
+      imagePath: imageUrl,
+      diseaseNameEn: detection['disease']?.toString() ?? 'No detection',
+      diseaseNameAr: detection['disease']?.toString() ?? 'لا يوجد كشف',
+      scientificName: detection['scientific_name']?.toString() ?? '',
+      confidence: (detection['confidence'] as num?)?.toDouble() ?? 0,
+      severity: detection['severity']?.toString() ?? 'none',
+      status: json['status']?.toString() ?? 'pending',
+      scannedAt:
+          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+      isHealthy: detection['is_healthy'] == true,
+      riskLevel: detection['risk_level']?.toString() ?? 'low',
+      recommendation: detection['recommendation']?.toString() ?? '',
+      modelVersion: detection['model_version']?.toString() ?? '',
+      cropType: json['crop_type']?.toString() ?? '',
+      remoteImageUrl: imageUrl,
+    );
+  }
 }
 
-/// Provider that manages scan history.
-/// Ready to connect to backend — see TODO comments for API integration points.
 class ScanHistoryProvider extends ChangeNotifier {
-  int _nextId = 4;
+  ScanHistoryProvider({ApiClient? apiClient, OfflineQueueStore? queueStore})
+    : _apiClient = apiClient ?? ApiClient(),
+      _queueStore = queueStore ?? OfflineQueueStore() {
+    loadScans();
+  }
 
-  final List<ScanResult> _scans = [
-    ScanResult(
-      id: 1,
-      imagePath: '',
-      diseaseNameEn: 'Late Blight',
-      diseaseNameAr: 'اللفحة المتأخرة',
-      scientificName: 'Phytophthora infestans',
-      confidence: 0.92,
-      severity: 'medium',
-      scannedAt: DateTime.now().subtract(const Duration(days: 1)),
-      fieldName: 'Field A',
-    ),
-    ScanResult(
-      id: 2,
-      imagePath: '',
-      diseaseNameEn: 'Early Blight',
-      diseaseNameAr: 'اللفحة المبكرة',
-      scientificName: 'Alternaria solani',
-      confidence: 0.87,
-      severity: 'low',
-      scannedAt: DateTime.now().subtract(const Duration(days: 3)),
-      fieldName: 'Field B',
-    ),
-    ScanResult(
-      id: 3,
-      imagePath: '',
-      diseaseNameEn: 'Leaf Spot',
-      diseaseNameAr: 'بقع الأوراق',
-      scientificName: 'Septoria lycopersici',
-      confidence: 0.95,
-      severity: 'high',
-      scannedAt: DateTime.now().subtract(const Duration(days: 5)),
-      fieldName: 'Field C',
-    ),
-  ];
+  final ApiClient _apiClient;
+  final OfflineQueueStore _queueStore;
+  final List<ScanResult> _scans = [];
+  bool _isLoading = false;
+  String? _errorMessage;
 
   List<ScanResult> get scans => List.unmodifiable(_scans);
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
   int get totalScans => _scans.length;
-  int get activeDiseasesCount => _scans.where((s) => s.severity == 'high' || s.severity == 'medium').length;
+  int get activeDiseasesCount => _scans
+      .where((scan) => scan.severity == 'high' || scan.severity == 'medium')
+      .length;
 
-  /// Weekly scan counts (last 7 days)
   List<int> get weeklyScans {
     final now = DateTime.now();
-    return List.generate(7, (i) {
-      final day = now.subtract(Duration(days: 6 - i));
-      return _scans.where((s) =>
-          s.scannedAt.year == day.year &&
-          s.scannedAt.month == day.month &&
-          s.scannedAt.day == day.day).length;
+    return List.generate(7, (index) {
+      final day = now.subtract(Duration(days: 6 - index));
+      return _scans.where((scan) {
+        return scan.scannedAt.year == day.year &&
+            scan.scannedAt.month == day.month &&
+            scan.scannedAt.day == day.day;
+      }).length;
     });
   }
 
-  /// TODO: Replace with API call to POST /api/detect
-  void addScan({
-    required String imagePath,
-    String diseaseNameEn = 'Late Blight',
-    String diseaseNameAr = 'اللفحة المتأخرة',
-    String scientificName = 'Phytophthora infestans',
-    double confidence = 0.92,
-    String severity = 'medium',
-    String? fieldName,
-  }) {
-    _scans.insert(0, ScanResult(
-      id: _nextId++,
-      imagePath: imagePath,
-      diseaseNameEn: diseaseNameEn,
-      diseaseNameAr: diseaseNameAr,
-      scientificName: scientificName,
-      confidence: confidence,
-      severity: severity,
-      fieldName: fieldName,
-    ));
-    notifyListeners();
+  Future<void> loadScans() async {
+    _setLoading(true);
+    try {
+      final response = await _apiClient.get('/api/scans', auth: true);
+      final items =
+          ((response['data'] as Map<String, dynamic>)['scans']
+                      as List<dynamic>? ??
+                  [])
+              .cast<Map<String, dynamic>>();
+      _scans
+        ..clear()
+        ..addAll(items.map(ScanResult.fromJson));
+      _errorMessage = null;
+    } catch (error) {
+      _errorMessage = error.toString();
+    } finally {
+      _setLoading(false);
+    }
   }
 
-  /// TODO: Replace with API call to GET /api/scans/:id
-  ScanResult? getScan(int id) {
+  Future<ScanResult?> submitScan({
+    required File imageFile,
+    required String cropType,
+    String? farmId,
+    String? fieldId,
+  }) async {
+    _setLoading(true);
     try {
-      return _scans.firstWhere((s) => s.id == id);
-    } catch (_) {
+      final response = await _apiClient.multipart(
+        '/api/scans',
+        auth: true,
+        fieldName: 'image',
+        file: imageFile,
+        fields: {
+          'crop_type': cropType,
+          ...?(farmId == null ? null : {'farm_id': farmId}),
+          ...?(fieldId == null ? null : {'field_id': fieldId}),
+          'device_type': 'mobile',
+          'app_version': '1.0.0',
+        },
+      );
+      final scanJson =
+          (response['data'] as Map<String, dynamic>)['scan']
+              as Map<String, dynamic>;
+      final scan = ScanResult.fromJson(scanJson);
+      _scans.removeWhere((item) => item.id == scan.id);
+      _scans.insert(0, scan);
+      _errorMessage = null;
+      notifyListeners();
+      return scan;
+    } catch (error) {
+      await _queueStore.enqueueScan(
+        imageFile: imageFile,
+        cropType: cropType,
+        farmId: farmId,
+        fieldId: fieldId,
+      );
+      _errorMessage = error.toString();
+      notifyListeners();
+      return null;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  Future<void> syncQueuedScans() async {
+    final queued = await _queueStore.listQueuedScans();
+    for (final item in queued) {
+      final file = File(item.imagePath);
+      if (!file.existsSync()) {
+        await _queueStore.removeQueuedScan(item.id);
+        continue;
+      }
+      final scan = await submitScan(
+        imageFile: file,
+        cropType: item.cropType,
+        farmId: item.farmId,
+        fieldId: item.fieldId,
+      );
+      if (scan != null) {
+        await _queueStore.removeQueuedScan(item.id);
+      }
+    }
+  }
+
+  Future<ScanResult?> getScan(String id) async {
+    try {
+      final cached = _scans.where((scan) => scan.id == id);
+      if (cached.isNotEmpty) {
+        return cached.first;
+      }
+      final response = await _apiClient.get('/api/scans/$id', auth: true);
+      final scanJson =
+          (response['data'] as Map<String, dynamic>)['scan']
+              as Map<String, dynamic>;
+      final scan = ScanResult.fromJson(scanJson);
+      _scans.removeWhere((item) => item.id == scan.id);
+      _scans.insert(0, scan);
+      notifyListeners();
+      return scan;
+    } catch (error) {
+      _errorMessage = error.toString();
+      notifyListeners();
       return null;
     }
+  }
+
+  void _setLoading(bool value) {
+    _isLoading = value;
+    notifyListeners();
   }
 }

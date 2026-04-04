@@ -10,12 +10,15 @@ services:
     env_file:
       - ./backend/.env
     depends_on:
-      - mongodb
       - rabbitmq
       - redis
+      - mongodb
     volumes:
       - ./backend:/app
       - backend_uploads:/app/uploads
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
 
   # ── Detection Service ────────────────────────
   detection-service:
@@ -30,8 +33,7 @@ services:
     build: ./forecast-service
     ports:
       - "5002:5002"
-    depends_on:
-      - mongodb
+
     volumes:
       - ./forecast-service:/app
 
@@ -45,14 +47,13 @@ services:
     volumes:
       - ./notification-service:/app
 
-  # ── MongoDB ──────────────────────────────────
+  # ── MongoDB (Local Database) ───────────────────
   mongodb:
     image: mongo:7
     ports:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
   # ── RabbitMQ (Observer Pattern message broker) ─
   rabbitmq:

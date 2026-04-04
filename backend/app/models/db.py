@@ -42,3 +42,9 @@ def scans_col():
 
 def audit_col():
     return get_db()['audit_logs']
+
+def notifications_col():
+    return get_db()['notifications']
+
+def forecasts_col():
+    return get_db()['forecasts']

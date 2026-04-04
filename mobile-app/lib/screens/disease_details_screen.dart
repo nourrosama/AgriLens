@@ -56,17 +56,23 @@ class DiseaseDetailsScreen extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               child: Transform.flip(
                 flipX: lang.isRTL,
-                child: const Icon(Icons.arrow_back,
-                    size: 28, color: AppColors.textSecondary),
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 28,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ),
           ),
           const SizedBox(width: 16),
-          Text(lang.t('disease.overview'),
-              style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            lang.t('disease.overview'),
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -77,28 +83,37 @@ class DiseaseDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(lang.isRTL ? 'اللفحة المتأخرة' : 'Late Blight',
-              style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            lang.isRTL ? 'اللفحة المتأخرة' : 'Late Blight',
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 8),
-          const Text('Phytophthora infestans',
-              style:
-                  TextStyle(color: AppColors.textSecondary, fontSize: 16)),
+          const Text(
+            'Phytophthora infestans',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
-              const Icon(Icons.warning_rounded,
-                  color: Color(0xFFFFC107), size: 24),
+              const Icon(
+                Icons.warning_rounded,
+                color: Color(0xFFFFC107),
+                size: 24,
+              ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   lang.isRTL
                       ? 'مرض عالي الخطورة يتطلب عناية فورية'
                       : 'High-risk disease requiring immediate attention',
-                  style:
-                      const TextStyle(color: Color(0xFFFFC107), fontSize: 16),
+                  style: const TextStyle(
+                    color: Color(0xFFFFC107),
+                    fontSize: 16,
+                  ),
                 ),
               ),
             ],
@@ -113,18 +128,24 @@ class DiseaseDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(lang.t('disease.overview'),
-              style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            lang.t('disease.overview'),
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 12),
           Text(
             lang.isRTL
                 ? 'اللفحة المتأخرة مرض مدمر يصيب الطماطم والبطاطس. يمكن أن يدمر المحاصيل بالكامل بسرعة إذا ترك دون علاج. ينمو المرض في ظروف باردة ورطبة وينتشر بسرعة عبر رذاذ الماء والرياح.'
                 : 'Late blight is a devastating disease that affects tomatoes and potatoes. It can rapidly destroy entire crops if left untreated. The disease thrives in cool, wet conditions and can spread quickly through water splash and wind.',
             style: const TextStyle(
-                color: AppColors.textSecondary, fontSize: 16, height: 1.5),
+              color: AppColors.textSecondary,
+              fontSize: 16,
+              height: 1.5,
+            ),
           ),
         ],
       ),
@@ -153,35 +174,46 @@ class DiseaseDetailsScreen extends StatelessWidget {
             children: [
               const Icon(Icons.eco_rounded, color: AppColors.primary, size: 24),
               const SizedBox(width: 12),
-              Text(lang.t('disease.symptoms'),
-                  style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600)),
+              Text(
+                lang.t('disease.symptoms'),
+                style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          ...items.map((s) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      margin: const EdgeInsets.only(top: 8),
-                      decoration: const BoxDecoration(
-                          color: AppColors.primary, shape: BoxShape.circle),
+          ...items.map(
+            (s) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(top: 8),
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                        child: Text(s,
-                            style: const TextStyle(
-                                color: AppColors.textSecondary,
-                                fontSize: 16))),
-                  ],
-                ),
-              )),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      s,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -195,10 +227,7 @@ class DiseaseDetailsScreen extends StatelessWidget {
             ['الانتشار', 'جراثيم محمولة بالرياح ورذاذ الماء'],
           ]
         : [
-            [
-              'Environmental',
-              'Cool temperatures (15-20°C) with high humidity'
-            ],
+            ['Environmental', 'Cool temperatures (15-20°C) with high humidity'],
             ['Moisture', 'Extended periods of leaf wetness from rain or dew'],
             ['Spread', 'Wind-borne spores and water splash'],
           ];
@@ -206,34 +235,46 @@ class DiseaseDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(lang.isRTL ? 'الأسباب' : 'Causes',
-              style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            lang.isRTL ? 'الأسباب' : 'Causes',
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 16),
-          ...items.map((i) => Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.background,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(i[0],
-                        style: const TextStyle(
-                            color: AppColors.primaryDark,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 4),
-                    Text(i[1],
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 14)),
-                  ],
-                ),
-              )),
+          ...items.map(
+            (i) => Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    i[0],
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    i[1],
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -250,19 +291,16 @@ class DiseaseDetailsScreen extends StatelessWidget {
         : [
             [
               'Plant Resistant Varieties',
-              'Choose blight-resistant cultivars when available'
+              'Choose blight-resistant cultivars when available',
             ],
-            [
-              'Proper Spacing',
-              'Ensure good air circulation between plants'
-            ],
+            ['Proper Spacing', 'Ensure good air circulation between plants'],
             [
               'Fungicide Application',
-              'Apply copper-based or organic fungicides preventatively'
+              'Apply copper-based or organic fungicides preventatively',
             ],
             [
               'Remove Infected Material',
-              'Destroy diseased plants to prevent spread'
+              'Destroy diseased plants to prevent spread',
             ],
           ];
     return _card(
@@ -271,59 +309,79 @@ class DiseaseDetailsScreen extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.shield_rounded,
-                  color: AppColors.primary, size: 24),
+              const Icon(
+                Icons.shield_rounded,
+                color: AppColors.primary,
+                size: 24,
+              ),
               const SizedBox(width: 12),
               Text(
-                  '${lang.t('disease.prevention')} & ${lang.t('disease.treatment')}',
-                  style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600)),
+                '${lang.t('disease.prevention')} & ${lang.t('disease.treatment')}',
+                style: const TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
-          ...steps.asMap().entries.map((e) => Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: const BoxDecoration(
-                          color: AppColors.primary, shape: BoxShape.circle),
-                      child: Center(
-                          child: Text('${e.key + 1}',
-                              style: const TextStyle(
-                                  color: Colors.white, fontSize: 14))),
+          ...steps.asMap().entries.map(
+            (e) => Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8F5E9),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(e.value[0],
-                              style: const TextStyle(
-                                  color: AppColors.primaryDark,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500)),
-                          const SizedBox(height: 4),
-                          Text(e.value[1],
-                              style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 14)),
-                        ],
+                    child: Center(
+                      child: Text(
+                        '${e.key + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              )),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          e.value[0],
+                          style: const TextStyle(
+                            color: AppColors.primaryDark,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          e.value[1],
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -334,11 +392,14 @@ class DiseaseDetailsScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(lang.isRTL ? 'أمثلة بصرية' : 'Visual Examples',
-              style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            lang.isRTL ? 'أمثلة بصرية' : 'Visual Examples',
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           const SizedBox(height: 16),
           GridView.count(
             crossAxisCount: 2,
@@ -350,18 +411,23 @@ class DiseaseDetailsScreen extends StatelessWidget {
               4,
               (i) => Container(
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(colors: [
-                    AppColors.primary.withValues(alpha: 0.2),
-                    AppColors.primaryDark.withValues(alpha: 0.2),
-                  ]),
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.2),
+                      AppColors.primaryDark.withValues(alpha: 0.2),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
-                    child: Text(
-                  lang.isRTL ? 'مثال ${i + 1}' : 'Example ${i + 1}',
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 14),
-                )),
+                  child: Text(
+                    lang.isRTL ? 'مثال ${i + 1}' : 'Example ${i + 1}',
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),

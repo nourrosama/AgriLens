@@ -6,13 +6,26 @@ from bson import ObjectId
 from app.models.db import users_col
 
 
-def create_user(phone: str, name: str = '', language: str = 'ar', role: str = 'farmer') -> dict:
+def create_user(
+    phone: str,
+    name: str = '',
+    language: str = 'ar',
+    role: str = 'farmer',
+    email: str = '',
+    country: str = '',
+    photo_url: str = '',
+) -> dict:
     """Insert a new user. Returns the created document."""
     doc = {
         'phone': phone,
         'name': name,
         'language': language,
         'role': role,            # farmer | researcher | admin
+        'email': email,
+        'country': country,
+        'photo_url': photo_url,
+        'plan': 'free',
+        'profile_completed': bool(name or country),
         'farms': [],
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
@@ -70,6 +83,12 @@ def serialize(user: dict) -> dict:
         'name': user.get('name', ''),
         'language': user.get('language', 'ar'),
         'role': user.get('role', 'farmer'),
+        'email': user.get('email', ''),
+        'country': user.get('country', ''),
+        'photo_url': user.get('photo_url', ''),
+        'plan': user.get('plan', 'free'),
+        'profile_completed': user.get('profile_completed', False),
         'farms': [str(f) for f in user.get('farms', [])],
         'created_at': user.get('created_at', '').isoformat() if user.get('created_at') else None,
+        'updated_at': user.get('updated_at', '').isoformat() if user.get('updated_at') else None,
     }

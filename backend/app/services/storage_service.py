@@ -81,6 +81,41 @@ def delete_image(url: str) -> bool:
     return False
 
 
+def upload_video(file_obj, filename: str = None) -> str:
+    """Upload a video file. Returns the public/local URL.
+
+    - If Firebase is configured -> uploads to Firebase Storage.
+    - Else -> saves to local uploads/ folder.
+    """
+    if filename is None:
+        ext = _get_extension(file_obj.filename) or 'mp4'
+        filename = f'videos/{uuid.uuid4().hex}.{ext}'
+
+    if _bucket:
+        blob = _bucket.blob(filename)
+        blob.upload_from_file(file_obj, content_type=file_obj.content_type)
+        blob.make_public()
+        logger.info(f'Uploaded video to Firebase: {blob.public_url}')
+        return blob.public_url
+    else:
+        # Local fallback
+        upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        os.makedirs(upload_dir, exist_ok=True)
+        local_name = f'{uuid.uuid4().hex}.{_get_extension(file_obj.filename) or "mp4"}'
+        path = os.path.join(upload_dir, local_name)
+        file_obj.save(path)
+        logger.info(f'Saved video locally: {path}')
+        return f'/uploads/{local_name}'
+
+
+def resolve_local_path(url: str) -> str | None:
+    """Resolve a local upload URL to an on-disk path."""
+    if not url.startswith('/uploads/'):
+        return None
+    filename = url.split('/')[-1]
+    return os.path.join(current_app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
+
+
 def _get_extension(filename: str) -> str:
     if filename and '.' in filename:
         return filename.rsplit('.', 1)[1].lower()

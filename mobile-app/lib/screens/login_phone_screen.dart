@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
 
 /// Phone login — country code +20 + phone input
 class LoginPhoneScreen extends StatefulWidget {
@@ -33,6 +34,7 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final userProvider = context.watch<UserProvider>();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -41,7 +43,8 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height -
+              minHeight:
+                  MediaQuery.of(context).size.height -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom -
                   96,
@@ -69,17 +72,17 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
                   Text(
                     lang.t('login.title'),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     lang.t('login.subtitle'),
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textPrimary,
-                          fontSize: 18,
-                        ),
+                      color: AppColors.textPrimary,
+                      fontSize: 18,
+                    ),
                   ),
                   const SizedBox(height: 32),
 
@@ -102,8 +105,7 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                              color: AppColors.border, width: 2),
+                          border: Border.all(color: AppColors.border, width: 2),
                         ),
                         child: const Center(
                           child: Text(
@@ -139,17 +141,44 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isValid
-                          ? () => context.go('/login-otp')
+                      onPressed: _isValid && !userProvider.isLoading
+                          ? () async {
+                              final phone =
+                                  '+20${_phoneController.text.trim()}';
+                              final messenger = ScaffoldMessenger.of(context);
+                              final ok = await context
+                                  .read<UserProvider>()
+                                  .sendOtp(phone);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              if (ok) {
+                                context.go('/login-otp');
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      userProvider.errorMessage ??
+                                          'Failed to send OTP',
+                                    ),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
+                            }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _isValid ? AppColors.primary : AppColors.border,
-                        foregroundColor:
-                            _isValid ? Colors.white : AppColors.textSecondary,
+                        backgroundColor: _isValid && !userProvider.isLoading
+                            ? AppColors.primary
+                            : AppColors.border,
+                        foregroundColor: _isValid && !userProvider.isLoading
+                            ? Colors.white
+                            : AppColors.textSecondary,
                       ),
                       child: Text(
-                        lang.t('login.sendOTP'),
+                        userProvider.isLoading
+                            ? lang.t('common.loading')
+                            : lang.t('login.sendOTP'),
                         style: const TextStyle(fontSize: 20),
                       ),
                     ),

@@ -1,6 +1,6 @@
 """
-Scan model — MongoDB CRUD for image scans and detection results.
-Status lifecycle: pending → processing → completed | failed | expired
+Scan model -- MongoDB CRUD for image/video scans and detection results.
+Status lifecycle: pending -> processing -> completed | failed | expired
 """
 from datetime import datetime, timezone
 from bson import ObjectId
@@ -15,6 +15,8 @@ def create_scan(
     field_id: str = None,
     image_url: str = '',
     scan_type: str = 'image',
+    crop_type: str = '',
+    media_type: str = 'image',
     device_info: dict = None,
 ) -> dict:
     """Create a new scan record with status='pending'."""
@@ -23,11 +25,14 @@ def create_scan(
         'farm_id': ObjectId(farm_id) if farm_id else None,
         'field_id': ObjectId(field_id) if field_id else None,
         'image_url': image_url,
-        'scan_type': scan_type,       # image | video_frame
+        'scan_type': scan_type,       # image | video
+        'crop_type': crop_type,
+        'media_type': media_type,     # image | video
         'status': 'pending',
         'detection_result': None,
         'device_info': device_info or {},
         'created_at': datetime.now(timezone.utc),
+        'updated_at': datetime.now(timezone.utc),
     }
     result = scans_col().insert_one(doc)
     doc['_id'] = result.inserted_id
@@ -40,7 +45,7 @@ def update_status(scan_id: str, status: str) -> bool:
         raise ValueError(f'Invalid status: {status}')
     result = scans_col().update_one(
         {'_id': ObjectId(scan_id)},
-        {'$set': {'status': status}},
+        {'$set': {'status': status, 'updated_at': datetime.now(timezone.utc)}},
     )
     return result.modified_count > 0
 
@@ -52,7 +57,19 @@ def update_detection_result(scan_id: str, detection: dict) -> bool:
         {'$set': {
             'detection_result': detection,
             'status': 'completed',
+            'updated_at': datetime.now(timezone.utc),
         }},
+    )
+    return result.modified_count > 0
+
+
+def update_scan(scan_id: str, updates: dict) -> bool:
+    """Update arbitrary scan fields."""
+    updates = dict(updates)
+    updates['updated_at'] = datetime.now(timezone.utc)
+    result = scans_col().update_one(
+        {'_id': ObjectId(scan_id)},
+        {'$set': updates},
     )
     return result.modified_count > 0
 
@@ -84,6 +101,18 @@ def get_scans_by_farm(farm_id: str, page: int = 1, per_page: int = 20) -> list:
     )
 
 
+def get_scans_by_crop(user_id: str, crop_type: str, page: int = 1, per_page: int = 20) -> list:
+    """Filter scans by crop type for a given user."""
+    skip = (page - 1) * per_page
+    return list(
+        scans_col()
+        .find({'user_id': ObjectId(user_id), 'crop_type': crop_type})
+        .sort('created_at', -1)
+        .skip(skip)
+        .limit(per_page)
+    )
+
+
 def serialize(scan: dict) -> dict:
     """Convert scan document to JSON-safe dict."""
     if scan is None:
@@ -96,8 +125,11 @@ def serialize(scan: dict) -> dict:
         'field_id': str(scan['field_id']) if scan.get('field_id') else None,
         'image_url': scan.get('image_url', ''),
         'scan_type': scan.get('scan_type', 'image'),
+        'crop_type': scan.get('crop_type', ''),
+        'media_type': scan.get('media_type', 'image'),
         'status': scan.get('status', 'pending'),
         'detection_result': det,
         'device_info': scan.get('device_info', {}),
         'created_at': scan.get('created_at', '').isoformat() if scan.get('created_at') else None,
+        'updated_at': scan.get('updated_at', '').isoformat() if scan.get('updated_at') else None,
     }

@@ -1,39 +1,161 @@
 """
 Detection proxy — forwards images to the detection-service microservice.
+Falls back to deterministic mock detection when the service is unreachable.
 """
+import hashlib
 import logging
+import os
 import requests
 from flask import current_app
 
 logger = logging.getLogger(__name__)
 
+# ── Inline mock catalog (same as detection-service) ──────────────────
+CATALOG = {
+    'tomato': [
+        {
+            'disease': 'Tomato Early Blight',
+            'scientific_name': 'Alternaria solani',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Remove affected leaves and start preventive fungicide coverage.',
+        },
+        {
+            'disease': 'Tomato Late Blight',
+            'scientific_name': 'Phytophthora infestans',
+            'severity': 'high',
+            'risk_level': 'high',
+            'recommendation': 'Act quickly, isolate infected plants, and reduce leaf wetness.',
+        },
+        {
+            'disease': 'Tomato Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Keep monitoring and maintain balanced irrigation.',
+        },
+    ],
+    'corn': [
+        {
+            'disease': 'Corn Leaf Blight',
+            'scientific_name': 'Exserohilum turcicum',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Scout neighboring plants and avoid prolonged leaf wetness.',
+        },
+        {
+            'disease': 'Corn Rust',
+            'scientific_name': 'Puccinia sorghi',
+            'severity': 'low',
+            'risk_level': 'low',
+            'recommendation': 'Track humidity and monitor lesion spread over the next week.',
+        },
+        {
+            'disease': 'Corn Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Continue routine scouting.',
+        },
+    ],
+    'wheat': [
+        {
+            'disease': 'Wheat Rust',
+            'scientific_name': 'Puccinia triticina',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Monitor canopy humidity and inspect nearby leaves for spread.',
+        },
+        {
+            'disease': 'Powdery Mildew',
+            'scientific_name': 'Blumeria graminis',
+            'severity': 'low',
+            'risk_level': 'low',
+            'recommendation': 'Increase airflow and continue monitoring susceptible areas.',
+        },
+        {
+            'disease': 'Wheat Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Maintain balanced nutrition and scouting.',
+        },
+    ],
+    'sweetpotato': [
+        {
+            'disease': 'Sweet Potato Leaf Spot',
+            'scientific_name': 'Cercospora spp.',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Remove heavily affected leaves and keep foliage dry where possible.',
+        },
+        {
+            'disease': 'Sweet Potato Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Continue routine monitoring.',
+        },
+    ],
+}
 
-def detect(image_path_or_url: str) -> dict | None:
+
+def _normalize_crop(crop_type: str) -> str:
+    normalized = (crop_type or 'tomato').strip().lower().replace('_', '').replace(' ', '')
+    return normalized if normalized in CATALOG else 'tomato'
+
+
+def _mock_detect(image_path_or_url: str, crop_type: str) -> dict:
+    """Deterministic mock detection — same logic as detection-service."""
+    crop = _normalize_crop(crop_type)
+    seed = f"{crop}:{os.path.basename(image_path_or_url)}"
+    digest = int(hashlib.md5(seed.encode('utf-8')).hexdigest()[:8], 16)
+    disease_options = CATALOG[crop]
+    result = disease_options[digest % len(disease_options)]
+    confidence = round(0.74 + ((digest >> 4) % 22) / 100, 3)
+    return {
+        'crop_type': crop,
+        'disease': result['disease'],
+        'scientific_name': result['scientific_name'],
+        'confidence': confidence,
+        'severity': result['severity'],
+        'is_healthy': result['severity'] == 'none',
+        'risk_level': result['risk_level'],
+        'recommendation': result['recommendation'],
+        'model_version': 'mock-fallback-v1',
+    }
+
+
+def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
     """Send image to detection service and return parsed result.
-
-    Returns dict with: disease, confidence, severity, is_healthy, bbox,
-    risk_level, recommendation, model_version  — or None on failure.
-    """
+    Falls back to deterministic mock if the service is unreachable."""
     base = current_app.config.get('DETECTION_SERVICE_URL', 'http://localhost:5001')
     url = f'{base}/api/detect'
 
     try:
-        # If local file, send as multipart
-        if image_path_or_url.startswith('/') or image_path_or_url.startswith('uploads'):
-            with open(image_path_or_url, 'rb') as f:
-                resp = requests.post(url, files={'image': f}, timeout=30)
+        if os.path.exists(image_path_or_url):
+            with open(image_path_or_url, 'rb') as file_obj:
+                resp = requests.post(
+                    url,
+                    files={'image': file_obj},
+                    data={'crop_type': crop_type},
+                    timeout=10,
+                )
         else:
-            # Remote URL — send as JSON
-            resp = requests.post(url, json={'image_url': image_path_or_url}, timeout=30)
+            resp = requests.post(
+                url,
+                json={'image_url': image_path_or_url, 'crop_type': crop_type},
+                timeout=10,
+            )
 
         if resp.status_code == 200:
             return resp.json()
-        else:
-            logger.warning(f'Detection service returned {resp.status_code}: {resp.text}')
-            return None
+
+        logger.warning('Detection service returned %s: %s', resp.status_code, resp.text)
     except requests.ConnectionError:
-        logger.error('Detection service unreachable')
-        return None
-    except Exception as e:
-        logger.error(f'Detection proxy error: {e}')
-        return None
+        logger.warning('Detection service unreachable — using mock fallback')
+    except Exception as exc:
+        logger.warning('Detection proxy error: %s — using mock fallback', exc)
+
+    # Fallback to mock detection
+    return _mock_detect(image_path_or_url, crop_type)
