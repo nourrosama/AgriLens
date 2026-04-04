@@ -13,7 +13,10 @@ from pymongo.errors import ConfigurationError
 
 load_dotenv()
 
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/agrilens')
+MONGO_URI = os.getenv('MONGO_URI', '').strip()
+if not MONGO_URI:
+    raise RuntimeError('MONGO_URI is required. Set your Atlas connection string in backend/.env.')
+
 client = MongoClient(MONGO_URI)
 try:
     db = client.get_default_database()
@@ -70,7 +73,9 @@ def seed():
         'user_id': user_id,
         'farm_id': farm_id,
         'field_id': field_id,
+        'media_url': '/uploads/demo-tomato.jpg',
         'image_url': '/uploads/demo-tomato.jpg',
+        'storage_backend': 'local',
         'scan_type': 'image',
         'crop_type': 'tomato',
         'media_type': 'image',

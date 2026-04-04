@@ -216,9 +216,9 @@ class _MediaPreview extends StatelessWidget {
     if (localFile.existsSync()) {
       return Image.file(localFile, fit: BoxFit.cover);
     }
-    if ((result.remoteImageUrl ?? '').isNotEmpty) {
+    if ((result.remoteMediaUrl ?? '').isNotEmpty) {
       return Image.network(
-        result.remoteImageUrl!,
+        result.remoteMediaUrl!,
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) => _fallbackImage(),
       );
@@ -359,9 +359,9 @@ class _SummaryCard extends StatelessWidget {
               ),
               child: Text(
                 result.isVideo
-                    ? (result.isStoredInFirebase
-                          ? 'The video file has been stored successfully in Firebase Storage. The current demo only runs tomato classification on images.'
-                          : 'The video file was stored locally on the backend because Firebase Storage is not available right now.')
+                    ? (result.isStoredRemotely
+                          ? 'The video file has been stored successfully in cloud storage. The current demo only runs tomato classification on images.'
+                          : 'The video file was stored locally on the backend because cloud storage is not enabled right now.')
                     : 'This scan was uploaded, but no model result is available yet.',
                 style: const TextStyle(
                   color: Color(0xFF1E3A5F),

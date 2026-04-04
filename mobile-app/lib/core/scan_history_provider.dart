@@ -51,7 +51,7 @@ class ScanResult {
     this.storageBackend = 'local',
     this.fieldName,
     this.cropType = '',
-    this.remoteImageUrl,
+    this.remoteMediaUrl,
     this.topPredictions = const [],
   });
 
@@ -72,24 +72,25 @@ class ScanResult {
   final String modelVersion;
   final String? fieldName;
   final String cropType;
-  final String? remoteImageUrl;
+  final String? remoteMediaUrl;
   final String mediaType;
   final bool hasDetection;
   final String storageBackend;
   final List<ScanPrediction> topPredictions;
 
   bool get isVideo => mediaType == 'video';
-  bool get isStoredInFirebase => storageBackend == 'firebase';
+  bool get isStoredRemotely => storageBackend != 'local';
 
   factory ScanResult.fromJson(Map<String, dynamic> json) {
     final detection =
         (json['detection_result'] as Map<String, dynamic>?) ??
         <String, dynamic>{};
     final mediaType = json['media_type']?.toString() ?? 'image';
-    final imageUrl = json['image_url']?.toString() ?? '';
-    final resolvedImageUrl = imageUrl.isEmpty
+    final mediaUrl =
+        json['media_url']?.toString() ?? json['image_url']?.toString() ?? '';
+    final resolvedMediaUrl = mediaUrl.isEmpty
         ? null
-        : AppConfig.resolveMediaUrl(imageUrl);
+        : AppConfig.resolveMediaUrl(mediaUrl);
     final hasDetection = detection.isNotEmpty;
 
     final fallbackName = mediaType == 'video'
@@ -101,7 +102,7 @@ class ScanResult {
       id: json['id']?.toString() ?? '',
       farmId: json['farm_id']?.toString(),
       fieldId: json['field_id']?.toString(),
-      imagePath: resolvedImageUrl ?? imageUrl,
+      imagePath: resolvedMediaUrl ?? mediaUrl,
       diseaseNameEn: diseaseName,
       diseaseNameAr: diseaseName,
       scientificName: detection['scientific_name']?.toString() ?? '',
@@ -116,7 +117,7 @@ class ScanResult {
       recommendation: detection['recommendation']?.toString() ?? '',
       modelVersion: detection['model_version']?.toString() ?? '',
       cropType: json['crop_type']?.toString() ?? '',
-      remoteImageUrl: resolvedImageUrl,
+      remoteMediaUrl: resolvedMediaUrl,
       mediaType: mediaType,
       hasDetection: hasDetection,
       storageBackend: json['storage_backend']?.toString() ?? 'local',

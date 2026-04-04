@@ -51,8 +51,12 @@ def publish(routing_key: str, payload: dict):
 
 # ── Convenience helpers ───────────────────────────────────────
 
-def scan_created(scan_id: str, image_url: str):
-    publish('scan.created', {'scan_id': scan_id, 'image_url': image_url})
+def scan_created(scan_id: str, media_url: str):
+    publish('scan.created', {
+        'scan_id': scan_id,
+        'media_url': media_url,
+        'image_url': media_url,
+    })
 
 
 def scan_completed(scan_id: str, result: dict):
