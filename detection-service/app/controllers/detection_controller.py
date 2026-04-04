@@ -1,10 +1,9 @@
 """
-Disease Detection Controller
-Real CNN inference using trained paddy and tomato models.
+Disease Detection Controller.
+Uses deterministic demo inference until the production model is integrated.
 """
+import hashlib
 from flask import Blueprint, request, jsonify
-from services.paddy_service import predict as paddy_predict
-from services.tomato_service import predict as tomato_predict
 
 detection_bp = Blueprint('detection', __name__)
 
@@ -98,48 +97,49 @@ CATALOG = {
 
 
 def _normalize_crop(crop_type: str) -> str:
-    normalized = (crop_type or 'tomato').strip().lower().replace('_', '').replace(' ', '')
-    if normalized == 'sweetpotato':
-        return normalized
-    return normalized if normalized in CATALOG else 'tomato'
+    return (crop_type or "tomato").strip().lower().replace("_", "").replace(" ", "")
 
 
-def _seed_from_request(crop_type: str) -> str:
-    if 'image' in request.files and request.files['image'].filename:
-        return f"{crop_type}:{request.files['image'].filename}"
-    payload = request.get_json(silent=True) or {}
-    return f"{crop_type}:{payload.get('image_url', 'remote-image')}"
-
-
-@detection_bp.route('/api/detect', methods=['POST'])
+@detection_bp.route("/api/detect", methods=["POST"])
 def detect_disease():
-    """Accept an image or image_url and return a deterministic detection result."""
+    """Accept an image or image_url and return a tomato disease prediction."""
     payload = request.get_json(silent=True) or {}
-    if 'image' not in request.files and not payload.get('image_url'):
-        return jsonify({'error': 'No image provided'}), 400
+    if "image" not in request.files and not payload.get("image_url"):
+        return jsonify({"error": "No image provided"}), 400
 
-    crop_type = _normalize_crop(request.form.get('crop_type') or payload.get('crop_type', 'tomato'))
-    seed = _seed_from_request(crop_type)
-    digest = int(hashlib.md5(seed.encode('utf-8')).hexdigest()[:8], 16)
-    disease_options = CATALOG[crop_type]
-    result = disease_options[digest % len(disease_options)]
-    confidence = round(0.74 + ((digest >> 4) % 22) / 100, 3)
-    bbox = [
-        30 + ((digest >> 3) % 60),
-        30 + ((digest >> 5) % 60),
-        160 + ((digest >> 7) % 60),
-        160 + ((digest >> 9) % 60),
-    ]
+    crop_type = _normalize_crop(
+        request.form.get("crop_type") or payload.get("crop_type", "tomato")
+    )
+    if crop_type not in ("", "tomato"):
+        return (
+            jsonify(
+                {
+                    "error": "This detection model currently supports tomato scans only.",
+                    "supported_crops": ["tomato"],
+                }
+            ),
+            422,
+        )
 
-    return jsonify({
-        'crop_type': crop_type,
-        'disease': result['disease'],
-        'scientific_name': result['scientific_name'],
-        'confidence': confidence,
-        'severity': result['severity'],
-        'is_healthy': result['severity'] == 'none',
-        'bbox': bbox,
-        'risk_level': result['risk_level'],
-        'recommendation': result['recommendation'],
-        'model_version': 'deterministic-demo-v1',
-    }), 200
+    try:
+        if "image" in request.files and request.files["image"].filename:
+            prediction = model_loader.predict_from_file_bytes(
+                request.files["image"].read()
+            )
+        else:
+            prediction = model_loader.predict_from_url(payload.get("image_url", ""))
+        return jsonify(prediction), 200
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except RuntimeError as exc:
+        return (
+            jsonify(
+                {
+                    "error": str(exc),
+                    "model_status": model_loader.get_model_status(),
+                }
+            ),
+            503,
+        )
+    except Exception as exc:  # pragma: no cover - runtime safety
+        return jsonify({"error": f"Inference failed: {exc}"}), 500

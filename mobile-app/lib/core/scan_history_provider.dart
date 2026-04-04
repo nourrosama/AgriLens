@@ -3,7 +3,31 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'app_config.dart';
 import 'offline_queue_store.dart';
+
+class ScanPrediction {
+  ScanPrediction({
+    required this.classId,
+    required this.label,
+    required this.disease,
+    required this.confidence,
+  });
+
+  final int classId;
+  final String label;
+  final String disease;
+  final double confidence;
+
+  factory ScanPrediction.fromJson(Map<String, dynamic> json) {
+    return ScanPrediction(
+      classId: (json['class_id'] as num?)?.toInt() ?? 0,
+      label: json['label']?.toString() ?? '',
+      disease: json['disease']?.toString() ?? '',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
 
 class ScanResult {
   ScanResult({
@@ -22,9 +46,13 @@ class ScanResult {
     required this.riskLevel,
     required this.recommendation,
     required this.modelVersion,
+    required this.mediaType,
+    required this.hasDetection,
+    this.storageBackend = 'local',
     this.fieldName,
     this.cropType = '',
     this.remoteImageUrl,
+    this.topPredictions = const [],
   });
 
   final String id;
@@ -45,19 +73,37 @@ class ScanResult {
   final String? fieldName;
   final String cropType;
   final String? remoteImageUrl;
+  final String mediaType;
+  final bool hasDetection;
+  final String storageBackend;
+  final List<ScanPrediction> topPredictions;
+
+  bool get isVideo => mediaType == 'video';
+  bool get isStoredInFirebase => storageBackend == 'firebase';
 
   factory ScanResult.fromJson(Map<String, dynamic> json) {
     final detection =
         (json['detection_result'] as Map<String, dynamic>?) ??
         <String, dynamic>{};
+    final mediaType = json['media_type']?.toString() ?? 'image';
     final imageUrl = json['image_url']?.toString() ?? '';
+    final resolvedImageUrl = imageUrl.isEmpty
+        ? null
+        : AppConfig.resolveMediaUrl(imageUrl);
+    final hasDetection = detection.isNotEmpty;
+
+    final fallbackName = mediaType == 'video'
+        ? 'Video uploaded'
+        : 'Analysis pending';
+    final diseaseName = detection['disease']?.toString() ?? fallbackName;
+
     return ScanResult(
       id: json['id']?.toString() ?? '',
       farmId: json['farm_id']?.toString(),
       fieldId: json['field_id']?.toString(),
-      imagePath: imageUrl,
-      diseaseNameEn: detection['disease']?.toString() ?? 'No detection',
-      diseaseNameAr: detection['disease']?.toString() ?? 'لا يوجد كشف',
+      imagePath: resolvedImageUrl ?? imageUrl,
+      diseaseNameEn: diseaseName,
+      diseaseNameAr: diseaseName,
       scientificName: detection['scientific_name']?.toString() ?? '',
       confidence: (detection['confidence'] as num?)?.toDouble() ?? 0,
       severity: detection['severity']?.toString() ?? 'none',
@@ -70,7 +116,14 @@ class ScanResult {
       recommendation: detection['recommendation']?.toString() ?? '',
       modelVersion: detection['model_version']?.toString() ?? '',
       cropType: json['crop_type']?.toString() ?? '',
-      remoteImageUrl: imageUrl,
+      remoteImageUrl: resolvedImageUrl,
+      mediaType: mediaType,
+      hasDetection: hasDetection,
+      storageBackend: json['storage_backend']?.toString() ?? 'local',
+      topPredictions: ((detection['top_predictions'] as List<dynamic>?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ScanPrediction.fromJson)
+          .toList(),
     );
   }
 }
@@ -93,7 +146,11 @@ class ScanHistoryProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   int get totalScans => _scans.length;
   int get activeDiseasesCount => _scans
-      .where((scan) => scan.severity == 'high' || scan.severity == 'medium')
+      .where(
+        (scan) =>
+            scan.hasDetection &&
+            (scan.severity == 'high' || scan.severity == 'medium'),
+      )
       .length;
 
   List<int> get weeklyScans {
@@ -116,7 +173,8 @@ class ScanHistoryProvider extends ChangeNotifier {
           ((response['data'] as Map<String, dynamic>)['scans']
                       as List<dynamic>? ??
                   [])
-              .cast<Map<String, dynamic>>();
+              .whereType<Map<String, dynamic>>()
+              .toList();
       _scans
         ..clear()
         ..addAll(items.map(ScanResult.fromJson));
@@ -134,13 +192,44 @@ class ScanHistoryProvider extends ChangeNotifier {
     String? farmId,
     String? fieldId,
   }) async {
+    return _submitMedia(
+      file: imageFile,
+      mediaType: 'image',
+      cropType: cropType,
+      farmId: farmId,
+      fieldId: fieldId,
+    );
+  }
+
+  Future<ScanResult?> submitVideoScan({
+    required File videoFile,
+    required String cropType,
+    String? farmId,
+    String? fieldId,
+  }) async {
+    return _submitMedia(
+      file: videoFile,
+      mediaType: 'video',
+      cropType: cropType,
+      farmId: farmId,
+      fieldId: fieldId,
+    );
+  }
+
+  Future<ScanResult?> _submitMedia({
+    required File file,
+    required String mediaType,
+    required String cropType,
+    String? farmId,
+    String? fieldId,
+  }) async {
     _setLoading(true);
     try {
       final response = await _apiClient.multipart(
         '/api/scans',
         auth: true,
-        fieldName: 'image',
-        file: imageFile,
+        fieldName: mediaType == 'video' ? 'video' : 'image',
+        file: file,
         fields: {
           'crop_type': cropType,
           ...?(farmId == null ? null : {'farm_id': farmId}),
@@ -153,18 +242,19 @@ class ScanHistoryProvider extends ChangeNotifier {
           (response['data'] as Map<String, dynamic>)['scan']
               as Map<String, dynamic>;
       final scan = ScanResult.fromJson(scanJson);
-      _scans.removeWhere((item) => item.id == scan.id);
-      _scans.insert(0, scan);
+      _upsertScan(scan);
       _errorMessage = null;
       notifyListeners();
       return scan;
     } catch (error) {
-      await _queueStore.enqueueScan(
-        imageFile: imageFile,
-        cropType: cropType,
-        farmId: farmId,
-        fieldId: fieldId,
-      );
+      if (mediaType == 'image') {
+        await _queueStore.enqueueScan(
+          imageFile: file,
+          cropType: cropType,
+          farmId: farmId,
+          fieldId: fieldId,
+        );
+      }
       _errorMessage = error.toString();
       notifyListeners();
       return null;
@@ -204,8 +294,7 @@ class ScanHistoryProvider extends ChangeNotifier {
           (response['data'] as Map<String, dynamic>)['scan']
               as Map<String, dynamic>;
       final scan = ScanResult.fromJson(scanJson);
-      _scans.removeWhere((item) => item.id == scan.id);
-      _scans.insert(0, scan);
+      _upsertScan(scan);
       notifyListeners();
       return scan;
     } catch (error) {
@@ -213,6 +302,11 @@ class ScanHistoryProvider extends ChangeNotifier {
       notifyListeners();
       return null;
     }
+  }
+
+  void _upsertScan(ScanResult scan) {
+    _scans.removeWhere((item) => item.id == scan.id);
+    _scans.insert(0, scan);
   }
 
   void _setLoading(bool value) {

@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "925790730943",
-    "project_id": "agrilens-6e8d8",
-    "storage_bucket": "agrilens-6e8d8.firebasestorage.app"
+    "project_number": "661536137061",
+    "project_id": "agrilens-5192c",
+    "storage_bucket": "agrilens-5192c.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:925790730943:android:734b305b89668388e5e40a",
+        "mobilesdk_app_id": "1:661536137061:android:f19ed481b5ba78f1944b8c",
         "android_client_info": {
           "package_name": "com.agrilens.agrilens"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDkm8JRGXhsf1QqzfLlDGWAu7PPKAQMXJU"
+          "current_key": "AIzaSyBk4LXtZPErjwyMAUYECqCulG1HBtQKkAU"
         }
       ],
       "services": {

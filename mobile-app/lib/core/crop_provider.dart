@@ -18,14 +18,6 @@ class CropInfo {
 class CropProvider extends ChangeNotifier {
   static const List<CropInfo> crops = [
     CropInfo(value: 'tomato', labelEn: 'Tomato', labelAr: 'طماطم', emoji: '🍅'),
-    CropInfo(value: 'corn', labelEn: 'Corn', labelAr: 'ذرة', emoji: '🌽'),
-    CropInfo(value: 'wheat', labelEn: 'Wheat', labelAr: 'قمح', emoji: '🌾'),
-    CropInfo(
-      value: 'sweetPotato',
-      labelEn: 'Sweet Potato',
-      labelAr: 'بطاطا حلوة',
-      emoji: '🍠',
-    ),
   ];
 
   String _selectedCrop = '';
@@ -49,7 +41,7 @@ class CropProvider extends ChangeNotifier {
 
   Future<void> _loadSaved() async {
     final prefs = await SharedPreferences.getInstance();
-    _selectedCrop = prefs.getString('selected_crop') ?? '';
+    _selectedCrop = prefs.getString('selected_crop') ?? crops.first.value;
     _isLoaded = true;
     notifyListeners();
   }

@@ -48,7 +48,10 @@ def send_otp():
     if not auth_service.check_otp_rate_limit(phone):
         return error_response('Too many OTP requests. Try again in 10 minutes.', 429)
 
-    result = auth_service.send_otp(phone)
+    try:
+        result = auth_service.send_otp(phone)
+    except auth_service.OtpDeliveryError as exc:
+        return error_response(exc.message, exc.status_code)
 
     # Audit log (user may not exist yet)
     user = user_model.find_by_phone(phone)

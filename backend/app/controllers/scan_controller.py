@@ -2,13 +2,15 @@
 Scan controller -- image/video upload and synchronous detection flow.
 """
 import os
-from flask import Blueprint, request, g
+
+from flask import Blueprint, current_app, g, request
+
 from app.middleware.auth_middleware import require_auth
-from app.models import audit_model, forecast_model, notification_model, scan_model
-from app.services import detection_proxy_service, insights_service, storage_service
+from app.models import audit_model, farm_model, forecast_model, notification_model, scan_model
 from app.observers import event_publisher
+from app.services import detection_proxy_service, insights_service, storage_service
 from app.utils.validators import is_valid_object_id
-from app.views.responses import success_response, error_response
+from app.views.responses import error_response, success_response
 
 scan_bp = Blueprint('scans', __name__)
 
@@ -74,7 +76,6 @@ def upload_scan():
     if not has_image and not has_video:
         return error_response('No image or video file provided', 400)
 
-    # Determine media type
     if has_image:
         file = request.files['image']
         if not _allowed_file(file.filename, ALLOWED_IMAGE_EXT):
@@ -101,11 +102,15 @@ def upload_scan():
         'app_version': request.form.get('app_version', ''),
     }
 
-    # Upload media
-    if media_type == 'video':
-        media_url = storage_service.upload_video(file)
-    else:
-        media_url = storage_service.upload_image(file)
+    try:
+        media_url = (
+            storage_service.upload_video(file)
+            if media_type == 'video'
+            else storage_service.upload_image(file)
+        )
+    except Exception as exc:
+        current_app.logger.exception('Failed to store uploaded scan media: %s', exc)
+        return error_response('Unable to store the uploaded file right now. Please try again.', 503)
 
     scan = scan_model.create_scan(
         user_id=user_id,
@@ -118,6 +123,23 @@ def upload_scan():
         device_info=device_info,
     )
     scan_id = str(scan['_id'])
+
+    if media_type == 'video':
+        scan_model.update_scan(scan_id, {'status': 'completed'})
+        audit_model.log_action(
+            user_id,
+            'scan_created',
+            resource_id=scan_id,
+            ip_address=request.remote_addr,
+            details={**device_info, 'media_type': media_type},
+        )
+        stored = scan_model.get_scan_by_id(scan_id)
+        return success_response(
+            {'scan': scan_model.serialize(stored), 'forecast': None},
+            'Video uploaded successfully. Video analysis is not available in this demo yet.',
+            201,
+        )
+
     scan_model.update_status(scan_id, 'processing')
 
     image_reference = media_url
@@ -125,52 +147,70 @@ def upload_scan():
     if local_path and os.path.exists(local_path):
         image_reference = local_path
 
-    detection = detection_proxy_service.detect(image_reference, crop_type)
+    detection = None
     forecast_payload = None
 
-    if detection:
-        scan_model.update_detection_result(scan_id, detection)
-        event_publisher.scan_completed(scan_id, detection)
-        weather = insights_service.build_weather()
-        scans = scan_model.get_scans_by_user(user_id, 1, 50)
-        forecast_payload = insights_service.compute_forecast(scans, weather, 7)
-        forecast_model.upsert_snapshot(
-            user_id,
-            {'farm_id': farm_id, 'field_id': field_id},
-            forecast_payload,
-        )
+    try:
+        detection = detection_proxy_service.detect(image_reference, crop_type)
 
-        if not detection.get('is_healthy', True):
-            notification_model.create_notification(
+        if detection:
+            scan_model.update_detection_result(scan_id, detection)
+            event_publisher.scan_completed(scan_id, detection)
+
+            location = {}
+            if farm_id:
+                farm = farm_model.get_farm_by_id(farm_id)
+                if farm:
+                    location = farm.get('location', {})
+                    if field_id:
+                        for field in farm.get('fields', []):
+                            if str(field.get('field_id')) == field_id:
+                                location = field.get('location') or location
+                                break
+
+            weather = insights_service.build_weather(location)
+            scans = scan_model.get_scans_by_user(user_id, 1, 50)
+            forecast_payload = insights_service.compute_forecast(scans, weather, 7)
+            forecast_model.upsert_snapshot(
                 user_id,
-                'Disease detected',
-                f"{detection.get('disease', 'Unknown disease')} detected with {detection.get('severity', 'unknown')} severity.",
-                category='disease',
-                related_scan_id=scan_id,
-                metadata={'scan_id': scan_id},
-            )
-            event_publisher.disease_detected(
-                scan_id,
-                detection.get('disease', ''),
-                detection.get('severity', ''),
-                user_id,
+                {'farm_id': farm_id, 'field_id': field_id},
+                forecast_payload,
             )
 
-        if forecast_payload and forecast_payload.get('risk_level') in ('high', 'critical'):
-            notification_model.create_notification(
-                user_id,
-                'High risk alert',
-                f"Forecast risk is {forecast_payload.get('risk_level')} for the next few days.",
-                category='forecast',
-                related_scan_id=scan_id,
-                metadata={'scan_id': scan_id},
-            )
-            event_publisher.risk_high(
-                scan_id,
-                forecast_payload.get('risk_level', 'high'),
-                user_id,
-            )
-    else:
+            if not detection.get('is_healthy', True):
+                notification_model.create_notification(
+                    user_id,
+                    'Disease detected',
+                    f"{detection.get('disease', 'Unknown disease')} detected with {detection.get('severity', 'unknown')} severity.",
+                    category='disease',
+                    related_scan_id=scan_id,
+                    metadata={'scan_id': scan_id},
+                )
+                event_publisher.disease_detected(
+                    scan_id,
+                    detection.get('disease', ''),
+                    detection.get('severity', ''),
+                    user_id,
+                )
+
+            if forecast_payload and forecast_payload.get('risk_level') in ('high', 'critical'):
+                notification_model.create_notification(
+                    user_id,
+                    'High risk alert',
+                    f"Forecast risk is {forecast_payload.get('risk_level')} for the next few days.",
+                    category='forecast',
+                    related_scan_id=scan_id,
+                    metadata={'scan_id': scan_id},
+                )
+                event_publisher.risk_high(
+                    scan_id,
+                    forecast_payload.get('risk_level', 'high'),
+                    user_id,
+                )
+        else:
+            scan_model.update_scan(scan_id, {'status': 'failed'})
+    except Exception as exc:
+        current_app.logger.exception('Scan processing failed for %s: %s', scan_id, exc)
         scan_model.update_scan(scan_id, {'status': 'failed'})
 
     audit_model.log_action(
@@ -178,15 +218,19 @@ def upload_scan():
         'scan_created',
         resource_id=scan_id,
         ip_address=request.remote_addr,
-        details=device_info,
+        details={**device_info, 'media_type': media_type},
     )
 
     stored = scan_model.get_scan_by_id(scan_id)
     message = 'Scan processed successfully' if detection else 'Scan uploaded but detection failed'
-    return success_response({
-        'scan': scan_model.serialize(stored),
-        'forecast': forecast_payload,
-    }, message, 201)
+    return success_response(
+        {
+            'scan': scan_model.serialize(stored),
+            'forecast': forecast_payload,
+        },
+        message,
+        201,
+    )
 
 
 @scan_bp.route('/api/scans', methods=['GET'])
@@ -203,16 +247,17 @@ def list_scans():
             return error_response('Invalid farm_id', 400)
         scans = scan_model.get_scans_by_farm(farm_id, page, per_page)
     elif crop_type:
-        scans = scan_model.get_scans_by_crop(
-            str(g.current_user['_id']), crop_type, page, per_page)
+        scans = scan_model.get_scans_by_crop(str(g.current_user['_id']), crop_type, page, per_page)
     else:
         scans = scan_model.get_scans_by_user(str(g.current_user['_id']), page, per_page)
 
-    return success_response({
-        'scans': [scan_model.serialize(s) for s in scans],
-        'page': page,
-        'per_page': per_page,
-    })
+    return success_response(
+        {
+            'scans': [scan_model.serialize(scan) for scan in scans],
+            'page': page,
+            'per_page': per_page,
+        }
+    )
 
 
 @scan_bp.route('/api/scans/<scan_id>', methods=['GET'])

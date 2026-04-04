@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -17,11 +18,22 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
   final _phoneController = TextEditingController();
   bool _isValid = false;
 
+  String? _buildPhoneNumber() {
+    final digits = _phoneController.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 11 && digits.startsWith('0')) {
+      return '+20${digits.substring(1)}';
+    }
+    if (digits.length == 10) {
+      return '+20$digits';
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
     _phoneController.addListener(() {
-      setState(() => _isValid = _phoneController.text.length >= 10);
+      setState(() => _isValid = _buildPhoneNumber() != null);
     });
   }
 
@@ -122,12 +134,17 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
                         child: TextField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(11),
+                          ],
                           style: const TextStyle(fontSize: 18),
                           decoration: InputDecoration(
                             hintText: lang.t('login.phonePlaceholder'),
                             hintStyle: const TextStyle(
                               color: AppColors.textSecondary,
                             ),
+                            counterText: '',
                           ),
                         ),
                       ),
@@ -143,8 +160,10 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
                     child: ElevatedButton(
                       onPressed: _isValid && !userProvider.isLoading
                           ? () async {
-                              final phone =
-                                  '+20${_phoneController.text.trim()}';
+                              final phone = _buildPhoneNumber();
+                              if (phone == null) {
+                                return;
+                              }
                               final messenger = ScaffoldMessenger.of(context);
                               final ok = await context
                                   .read<UserProvider>()

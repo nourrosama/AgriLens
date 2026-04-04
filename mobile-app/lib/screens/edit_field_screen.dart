@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:agrilens/core/theme.dart';
-import 'package:agrilens/core/language_provider.dart';
-import 'package:agrilens/core/fields_provider.dart';
 
-/// Edit field screen — matches TSX EditField.tsx exactly:
-/// Pre-filled form, delete confirmation dialog, success view, fixed save button
+import 'package:agrilens/core/fields_provider.dart';
+import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/theme.dart';
+
 class EditFieldScreen extends StatefulWidget {
-  final String fieldId;
   const EditFieldScreen({super.key, required this.fieldId});
+
+  final String fieldId;
 
   @override
   State<EditFieldScreen> createState() => _EditFieldScreenState();
@@ -22,8 +22,10 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
 
   late TextEditingController _nameCtrl;
   late TextEditingController _locationCtrl;
+  late TextEditingController _latitudeCtrl;
+  late TextEditingController _longitudeCtrl;
   late TextEditingController _areaCtrl;
-  String? _cropType;
+  String? _cropType = 'tomato';
   String? _soilType;
   String? _irrigationType;
   FieldData? _field;
@@ -32,56 +34,72 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_initialized) {
-      final fieldsProvider = context.read<FieldsProvider>();
-      _field = fieldsProvider.getField(widget.fieldId);
-      _nameCtrl = TextEditingController(text: _field?.name ?? '');
-      _locationCtrl = TextEditingController(text: _field?.location ?? '');
-      _areaCtrl = TextEditingController(text: _field?.area ?? '');
-      _cropType = _field?.cropType;
-      _soilType = _field?.soilType;
-      _irrigationType = _field?.irrigationType;
-      _initialized = true;
+    if (_initialized) {
+      return;
     }
+    final fieldsProvider = context.read<FieldsProvider>();
+    _field = fieldsProvider.getField(widget.fieldId);
+    _nameCtrl = TextEditingController(text: _field?.name ?? '');
+    _locationCtrl = TextEditingController(text: _field?.location ?? '');
+    _latitudeCtrl = TextEditingController(
+      text: _field?.latitude?.toString() ?? '',
+    );
+    _longitudeCtrl = TextEditingController(
+      text: _field?.longitude?.toString() ?? '',
+    );
+    _areaCtrl = TextEditingController(text: _field?.area ?? '');
+    _soilType = _field?.soilType;
+    _irrigationType = _field?.irrigationType;
+    _initialized = true;
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _locationCtrl.dispose();
+    _latitudeCtrl.dispose();
+    _longitudeCtrl.dispose();
     _areaCtrl.dispose();
     super.dispose();
   }
 
   Future<void> _handleSave() async {
-    if (_formKey.currentState!.validate() && _field != null) {
-      _formKey.currentState!.save();
-
-      await context.read<FieldsProvider>().updateField(
-        _field!.id,
-        name: _nameCtrl.text,
-        location: _locationCtrl.text,
-        area: _areaCtrl.text,
-        cropType: _cropType,
-        soilType: _soilType,
-        irrigationType: _irrigationType,
-      );
-
-      setState(() => _showSuccess = true);
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) context.go('/field-overview/${widget.fieldId}');
-      });
+    if (!_formKey.currentState!.validate() || _field == null) {
+      return;
     }
+
+    await context.read<FieldsProvider>().updateField(
+      _field!.id,
+      name: _nameCtrl.text,
+      location: _locationCtrl.text,
+      area: _areaCtrl.text,
+      latitude: double.tryParse(_latitudeCtrl.text),
+      longitude: double.tryParse(_longitudeCtrl.text),
+      cropType: _cropType,
+      soilType: _soilType,
+      irrigationType: _irrigationType,
+    );
+
+    if (!mounted) {
+      return;
+    }
+    setState(() => _showSuccess = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        context.go('/field-overview/${widget.fieldId}');
+      }
+    });
   }
 
   Future<void> _confirmDelete() async {
-    if (_field != null) {
-      await context.read<FieldsProvider>().deleteField(_field!.id);
-      if (!mounted) {
-        return;
-      }
-      context.go('/fields');
+    if (_field == null) {
+      return;
     }
+    await context.read<FieldsProvider>().deleteField(_field!.id);
+    if (!mounted) {
+      return;
+    }
+    context.go('/fields');
   }
 
   @override
@@ -89,195 +107,19 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
     final lang = context.watch<LanguageProvider>();
     final fieldsProvider = context.watch<FieldsProvider>();
 
-    // Delete confirmation dialog
     if (_showDeleteConfirm) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(
-          child: Container(
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFFEBEE),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.delete_outline,
-                    size: 48,
-                    color: Color(0xFFF44336),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  lang.isRTL ? 'حذف الحقل؟' : 'Delete Field?',
-                  style: const TextStyle(
-                    color: AppColors.primaryDark,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  lang.isRTL
-                      ? 'لا يمكن التراجع عن هذا الإجراء. سيتم حذف جميع بيانات الحقل نهائياً.'
-                      : 'This action cannot be undone. All field data will be permanently removed.',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _confirmDelete,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF44336),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      lang.isRTL ? 'نعم، احذف الحقل' : 'Yes, Delete Field',
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () => setState(() => _showDeleteConfirm = false),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.border,
-                      foregroundColor: AppColors.textPrimary,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    child: Text(
-                      lang.t('common.cancel'),
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return _deleteView(lang);
     }
-
-    // Success view
     if (_showSuccess) {
-      return Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(
-          child: Container(
-            margin: const EdgeInsets.all(24),
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 80,
-                  height: 80,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFE8F5E9),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.check_circle,
-                    size: 48,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  lang.isRTL ? 'تم التحديث بنجاح!' : 'Updated Successfully!',
-                  style: const TextStyle(
-                    color: AppColors.primaryDark,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  lang.isRTL
-                      ? 'تم تحديث معلومات الحقل'
-                      : 'Field information has been updated',
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 16,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
+      return _successView(lang);
     }
 
-    // Main form
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            // Header
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => context.pop(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: Transform.flip(
-                        flipX: lang.isRTL,
-                        child: const Icon(
-                          Icons.arrow_back,
-                          size: 28,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Text(
-                    lang.isRTL ? 'تعديل الحقل' : 'Edit Field',
-                    style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Form body
+            _header(lang),
             Expanded(
               child: Form(
                 key: _formKey,
@@ -287,84 +129,84 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildField(
-                        lang.isRTL ? 'اسم الحقل' : 'Field Name',
+                        lang.isRTL ? 'Field Name' : 'Field Name',
                         _nameCtrl,
                       ),
                       const SizedBox(height: 20),
                       _buildField(
-                        lang.isRTL ? 'الموقع' : 'Location',
+                        lang.isRTL ? 'Location' : 'Location',
                         _locationCtrl,
                       ),
                       const SizedBox(height: 20),
                       _buildField(
-                        '${lang.isRTL ? 'المساحة' : 'Area'} (${lang.t('units.feddan')})',
+                        'Latitude',
+                        _latitudeCtrl,
+                        isNumber: true,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildField(
+                        'Longitude',
+                        _longitudeCtrl,
+                        isNumber: true,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildField(
+                        'Area (${lang.t('units.feddan')})',
                         _areaCtrl,
                         isNumber: true,
                       ),
                       const SizedBox(height: 20),
                       _buildDropdown(
-                        lang.isRTL ? 'نوع المحصول' : 'Crop Type',
+                        'Crop Type',
                         _cropType,
-                        [
-                              'wheat',
-                              'rice',
-                              'corn',
-                              'tomatoes',
-                              'potatoes',
-                              'cotton',
-                              'onions',
-                              'beans',
-                              'other',
-                            ]
+                        ['tomato']
                             .map(
-                              (c) => DropdownMenuItem(
-                                value: c,
-                                child: Text(lang.t('crops.$c')),
+                              (crop) => DropdownMenuItem(
+                                value: crop,
+                                child: Text(lang.t('crops.$crop')),
                               ),
                             )
                             .toList(),
-                        (v) => setState(() => _cropType = v),
+                        (value) => setState(() => _cropType = value),
                       ),
                       const SizedBox(height: 20),
                       _buildDropdown(
-                        lang.isRTL ? 'نوع التربة' : 'Soil Type',
+                        'Soil Type',
                         _soilType,
                         ['clay', 'sandy', 'loamy', 'silty']
                             .map(
-                              (s) => DropdownMenuItem(
-                                value: s,
-                                child: Text(lang.t('soil.$s')),
+                              (soil) => DropdownMenuItem(
+                                value: soil,
+                                child: Text(lang.t('soil.$soil')),
                               ),
                             )
                             .toList(),
-                        (v) => setState(() => _soilType = v),
+                        (value) => setState(() => _soilType = value),
                       ),
                       const SizedBox(height: 20),
                       _buildDropdown(
-                        lang.isRTL ? 'نوع الري' : 'Irrigation Type',
+                        'Irrigation Type',
                         _irrigationType,
                         ['drip', 'sprinkler', 'surface', 'manual', 'rainfed']
                             .map(
-                              (i) => DropdownMenuItem(
-                                value: i,
-                                child: Text(lang.t('irrigation.$i')),
+                              (irrigation) => DropdownMenuItem(
+                                value: irrigation,
+                                child: Text(lang.t('irrigation.$irrigation')),
                               ),
                             )
                             .toList(),
-                        (v) => setState(() => _irrigationType = v),
+                        (value) => setState(() => _irrigationType = value),
                       ),
                       const SizedBox(height: 24),
-
-                      // Delete button
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
                           onPressed: () =>
                               setState(() => _showDeleteConfirm = true),
                           icon: const Icon(Icons.delete_outline, size: 24),
-                          label: Text(
-                            lang.isRTL ? 'حذف الحقل' : 'Delete Field',
-                            style: const TextStyle(fontSize: 16),
+                          label: const Text(
+                            'Delete Field',
+                            style: TextStyle(fontSize: 16),
                           ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFFFEBEE),
@@ -377,9 +219,7 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(
-                        height: 80,
-                      ), // Space for fixed bottom button
+                      const SizedBox(height: 80),
                     ],
                   ),
                 ),
@@ -388,8 +228,6 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
           ],
         ),
       ),
-
-      // Fixed bottom save button
       bottomNavigationBar: Container(
         color: Colors.white,
         padding: EdgeInsets.fromLTRB(
@@ -425,6 +263,185 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
     );
   }
 
+  Widget _header(LanguageProvider lang) {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => context.pop(),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Transform.flip(
+                flipX: lang.isRTL,
+                child: const Icon(
+                  Icons.arrow_back,
+                  size: 28,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          const Text(
+            'Edit Field',
+            style: TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _deleteView(LanguageProvider lang) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFEBEE),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.delete_outline,
+                  size: 48,
+                  color: Color(0xFFF44336),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Delete Field?',
+                style: TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'This action cannot be undone. All field data will be permanently removed.',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _confirmDelete,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFF44336),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text(
+                    'Yes, Delete Field',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => setState(() => _showDeleteConfirm = false),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.border,
+                    foregroundColor: AppColors.textPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: Text(
+                    lang.t('common.cancel'),
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _successView(LanguageProvider lang) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Center(
+        child: Container(
+          margin: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(32),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 80,
+                height: 80,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: Color(0xFFE8F5E9),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.check_circle,
+                    size: 48,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Updated Successfully!',
+                style: TextStyle(
+                  color: AppColors.primaryDark,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Field information has been updated',
+                style: TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildField(
     String label,
     TextEditingController controller, {
@@ -440,7 +457,9 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
         const SizedBox(height: 8),
         TextFormField(
           controller: controller,
-          keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          keyboardType: isNumber
+              ? const TextInputType.numberWithOptions(decimal: true)
+              : TextInputType.text,
           decoration: InputDecoration(
             filled: true,
             fillColor: Colors.white,
@@ -461,7 +480,8 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
               vertical: 16,
             ),
           ),
-          validator: (v) => (v == null || v.trim().isEmpty) ? '' : null,
+          validator: (value) =>
+              (value == null || value.trim().isEmpty) ? '' : null,
         ),
       ],
     );
@@ -471,7 +491,7 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
     String label,
     String? value,
     List<DropdownMenuItem<String>> items,
-    Function(String?) onChanged,
+    ValueChanged<String?> onChanged,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:agrilens/core/theme.dart';
-import 'package:agrilens/core/language_provider.dart';
 
-/// Disease details screen — full breakdown with symptoms, causes, prevention
+import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/scan_history_provider.dart';
+import 'package:agrilens/core/theme.dart';
+
 class DiseaseDetailsScreen extends StatelessWidget {
   const DiseaseDetailsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final result = _resolveResult(context);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -21,27 +23,36 @@ class DiseaseDetailsScreen extends StatelessWidget {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                child: Column(
-                  children: [
-                    _diseaseHeader(lang),
-                    const SizedBox(height: 24),
-                    _description(lang),
-                    const SizedBox(height: 24),
-                    _symptoms(lang),
-                    const SizedBox(height: 24),
-                    _causes(lang),
-                    const SizedBox(height: 24),
-                    _prevention(lang),
-                    const SizedBox(height: 24),
-                    _visualExamples(lang),
-                  ],
-                ),
+                child: result == null
+                    ? const _DetailsEmptyState()
+                    : Column(
+                        children: [
+                          _overviewCard(result: result),
+                          const SizedBox(height: 20),
+                          _summaryCard(result: result),
+                          const SizedBox(height: 20),
+                          _recommendationCard(result: result),
+                          if (result.topPredictions.isNotEmpty) ...[
+                            const SizedBox(height: 20),
+                            _predictionsCard(result: result),
+                          ],
+                        ],
+                      ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  ScanResult? _resolveResult(BuildContext context) {
+    final extra = GoRouterState.of(context).extra;
+    if (extra is ScanResult) {
+      return extra;
+    }
+    final scans = context.watch<ScanHistoryProvider>().scans;
+    return scans.isEmpty ? null : scans.first;
   }
 
   Widget _header(BuildContext context, LanguageProvider lang) {
@@ -78,44 +89,56 @@ class DiseaseDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _diseaseHeader(LanguageProvider lang) {
+  Widget _overviewCard({required ScanResult result}) {
+    final icon = result.isHealthy ? Icons.check_circle : Icons.biotech_rounded;
+    final iconColor = result.isHealthy
+        ? const Color(0xFF4CAF50)
+        : _severityColor(result.severity);
+
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            lang.isRTL ? 'اللفحة المتأخرة' : 'Late Blight',
-            style: const TextStyle(
-              color: AppColors.primaryDark,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Phytophthora infestans',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-          ),
-          const SizedBox(height: 16),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.warning_rounded,
-                color: Color(0xFFFFC107),
-                size: 24,
-              ),
-              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  lang.isRTL
-                      ? 'مرض عالي الخطورة يتطلب عناية فورية'
-                      : 'High-risk disease requiring immediate attention',
-                  style: const TextStyle(
-                    color: Color(0xFFFFC107),
-                    fontSize: 16,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      result.isHealthy ? 'Healthy tomato leaf' : result.diseaseNameEn,
+                      style: const TextStyle(
+                        color: AppColors.primaryDark,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (result.scientificName.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        result.scientificName,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
+              Icon(icon, size: 30, color: iconColor),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _chip('Crop: ${result.cropType.isEmpty ? 'tomato' : result.cropType}'),
+              _chip('Severity: ${result.severity}'),
+              _chip('Risk: ${result.riskLevel}'),
+              _chip('Confidence: ${(result.confidence * 100).round()}%'),
             ],
           ),
         ],
@@ -123,24 +146,56 @@ class DiseaseDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _description(LanguageProvider lang) {
+  Widget _summaryCard({required ScanResult result}) {
+    final scannedAt = result.scannedAt.toLocal().toString().replaceFirst('.000', '');
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            lang.t('disease.overview'),
-            style: const TextStyle(
+          const Text(
+            'Detection Summary',
+            style: TextStyle(
               color: AppColors.primaryDark,
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 16),
+          _detailRow('Scan ID', result.id),
+          _detailRow('Media Type', result.mediaType),
+          _detailRow('Status', result.status),
+          _detailRow('Scanned At', scannedAt),
+          if (result.modelVersion.isNotEmpty)
+            _detailRow('Model Version', result.modelVersion),
+          if (result.fieldId != null)
+            _detailRow('Field ID', result.fieldId!),
+          if (result.farmId != null)
+            _detailRow('Farm ID', result.farmId!),
+        ],
+      ),
+    );
+  }
+
+  Widget _recommendationCard({required ScanResult result}) {
+    final body = result.recommendation.isEmpty
+        ? 'No additional recommendation is available for this scan.'
+        : result.recommendation;
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Recommended Action',
+            style: TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 12),
           Text(
-            lang.isRTL
-                ? 'اللفحة المتأخرة مرض مدمر يصيب الطماطم والبطاطس. يمكن أن يدمر المحاصيل بالكامل بسرعة إذا ترك دون علاج. ينمو المرض في ظروف باردة ورطبة وينتشر بسرعة عبر رذاذ الماء والرياح.'
-                : 'Late blight is a devastating disease that affects tomatoes and potatoes. It can rapidly destroy entire crops if left untreated. The disease thrives in cool, wet conditions and can spread quickly through water splash and wind.',
+            body,
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 16,
@@ -152,282 +207,110 @@ class DiseaseDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _symptoms(LanguageProvider lang) {
-    final items = lang.isRTL
-        ? [
-            'بقع بنية داكنة إلى سوداء على الأوراق',
-            'نمو أبيض ضبابي على الجهة السفلية للأوراق',
-            'السيقان تظهر خطوط داكنة',
-            'الثمار تظهر بقع بنية دهنية المظهر',
-          ]
-        : [
-            'Dark brown to black lesions on leaves',
-            'White fuzzy growth on leaf undersides',
-            'Stems develop dark streaks',
-            'Fruit shows brown, greasy-looking spots',
-          ];
+  Widget _predictionsCard({required ScanResult result}) {
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.eco_rounded, color: AppColors.primary, size: 24),
-              const SizedBox(width: 12),
-              Text(
-                lang.t('disease.symptoms'),
-                style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...items.map(
-            (s) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    margin: const EdgeInsets.only(top: 8),
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      s,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _causes(LanguageProvider lang) {
-    final items = lang.isRTL
-        ? [
-            ['بيئية', 'درجات حرارة باردة (15-20°س) مع رطوبة عالية'],
-            ['الرطوبة', 'فترات طويلة من بلل الأوراق بسبب المطر أو الندى'],
-            ['الانتشار', 'جراثيم محمولة بالرياح ورذاذ الماء'],
-          ]
-        : [
-            ['Environmental', 'Cool temperatures (15-20°C) with high humidity'],
-            ['Moisture', 'Extended periods of leaf wetness from rain or dew'],
-            ['Spread', 'Wind-borne spores and water splash'],
-          ];
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            lang.isRTL ? 'الأسباب' : 'Causes',
-            style: const TextStyle(
+          const Text(
+            'Model Alternatives',
+            style: TextStyle(
               color: AppColors.primaryDark,
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 16),
-          ...items.map(
-            (i) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(12),
-              ),
+          ...result.topPredictions.map((prediction) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    i[0],
-                    style: const TextStyle(
-                      color: AppColors.primaryDark,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    i[1],
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _prevention(LanguageProvider lang) {
-    final steps = lang.isRTL
-        ? [
-            ['زراعة أصناف مقاومة', 'اختر أصناف مقاومة للفحة عند توفرها'],
-            ['تباعد مناسب', 'تأكد من دوران هواء جيد بين النباتات'],
-            ['استخدام مبيد فطري', 'استخدم مبيدات فطرية نحاسية أو عضوية كوقاية'],
-            ['إزالة المواد المصابة', 'أتلف النباتات المريضة لمنع الانتشار'],
-          ]
-        : [
-            [
-              'Plant Resistant Varieties',
-              'Choose blight-resistant cultivars when available',
-            ],
-            ['Proper Spacing', 'Ensure good air circulation between plants'],
-            [
-              'Fungicide Application',
-              'Apply copper-based or organic fungicides preventatively',
-            ],
-            [
-              'Remove Infected Material',
-              'Destroy diseased plants to prevent spread',
-            ],
-          ];
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.shield_rounded,
-                color: AppColors.primary,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                '${lang.t('disease.prevention')} & ${lang.t('disease.treatment')}',
-                style: const TextStyle(
-                  color: AppColors.primaryDark,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...steps.asMap().entries.map(
-            (e) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8F5E9),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '${e.key + 1}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          prediction.disease.isEmpty
+                              ? prediction.label
+                              : prediction.disease,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    ),
+                      Text(
+                        '${(prediction.confidence * 100).round()}%',
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          e.value[0],
-                          style: const TextStyle(
-                            color: AppColors.primaryDark,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          e.value[1],
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: prediction.confidence.clamp(0, 1).toDouble(),
+                      minHeight: 8,
+                      backgroundColor: const Color(0xFFF1F1F1),
+                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _visualExamples(LanguageProvider lang) {
-    return _card(
-      child: Column(
+  Widget _chip(String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: AppColors.primaryDark,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            lang.isRTL ? 'أمثلة بصرية' : 'Visual Examples',
-            style: const TextStyle(
-              color: AppColors.primaryDark,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
-          const SizedBox(height: 16),
-          GridView.count(
-            crossAxisCount: 2,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 16,
-            crossAxisSpacing: 16,
-            children: List.generate(
-              4,
-              (i) => Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.2),
-                      AppColors.primaryDark.withValues(alpha: 0.2),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    lang.isRTL ? 'مثال ${i + 1}' : 'Example ${i + 1}',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 14,
               ),
             ),
           ),
@@ -446,6 +329,48 @@ class DiseaseDetailsScreen extends StatelessWidget {
         border: Border.all(color: AppColors.border),
       ),
       child: child,
+    );
+  }
+
+  Color _severityColor(String severity) {
+    switch (severity) {
+      case 'high':
+        return const Color(0xFFF44336);
+      case 'medium':
+        return const Color(0xFFFFC107);
+      default:
+        return const Color(0xFF4CAF50);
+    }
+  }
+}
+
+class _DetailsEmptyState extends StatelessWidget {
+  const _DetailsEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.info_outline, size: 64, color: AppColors.textSecondary),
+          SizedBox(height: 12),
+          Text(
+            'No scan details available.',
+            style: TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -13,8 +13,8 @@ class AddFieldScreen extends StatefulWidget {
 
 class _AddFieldScreenState extends State<AddFieldScreen> {
   final _formKey = GlobalKey<FormState>();
-  String _name = '', _location = '', _area = '';
-  String? _cropType, _soilType, _irrigationType;
+  String _name = '', _location = '', _area = '', _latitude = '', _longitude = '';
+  String? _cropType = 'tomato', _soilType, _irrigationType;
   bool _showSuccess = false;
 
   Future<void> _submit() async {
@@ -25,6 +25,8 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
         name: _name,
         location: _location,
         area: _area,
+        latitude: double.tryParse(_latitude),
+        longitude: double.tryParse(_longitude),
         cropType: _cropType,
         soilType: _soilType,
         irrigationType: _irrigationType,
@@ -72,6 +74,20 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
                       _locationField(lang),
                       const SizedBox(height: 24),
                       _textField(
+                        lang.isRTL ? 'خط العرض' : 'Latitude',
+                        lang.isRTL ? 'مثال: 30.0444' : 'e.g., 30.0444',
+                        (v) => _latitude = v,
+                        isNumber: true,
+                      ),
+                      const SizedBox(height: 24),
+                      _textField(
+                        lang.isRTL ? 'خط الطول' : 'Longitude',
+                        lang.isRTL ? 'مثال: 31.2357' : 'e.g., 31.2357',
+                        (v) => _longitude = v,
+                        isNumber: true,
+                      ),
+                      const SizedBox(height: 24),
+                      _textField(
                         lang.t('addField.area'),
                         lang.t('addField.areaPlaceholder'),
                         (v) => _area = v,
@@ -96,17 +112,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
                         lang.t('addField.selectCrop'),
                         _cropType,
                         [
-                          for (final c in [
-                            'wheat',
-                            'rice',
-                            'corn',
-                            'tomatoes',
-                            'potatoes',
-                            'cotton',
-                            'onions',
-                            'beans',
-                            'other',
-                          ])
+                          for (final c in ['tomato'])
                             DropdownMenuItem(
                               value: c,
                               child: Text(lang.t('crops.$c')),

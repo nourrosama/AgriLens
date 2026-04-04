@@ -1,16 +1,17 @@
 """
-Detection proxy — forwards images to the detection-service microservice.
-Falls back to deterministic mock detection when the service is unreachable.
+Detection proxy for the real tomato detection microservice.
+
+Mock fallback is available only when explicitly enabled by configuration.
 """
 import hashlib
 import logging
 import os
+
 import requests
 from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-# ── Inline mock catalog (same as detection-service) ──────────────────
 CATALOG = {
     'tomato': [
         {
@@ -106,7 +107,6 @@ def _normalize_crop(crop_type: str) -> str:
 
 
 def _mock_detect(image_path_or_url: str, crop_type: str) -> dict:
-    """Deterministic mock detection — same logic as detection-service."""
     crop = _normalize_crop(crop_type)
     seed = f"{crop}:{os.path.basename(image_path_or_url)}"
     digest = int(hashlib.md5(seed.encode('utf-8')).hexdigest()[:8], 16)
@@ -126,9 +126,12 @@ def _mock_detect(image_path_or_url: str, crop_type: str) -> dict:
     }
 
 
+def _mock_fallback_enabled() -> bool:
+    return bool(current_app.config.get('DETECTION_MOCK_FALLBACK', False))
+
+
 def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
-    """Send image to detection service and return parsed result.
-    Falls back to deterministic mock if the service is unreachable."""
+    """Send image to detection service and return parsed result."""
     base = current_app.config.get('DETECTION_SERVICE_URL', 'http://localhost:5001')
     url = f'{base}/api/detect'
 
@@ -153,9 +156,11 @@ def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
 
         logger.warning('Detection service returned %s: %s', resp.status_code, resp.text)
     except requests.ConnectionError:
-        logger.warning('Detection service unreachable — using mock fallback')
+        logger.warning('Detection service unreachable')
     except Exception as exc:
-        logger.warning('Detection proxy error: %s — using mock fallback', exc)
+        logger.warning('Detection proxy error: %s', exc)
 
-    # Fallback to mock detection
-    return _mock_detect(image_path_or_url, crop_type)
+    if _mock_fallback_enabled():
+        logger.warning('Detection mock fallback enabled -- returning deterministic mock')
+        return _mock_detect(image_path_or_url, crop_type)
+    return None

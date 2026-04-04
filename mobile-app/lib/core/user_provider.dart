@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
+import 'push_notifications_service.dart';
 import 'session_storage.dart';
 
 class UserData {
@@ -113,6 +114,7 @@ class UserProvider extends ChangeNotifier {
           (response['data'] as Map<String, dynamic>)['user']
               as Map<String, dynamic>;
       _user = UserData.fromJson(userJson);
+      await PushNotificationsService.instance.registerCurrentDevice();
     } catch (_) {
       await _sessionStorage.clearToken();
       _user = const UserData();
@@ -150,6 +152,7 @@ class UserProvider extends ChangeNotifier {
       await _sessionStorage.saveToken(token);
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
+      await PushNotificationsService.instance.registerCurrentDevice();
       _errorMessage = null;
       return true;
     } catch (error) {
@@ -212,6 +215,7 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await PushNotificationsService.instance.unregisterCurrentDevice();
     await _sessionStorage.clearToken();
     _pendingPhone = null;
     _user = const UserData();

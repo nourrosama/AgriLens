@@ -14,7 +14,7 @@ weather_bp = Blueprint('weather', __name__)
 @weather_bp.route('/api/weather', methods=['GET'])
 @require_auth
 def get_weather():
-    """Return deterministic weather data for the user's current farm context."""
+    """Return weather data for the user's current farm context."""
     farm_id = request.args.get('farm_id')
     location = {}
     if farm_id:
@@ -24,5 +24,12 @@ def get_weather():
         if not farm or str(farm.get('owner_id')) != str(g.current_user['_id']):
             return error_response('Farm not found', 404)
         location = farm.get('location', {})
+    else:
+        farms = farm_model.get_farms_by_owner(str(g.current_user['_id']))
+        if farms:
+            location = farms[0].get('location', {})
+            if not location:
+                first_field = next(iter(farms[0].get('fields', [])), {})
+                location = first_field.get('location', {})
     weather = insights_service.build_weather(location)
     return success_response({'weather': weather})
