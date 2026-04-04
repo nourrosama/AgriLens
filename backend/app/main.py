@@ -1,11 +1,11 @@
 """
-AgriLens Backend API â€” Application factory.
-Initialises MongoDB, Redis, RabbitMQ, Firebase, Swagger, and all blueprints.
+AgriLens Backend API - Application factory.
+Initializes MongoDB, Redis, RabbitMQ, media storage, Swagger, and all blueprints.
 """
-import os
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flasgger import Swagger
+
 from dotenv import load_dotenv
 
 load_dotenv(override=True)
@@ -16,14 +16,9 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
 
-    # â”€â”€ Load configuration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from app.config.settings import Config
     app.config.from_object(Config)
 
-    # Ensure upload directory exists (local fallback)
-    os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
-
-    # â”€â”€ Initialise services â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from app.models.db import init_db
     init_db(app)
 
@@ -39,7 +34,6 @@ def create_app():
     from app.observers.event_publisher import init_publisher
     init_publisher(app)
 
-    # â”€â”€ Swagger / OpenAPI â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     swagger_config = {
         'headers': [],
         'specs': [{
@@ -63,7 +57,7 @@ def create_app():
                 'type': 'apiKey',
                 'name': 'Authorization',
                 'in': 'header',
-                'description': 'JWT token â€” enter as: Bearer <token>',
+                'description': 'JWT token - enter as: Bearer <token>',
             },
         },
         'tags': [
@@ -81,7 +75,6 @@ def create_app():
     }
     Swagger(app, config=swagger_config, template=swagger_template)
 
-    # â”€â”€ Register blueprints â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     from app.controllers.health_controller import health_bp
     from app.controllers.auth_controller import auth_bp
     from app.controllers.farm_controller import farm_bp
@@ -104,12 +97,14 @@ def create_app():
     app.register_blueprint(reports_bp)
     app.register_blueprint(chatbot_bp)
 
-    @app.route('/uploads/<path:filename>', methods=['GET'])
-    def serve_upload(filename):
-        """Serve locally stored uploads for development/demo use."""
-        return send_from_directory(app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
+    from app.services import storage_service
 
-    # â”€â”€ Global error handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    if storage_service.uses_local_storage():
+        @app.route('/uploads/<path:filename>', methods=['GET'])
+        def serve_upload(filename):
+            """Serve locally stored uploads for development/demo use."""
+            return send_from_directory(app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
+
     @app.errorhandler(400)
     def bad_request(e):
         return jsonify({'status': 'error', 'message': str(e)}), 400

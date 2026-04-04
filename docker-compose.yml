@@ -11,7 +11,6 @@ services:
     depends_on:
       - rabbitmq
       - redis
-      - mongodb
       - detection-service
     volumes:
       - ./backend:/app
@@ -23,7 +22,7 @@ services:
     ports:
       - "5001:5001"
     environment:
-      MODEL_PATH: /models/tomato_model.h5
+      MODEL_PATH: /models/tomato_model.pth
       MODEL_FORCE_CPU: "true"
     volumes:
       - ./detection-service:/app
@@ -44,18 +43,9 @@ services:
       - ./backend/.env
     depends_on:
       - rabbitmq
-      - mongodb
     volumes:
       - ./notification-service:/app
       - ./secrets:/app/secrets:ro
-
-  mongodb:
-    image: mongo:7
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
 
   rabbitmq:
     image: rabbitmq:3-management
@@ -72,5 +62,4 @@ services:
       - "6379:6379"
 
 volumes:
-  mongo_data:
   backend_uploads:

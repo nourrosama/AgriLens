@@ -1,113 +1,132 @@
 """
-Firebase Storage service â€” uploads and manages images/scans.
-Falls back to local disk when Firebase creds are not configured.
+Scan media storage service.
+Supports Cloudinary or explicit local-disk storage.
 """
-import os
-import uuid
 import logging
+import os
+import re
+import uuid
+from urllib.parse import urlparse
+
+import cloudinary
+import cloudinary.uploader
 from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-_bucket = None
+_provider = 'local'
+_cloudinary_ready = False
 
 
 def init_storage(app):
-    """Initialise Firebase Storage bucket."""
-    global _bucket
-    creds_path = app.config.get('FIREBASE_CREDENTIALS_PATH', '')
-    bucket_name = app.config.get('FIREBASE_STORAGE_BUCKET', '')
+    """Initialise the configured scan media storage backend."""
+    global _provider, _cloudinary_ready
 
-    if creds_path and bucket_name and os.path.exists(creds_path):
-        try:
-            import firebase_admin
-            from firebase_admin import credentials, storage
-            if not firebase_admin._apps:
-                cred = credentials.Certificate(creds_path)
-                firebase_admin.initialize_app(cred, {'storageBucket': bucket_name})
-            _bucket = storage.bucket()
-            app.logger.info(f'Firebase Storage initialised with bucket: {_bucket.name}')
-        except Exception as e:
-            app.logger.warning(f'Firebase init failed: {e}. Using local storage.')
-            _bucket = None
-    else:
-        app.logger.info('Firebase not configured. Using local file storage.')
+    _provider = (app.config.get('MEDIA_STORAGE_PROVIDER', 'local') or 'local').strip().lower()
+    _cloudinary_ready = False
+
+    if _provider == 'cloudinary':
+        cloud_name = app.config.get('CLOUDINARY_CLOUD_NAME', '')
+        api_key = app.config.get('CLOUDINARY_API_KEY', '')
+        api_secret = app.config.get('CLOUDINARY_API_SECRET', '')
+        if not (cloud_name and api_key and api_secret):
+            app.logger.warning(
+                'Cloudinary storage is selected but credentials are incomplete. '
+                'Scan uploads will fail until CLOUDINARY_* vars are set.',
+            )
+            return
+
+        cloudinary.config(
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True,
+        )
+        _cloudinary_ready = True
+        app.logger.info('Cloudinary scan storage initialized for cloud=%s', cloud_name)
+        return
+
+    os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
+    app.logger.info(
+        'Local scan media storage enabled at %s',
+        app.config.get('UPLOAD_FOLDER', 'uploads'),
+    )
 
 
-def is_firebase_ready() -> bool:
-    """Return True when Firebase Storage is configured and initialized."""
-    return _bucket is not None
+def uses_local_storage() -> bool:
+    return _provider == 'local'
+
+
+def get_storage_backend() -> str:
+    return _provider
+
+
+def is_cloudinary_ready() -> bool:
+    return _provider == 'cloudinary' and _cloudinary_ready
+
+
+def get_storage_status() -> dict:
+    """Expose runtime media-storage state for health checks."""
+    ready = uses_local_storage() or is_cloudinary_ready()
+    return {
+        'provider': _provider,
+        'ready': ready,
+        'cloudinary_ready': is_cloudinary_ready(),
+        'local_storage_enabled': uses_local_storage(),
+    }
 
 
 def upload_image(file_obj, filename: str = None) -> str:
-    """Upload an image file. Returns the public/local URL.
-
-    - If Firebase is configured â†’ uploads to Firebase Storage.
-    - Else â†’ saves to local uploads/ folder.
-    """
-    if filename is None:
-        ext = _get_extension(file_obj.filename) or 'jpg'
-        filename = f'scans/{uuid.uuid4().hex}.{ext}'
-
-    if _bucket:
-        try:
-            if hasattr(file_obj, 'stream'):
-                file_obj.stream.seek(0)
-            blob = _bucket.blob(filename)
-            blob.upload_from_file(file_obj, content_type=file_obj.content_type)
-            blob.make_public()
-            logger.info(f'Uploaded to Firebase: {blob.public_url}')
-            return blob.public_url
-        except Exception as e:
-            logger.warning(f'Firebase image upload failed: {e}. Falling back to local storage.')
-
-    return _save_locally(file_obj, default_ext='jpg')
-
-
-def delete_image(url: str) -> bool:
-    """Delete an image by URL."""
-    if _bucket and url.startswith('http'):
-        try:
-            # Extract blob name from URL
-            blob_name = url.split(f'{_bucket.name}/')[-1]
-            _bucket.blob(blob_name).delete()
-            return True
-        except Exception as e:
-            logger.warning(f'Failed to delete from Firebase: {e}')
-            return False
-    else:
-        # Local delete
-        if url.startswith('/uploads/'):
-            path = os.path.join(current_app.config.get('UPLOAD_FOLDER', 'uploads'), url.split('/')[-1])
-            if os.path.exists(path):
-                os.remove(path)
-                return True
-    return False
+    """Upload an image file and return the public URL/path."""
+    return _upload_media(
+        file_obj,
+        folder='agrilens/scans/images',
+        default_ext='jpg',
+        resource_type='image',
+        filename=filename,
+    )
 
 
 def upload_video(file_obj, filename: str = None) -> str:
-    """Upload a video file. Returns the public/local URL.
+    """Upload a video file and return the public URL/path."""
+    return _upload_media(
+        file_obj,
+        folder='agrilens/scans/videos',
+        default_ext='mp4',
+        resource_type='video',
+        filename=filename,
+    )
 
-    - If Firebase is configured -> uploads to Firebase Storage.
-    - Else -> saves to local uploads/ folder.
-    """
-    if filename is None:
-        ext = _get_extension(file_obj.filename) or 'mp4'
-        filename = f'videos/{uuid.uuid4().hex}.{ext}'
 
-    if _bucket:
-        try:
-            if hasattr(file_obj, 'stream'):
-                file_obj.stream.seek(0)
-            blob = _bucket.blob(filename)
-            blob.upload_from_file(file_obj, content_type=file_obj.content_type)
-            blob.make_public()
-            logger.info(f'Uploaded video to Firebase: {blob.public_url}')
-            return blob.public_url
-        except Exception as e:
-            logger.warning(f'Firebase video upload failed: {e}. Falling back to local storage.')
+def delete_image(url: str) -> bool:
+    """Delete stored media by URL/path."""
+    if not url:
+        return False
 
-    return _save_locally(file_obj, default_ext='mp4')
+    if url.startswith('/uploads/'):
+        path = resolve_local_path(url)
+        if path and os.path.exists(path):
+            os.remove(path)
+            return True
+        return False
+
+    if _provider != 'cloudinary' or not _cloudinary_ready:
+        return False
+
+    public_id, resource_type = _cloudinary_public_id(url)
+    if not public_id:
+        return False
+
+    try:
+        result = cloudinary.uploader.destroy(
+            public_id,
+            resource_type=resource_type,
+            invalidate=True,
+        )
+        return result.get('result') in {'ok', 'not found'}
+    except Exception as exc:  # pragma: no cover - runtime safety
+        logger.warning('Failed to delete Cloudinary media %s: %s', url, exc)
+        return False
 
 
 def resolve_local_path(url: str) -> str | None:
@@ -124,6 +143,61 @@ def _get_extension(filename: str) -> str:
     return ''
 
 
+def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, filename: str = None) -> str:
+    if uses_local_storage():
+        return _save_locally(file_obj, default_ext=default_ext)
+
+    if not _cloudinary_ready:
+        raise RuntimeError('Cloudinary storage is not ready')
+
+    ext = _get_extension(getattr(file_obj, 'filename', '')) or default_ext
+    if filename:
+        public_id = os.path.splitext(filename.replace('\\', '/'))[0]
+    else:
+        public_id = f'{folder}/{uuid.uuid4().hex}'
+
+    stream = getattr(file_obj, 'stream', file_obj)
+    if hasattr(stream, 'seek'):
+        stream.seek(0)
+
+    try:
+        result = cloudinary.uploader.upload(
+            stream,
+            public_id=public_id,
+            resource_type=resource_type,
+            overwrite=False,
+            format=ext,
+            folder=None,
+        )
+    except Exception as exc:  # pragma: no cover - runtime safety
+        logger.warning('Cloudinary %s upload failed: %s', resource_type, exc)
+        raise
+
+    url = result.get('secure_url') or result.get('url')
+    if not url:
+        raise RuntimeError('Cloudinary upload did not return a public URL')
+    logger.info('Uploaded %s media to Cloudinary: %s', resource_type, url)
+    return url
+
+
+def _cloudinary_public_id(url: str) -> tuple[str | None, str]:
+    parsed = urlparse(url)
+    parts = [part for part in parsed.path.split('/') if part]
+    if 'upload' not in parts:
+        return None, 'image'
+
+    upload_index = parts.index('upload')
+    resource_type = parts[upload_index - 1] if upload_index >= 1 else 'image'
+    remainder = parts[upload_index + 1:]
+    if remainder and re.fullmatch(r'v\d+', remainder[0]):
+        remainder = remainder[1:]
+    if not remainder:
+        return None, resource_type
+
+    remainder[-1] = os.path.splitext(remainder[-1])[0]
+    return '/'.join(remainder), resource_type
+
+
 def _save_locally(file_obj, default_ext: str) -> str:
     """Persist an uploaded file to the local uploads directory."""
     upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
@@ -133,5 +207,5 @@ def _save_locally(file_obj, default_ext: str) -> str:
     if hasattr(file_obj, 'stream'):
         file_obj.stream.seek(0)
     file_obj.save(path)
-    logger.info(f'Saved locally: {path}')
+    logger.info('Saved locally: %s', path)
     return f'/uploads/{local_name}'
