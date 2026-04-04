@@ -27,7 +27,11 @@ class Config:
     # â”€â”€ Firebase Storage â”€â”€
     FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '')
     FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', '')
-    FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', '')
+
+    # ── Cloudinary ──
+    CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME', '')
+    CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY', '')
+    CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET', '')
 
     # â”€â”€ Uploads â”€â”€
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
