@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'dart:developer';
-
 import 'package:firebase_messaging/firebase_messaging.dart';
-
+import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 
 class PushNotificationsService {
   PushNotificationsService._();
-
   static final PushNotificationsService instance = PushNotificationsService._();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
@@ -16,15 +14,12 @@ class PushNotificationsService {
   bool _initialized = false;
 
   Future<void> initialize() async {
-    if (_initialized) {
-      return;
-    }
+    if (_initialized) return;
+    if (kIsWeb) return;  // skip on web
     _initialized = true;
-
     _tokenRefreshSub = _messaging.onTokenRefresh.listen((token) {
       unawaited(_registerToken(token));
     });
-
     FirebaseMessaging.onMessage.listen((message) {
       log(
         'FCM foreground message: ${message.notification?.title} ${message.notification?.body}',
@@ -34,19 +29,17 @@ class PushNotificationsService {
   }
 
   Future<void> registerCurrentDevice() async {
+    if (kIsWeb) return;  // skip on web
     await _messaging.requestPermission(alert: true, badge: true, sound: true);
     final token = await _messaging.getToken();
-    if (token == null || token.isEmpty) {
-      return;
-    }
+    if (token == null || token.isEmpty) return;
     await _registerToken(token);
   }
 
   Future<void> unregisterCurrentDevice() async {
+    if (kIsWeb) return;  // skip on web
     final token = await _messaging.getToken();
-    if (token == null || token.isEmpty) {
-      return;
-    }
+    if (token == null || token.isEmpty) return;
     try {
       await _apiClient.delete(
         '/api/notifications/device-token',
