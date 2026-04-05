@@ -129,7 +129,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildPage(
-      BuildContext context, _OnboardingPage page, LanguageProvider lang) {
+    BuildContext context,
+    _OnboardingPage page,
+    LanguageProvider lang,
+  ) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -141,20 +144,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             color: AppColors.primaryLight,
             shape: BoxShape.circle,
           ),
-          child: Icon(
-            page.icon,
-            size: 80,
-            color: AppColors.primary,
-          ),
+          child: Icon(page.icon, size: 80, color: AppColors.primary),
         ),
         const SizedBox(height: 40),
         Text(
           lang.t(page.titleKey),
           textAlign: TextAlign.center,
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                color: AppColors.primaryDark,
-                fontWeight: FontWeight.w600,
-              ),
+            color: AppColors.primaryDark,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 16),
         Padding(
@@ -163,9 +162,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             lang.t(page.descKey),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: AppColors.textPrimary,
-                  height: 1.5,
-                ),
+              color: AppColors.textPrimary,
+              height: 1.5,
+            ),
           ),
         ),
       ],

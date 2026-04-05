@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:agrilens/core/theme.dart';
+
+import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 
@@ -13,298 +18,599 @@ class CameraScanScreen extends StatefulWidget {
   State<CameraScanScreen> createState() => _CameraScanScreenState();
 }
 
-class _CameraScanScreenState extends State<CameraScanScreen> {
+class _CameraScanScreenState extends State<CameraScanScreen>
+    with WidgetsBindingObserver {
   final ImagePicker _picker = ImagePicker();
-  bool _scanning = false;
-  XFile? _capturedImage;
 
-  Future<void> _captureFromCamera() async {
+  CameraController? _cameraController;
+  List<CameraDescription> _cameras = const [];
+  int _selectedCameraIndex = 0;
+
+  bool _scanning = false;
+  bool _showCropSelection = true;
+  bool _isCameraLoading = true;
+  bool _isRecording = false;
+  String _captureMode = 'photo';
+  String? _cameraError;
+  int _recordingTime = 0;
+  Timer? _timer;
+
+  bool get _cameraReady =>
+      _cameraController != null && _cameraController!.value.isInitialized;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    final crop = context.read<CropProvider>();
+    if (crop.hasCropSelected) {
+      _showCropSelection = false;
+    }
+    unawaited(_initializeCamera());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _cameraController;
+    if (controller == null) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      unawaited(controller.dispose());
+      _cameraController = null;
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed && !_scanning) {
+      unawaited(_initializeCamera(cameraIndex: _selectedCameraIndex));
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _timer?.cancel();
+    unawaited(_cameraController?.dispose());
+    super.dispose();
+  }
+
+  Future<void> _initializeCamera({int? cameraIndex}) async {
+    setState(() {
+      _isCameraLoading = true;
+      _cameraError = null;
+    });
+
     try {
-      final XFile? photo = await _picker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1080,
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        throw StateError('No camera was found on this device.');
+      }
+
+      _cameras = cameras;
+      final preferredIndex = cameraIndex ?? _findBackCameraIndex(cameras);
+      _selectedCameraIndex = preferredIndex < 0
+          ? 0
+          : (preferredIndex >= cameras.length
+                ? cameras.length - 1
+                : preferredIndex);
+
+      final nextController = CameraController(
+        cameras[_selectedCameraIndex],
+        ResolutionPreset.high,
+        enableAudio: false,
       );
-      
-      if (photo != null) {
-        setState(() {
-          _capturedImage = photo;
-          _scanning = true;
-        });
-        
-        // Save scan to history provider
-        if (mounted) {
-          context.read<ScanHistoryProvider>().addScan(imagePath: photo.path);
-        }
-        
-        await Future.delayed(const Duration(seconds: 2));
-        
-        if (mounted) {
-          context.push('/scan-result', extra: {'imagePath': photo.path});
-        }
+      await nextController.initialize();
+
+      final previousController = _cameraController;
+      _cameraController = nextController;
+      await previousController?.dispose();
+
+      if (!mounted) {
+        return;
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to capture image: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        setState(() {
-          _scanning = false;
-        });
+
+      setState(() {
+        _isCameraLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
       }
+      setState(() {
+        _cameraError = error.toString();
+        _isCameraLoading = false;
+      });
+    }
+  }
+
+  int _findBackCameraIndex(List<CameraDescription> cameras) {
+    final backIndex = cameras.indexWhere(
+      (camera) => camera.lensDirection == CameraLensDirection.back,
+    );
+    return backIndex >= 0 ? backIndex : 0;
+  }
+
+  String _formatTime(int seconds) {
+    final mins = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$mins:${secs.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _handleCapture() async {
+    if (_scanning) {
+      return;
+    }
+
+    final crop = context.read<CropProvider>();
+    if (!crop.hasCropSelected) {
+      setState(() => _showCropSelection = true);
+      return;
+    }
+
+    if (!_cameraReady) {
+      _showError('Camera is still loading. Please wait a moment.');
+      return;
+    }
+
+    if (_captureMode == 'photo') {
+      await _capturePhoto();
+      return;
+    }
+
+    if (_isRecording) {
+      await _stopVideoRecording();
+    } else {
+      await _startVideoRecording();
+    }
+  }
+
+  Future<void> _capturePhoto() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    try {
+      final photo = await controller.takePicture();
+      await _submitScan(File(photo.path));
+    } catch (error) {
+      _showError('Failed to capture photo: $error');
     }
   }
 
   Future<void> _pickFromGallery() async {
+    if (_scanning) {
+      return;
+    }
+
+    final crop = context.read<CropProvider>();
+    if (!crop.hasCropSelected) {
+      setState(() => _showCropSelection = true);
+      return;
+    }
+
     try {
-      final XFile? image = await _picker.pickImage(
+      if (_captureMode == 'photo') {
+        final photo = await _picker.pickImage(source: ImageSource.gallery);
+        if (photo != null) {
+          await _submitScan(File(photo.path));
+        }
+        return;
+      }
+
+      final video = await _picker.pickVideo(
         source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 1920,
-        maxHeight: 1080,
+        maxDuration: const Duration(seconds: 30),
       );
-      
-      if (image != null) {
-        setState(() {
-          _capturedImage = image;
-          _scanning = true;
-        });
-        
-        // Save scan to history provider
-        if (mounted) {
-          context.read<ScanHistoryProvider>().addScan(imagePath: image.path);
-        }
-        
-        await Future.delayed(const Duration(seconds: 2));
-        
-        if (mounted) {
-          context.push('/scan-result', extra: {'imagePath': image.path});
-        }
+      if (video != null) {
+        await _submitVideo(File(video.path));
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to pick image: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-        setState(() {
-          _scanning = false;
-        });
-      }
+    } catch (error) {
+      _showError('Failed to open gallery: $error');
     }
   }
 
-  void _handleCapture() {
-    _captureFromCamera();
+  Future<void> _startVideoRecording() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isInitialized) {
+      return;
+    }
+
+    try {
+      await controller.startVideoRecording();
+      _timer?.cancel();
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        if (_recordingTime >= 29) {
+          timer.cancel();
+          unawaited(_stopVideoRecording());
+          return;
+        }
+        setState(() => _recordingTime += 1);
+      });
+      setState(() {
+        _isRecording = true;
+        _recordingTime = 0;
+      });
+    } catch (error) {
+      _showError('Failed to start video recording: $error');
+    }
+  }
+
+  Future<void> _stopVideoRecording() async {
+    final controller = _cameraController;
+    if (controller == null || !controller.value.isRecordingVideo) {
+      return;
+    }
+
+    try {
+      final video = await controller.stopVideoRecording();
+      _timer?.cancel();
+      setState(() {
+        _isRecording = false;
+        _recordingTime = 0;
+      });
+      await _submitVideo(File(video.path));
+    } catch (error) {
+      _timer?.cancel();
+      setState(() {
+        _isRecording = false;
+        _recordingTime = 0;
+      });
+      _showError('Failed to stop video recording: $error');
+    }
+  }
+
+  Future<void> _switchCamera() async {
+    if (_cameras.length < 2 || _scanning || _isRecording) {
+      return;
+    }
+    final nextIndex = (_selectedCameraIndex + 1) % _cameras.length;
+    await _initializeCamera(cameraIndex: nextIndex);
+  }
+
+  Future<void> _submitScan(File imageFile) async {
+    setState(() => _scanning = true);
+    final crop = context.read<CropProvider>();
+    final scanProvider = context.read<ScanHistoryProvider>();
+    final result = await scanProvider.submitScan(
+      imageFile: imageFile,
+      cropType: crop.selectedCrop,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _scanning = false);
+    if (result != null) {
+      context.push('/scan-result', extra: result);
+    } else {
+      _showError(scanProvider.errorMessage ?? 'Scan failed');
+    }
+  }
+
+  Future<void> _submitVideo(File videoFile) async {
+    setState(() => _scanning = true);
+    final crop = context.read<CropProvider>();
+    final scanProvider = context.read<ScanHistoryProvider>();
+    final result = await scanProvider.submitVideoScan(
+      videoFile: videoFile,
+      cropType: crop.selectedCrop,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() => _scanning = false);
+    if (result != null) {
+      context.push('/scan-result', extra: result);
+    } else {
+      _showError(scanProvider.errorMessage ?? 'Video upload failed');
+    }
+  }
+
+  void _showError(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFF44336),
+      ),
+    );
+  }
+
+  Widget _buildPreview(LanguageProvider lang) {
+    if (_cameraError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.camera_alt_outlined,
+                color: Colors.white70,
+                size: 56,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _cameraError!,
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isCameraLoading || !_cameraReady) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Color(0xFF4CAF50)),
+            const SizedBox(height: 16),
+            Text(
+              lang.t('common.loading'),
+              style: const TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final controller = _cameraController!;
+    final previewSize = controller.value.previewSize;
+    if (previewSize == null) {
+      return const SizedBox.shrink();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: previewSize.height,
+            height: previewSize.width,
+            child: CameraPreview(controller),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final crop = context.watch<CropProvider>();
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Container(
-            width: MediaQuery.of(context).size.width,
-            height: MediaQuery.of(context).size.height,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  AppColors.primaryDark.withValues(alpha: 0.3),
-                  Colors.black.withValues(alpha: 0.8),
-                ],
+          Center(
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.88,
+              height: MediaQuery.of(context).size.width * 0.88 * 4 / 3,
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFF4CAF50), width: 4),
+                borderRadius: BorderRadius.circular(24),
               ),
-            ),
-            child: _scanning
-                ? Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const CircularProgressIndicator(
-                        color: AppColors.primary,
-                        strokeWidth: 4,
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        lang.t('scan.analyzing'),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  )
-                : Center(
-                    child: Container(
-                      width: MediaQuery.of(context).size.width * 0.85,
-                      height: MediaQuery.of(context).size.width * 1.1,
-                      decoration: BoxDecoration(
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.6),
-                          width: 3,
-                        ),
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(21),
-                        child: Stack(
-                          children: [
-                            Positioned.fill(
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      Colors.black.withValues(alpha: 0.3),
-                                      Colors.transparent,
-                                      Colors.black.withValues(alpha: 0.2),
-                                    ],
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildPreview(lang),
+                  if (_isRecording)
+                    Positioned(
+                      top: 16,
+                      left: 16,
+                      right: 16,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.red[600],
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    shape: BoxShape.circle,
                                   ),
                                 ),
-                              ),
-                            ),
-                            Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.camera_alt_outlined,
-                                    size: 64,
-                                    color: Colors.white.withValues(alpha: 0.5),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'REC',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
                                   ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    lang.t('scan.instruction'),
-                                    style: TextStyle(
-                                      color: Colors.white.withValues(alpha: 0.7),
-                                      fontSize: 14,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.7),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Text(
+                              _formatTime(_recordingTime),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                            Positioned(
-                              top: 16,
-                              left: 16,
-                              right: 16,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _buildScanCorner(Alignment.topLeft),
-                                  _buildScanCorner(Alignment.topRight),
-                                ],
-                              ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (_scanning)
+                    Container(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      child: Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.bolt_rounded,
+                              color: Color(0xFF4CAF50),
+                              size: 64,
                             ),
-                            Positioned(
-                              bottom: 16,
-                              left: 16,
-                              right: 16,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  _buildScanCorner(Alignment.bottomLeft),
-                                  _buildScanCorner(Alignment.bottomRight),
-                                ],
+                            const SizedBox(height: 16),
+                            Text(
+                              lang.t('scan.analyzing'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ),
-          ),
-
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: GestureDetector(
-                onTap: () => context.go('/home'),
-                child: Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.3),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 24,
-                  ),
-                ),
+                ],
               ),
             ),
           ),
-
           Positioned(
-            top: MediaQuery.of(context).padding.top + 60,
-            left: 0,
-            right: 0,
-            child: Center(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 24,
+            child: GestureDetector(
+              onTap: () => context.go('/home'),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(20),
+                  shape: BoxShape.circle,
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.bolt_rounded,
-                      color: AppColors.primary,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'AI Detection',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
+                child: const Icon(Icons.close, color: Colors.white, size: 28),
               ),
             ),
           ),
-
+          if (_showCropSelection)
+            Container(
+              color: Colors.black.withValues(alpha: 0.9),
+              child: Center(
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        lang.t('scan.selectCrop'),
+                        style: const TextStyle(
+                          color: Color(0xFF2E7D32),
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        lang.t('scan.selectCropDesc'),
+                        style: const TextStyle(
+                          color: Color(0xFF757575),
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                      GridView.count(
+                        shrinkWrap: true,
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 16,
+                        crossAxisSpacing: 16,
+                        childAspectRatio: 1.1,
+                        physics: const NeverScrollableScrollPhysics(),
+                        children: CropProvider.crops.map((cropInfo) {
+                          return GestureDetector(
+                            onTap: () {
+                              crop.selectCrop(cropInfo.value);
+                              setState(() => _showCropSelection = false);
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF5F5F5),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: crop.selectedCrop == cropInfo.value
+                                      ? const Color(0xFF4CAF50)
+                                      : const Color(0xFFE0E0E0),
+                                  width: 3,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    cropInfo.emoji,
+                                    style: const TextStyle(fontSize: 48),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    lang.isRTL
+                                        ? cropInfo.labelAr
+                                        : cropInfo.labelEn,
+                                    style: const TextStyle(
+                                      color: Color(0xFF424242),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           Positioned(
+            bottom: 0,
             left: 0,
             right: 0,
-            bottom: 0,
             child: Container(
-              padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                top: 32,
-                bottom: MediaQuery.of(context).padding.bottom + 32,
+              padding: EdgeInsets.fromLTRB(
+                24,
+                24,
+                24,
+                MediaQuery.of(context).padding.bottom + 24,
               ),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.9),
-                    Colors.black.withValues(alpha: 0.6),
+                    Colors.black.withValues(alpha: 0.82),
                     Colors.transparent,
                   ],
                 ),
@@ -312,84 +618,152 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    lang.t('scan.instruction'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                  if (crop.hasCropSelected && !_showCropSelection)
+                    GestureDetector(
+                      onTap: () => setState(() => _showCropSelection = true),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4CAF50),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              crop.selectedCropInfo?.emoji ?? '',
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              lang.isRTL
+                                  ? (crop.selectedCropInfo?.labelAr ?? '')
+                                  : (crop.selectedCropInfo?.labelEn ?? ''),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                              size: 20,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _ModeChip(
+                        label: lang.t('scan.photoMode'),
+                        icon: Icons.photo_camera_rounded,
+                        selected: _captureMode == 'photo',
+                        onTap: () {
+                          setState(() {
+                            _captureMode = 'photo';
+                            _isRecording = false;
+                            _recordingTime = 0;
+                            _timer?.cancel();
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      _ModeChip(
+                        label: lang.t('scan.videoMode'),
+                        icon: Icons.videocam_rounded,
+                        selected: _captureMode == 'video',
+                        onTap: () {
+                          setState(() {
+                            _captureMode = 'video';
+                            _isRecording = false;
+                            _recordingTime = 0;
+                            _timer?.cancel();
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _captureMode == 'photo'
+                        ? lang.t('scan.instruction')
+                        : lang.t('scan.videoInstruction'),
+                    style: const TextStyle(color: Colors.white, fontSize: 18),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    lang.t('scan.tip1'),
+                    _captureMode == 'photo'
+                        ? lang.t('scan.tip1')
+                        : lang.t('scan.videoTip'),
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 14,
+                      fontSize: 16,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      GestureDetector(
-                        onTap: _scanning ? null : _pickFromGallery,
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.3),
-                              width: 1,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.image_rounded,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
+                      _RoundActionButton(
+                        icon: Icons.photo_library_rounded,
+                        label: lang.t('scan.gallery'),
+                        onTap: () => unawaited(_pickFromGallery()),
                       ),
-                      const SizedBox(width: 32),
+                      const SizedBox(width: 24),
                       GestureDetector(
-                        onTap: _scanning ? null : _handleCapture,
+                        onTap: () => unawaited(_handleCapture()),
                         child: Container(
-                          width: 80,
-                          height: 80,
+                          width: 84,
+                          height: 84,
                           decoration: BoxDecoration(
-                            color: _scanning
-                                ? AppColors.primary.withValues(alpha: 0.5)
-                                : AppColors.primary,
+                            color: _isRecording
+                                ? Colors.red[600]
+                                : (_scanning
+                                      ? const Color(
+                                          0xFF4CAF50,
+                                        ).withValues(alpha: 0.5)
+                                      : const Color(0xFF4CAF50)),
                             shape: BoxShape.circle,
                             border: Border.all(color: Colors.white, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primary.withValues(alpha: 0.4),
-                                blurRadius: 20,
-                                spreadRadius: 2,
+                                color:
+                                    (_isRecording
+                                            ? Colors.red
+                                            : const Color(0xFF4CAF50))
+                                        .withValues(alpha: 0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
                               ),
                             ],
                           ),
-                          child: _scanning
-                              ? const Padding(
-                                  padding: EdgeInsets.all(20),
-                                  child: CircularProgressIndicator(
-                                    color: Colors.white,
-                                    strokeWidth: 3,
-                                  ),
-                                )
-                              : const Icon(
-                                  Icons.camera_alt_rounded,
-                                  color: Colors.white,
-                                  size: 40,
-                                ),
+                          child: Icon(
+                            _captureMode == 'photo'
+                                ? Icons.camera_alt_rounded
+                                : (_isRecording
+                                      ? Icons.stop_circle_rounded
+                                      : Icons.videocam_rounded),
+                            color: Colors.white,
+                            size: 40,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 32),
-                      const SizedBox(width: 56, height: 56),
+                      const SizedBox(width: 24),
+                      _RoundActionButton(
+                        icon: Icons.cameraswitch_rounded,
+                        label: '',
+                        onTap: () => unawaited(_switchCamera()),
+                      ),
                     ],
                   ),
                 ],
@@ -400,29 +774,94 @@ class _CameraScanScreenState extends State<CameraScanScreen> {
       ),
     );
   }
+}
 
-  Widget _buildScanCorner(Alignment alignment) {
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(
-        border: Border(
-          top: alignment == Alignment.topLeft || alignment == Alignment.topRight
-              ? BorderSide(color: AppColors.primary, width: 3)
-              : BorderSide.none,
-          bottom:
-              alignment == Alignment.bottomLeft || alignment == Alignment.bottomRight
-                  ? BorderSide(color: AppColors.primary, width: 3)
-                  : BorderSide.none,
-          left: alignment == Alignment.topLeft || alignment == Alignment.bottomLeft
-              ? BorderSide(color: AppColors.primary, width: 3)
-              : BorderSide.none,
-          right:
-              alignment == Alignment.topRight || alignment == Alignment.bottomRight
-                  ? BorderSide(color: AppColors.primary, width: 3)
-                  : BorderSide.none,
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? const Color(0xFF4CAF50)
+              : Colors.white.withValues(alpha: 0.16),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: selected ? Colors.white : Colors.white24),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
+    );
+  }
+}
+
+class _RoundActionButton extends StatelessWidget {
+  const _RoundActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Icon(icon, color: Colors.white, size: 28),
+          ),
+        ),
+        if (label.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

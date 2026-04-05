@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -8,10 +9,14 @@ import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/core/notifications_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/weather_provider.dart';
+import 'package:agrilens/core/crop_provider.dart';
+import 'package:agrilens/core/push_notifications_service.dart';
 import 'package:agrilens/core/router.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  await PushNotificationsService.instance.initialize();
   runApp(const AgriLensApp());
 }
 
@@ -28,6 +33,7 @@ class AgriLensApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
         ChangeNotifierProvider(create: (_) => ScanHistoryProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
+        ChangeNotifierProvider(create: (_) => CropProvider()),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, lang, _) {
@@ -37,14 +43,16 @@ class AgriLensApp extends StatelessWidget {
             theme: AppTheme.lightTheme.copyWith(
               textTheme: lang.isRTL
                   ? GoogleFonts.notoSansArabicTextTheme(
-                      AppTheme.lightTheme.textTheme)
+                      AppTheme.lightTheme.textTheme,
+                    )
                   : GoogleFonts.interTextTheme(AppTheme.lightTheme.textTheme),
             ),
             routerConfig: appRouter,
             builder: (context, child) {
               return Directionality(
-                textDirection:
-                    lang.isRTL ? TextDirection.rtl : TextDirection.ltr,
+                textDirection: lang.isRTL
+                    ? TextDirection.rtl
+                    : TextDirection.ltr,
                 child: child!,
               );
             },

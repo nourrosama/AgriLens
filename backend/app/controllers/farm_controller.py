@@ -268,17 +268,53 @@ def add_field(farm_id):
         name,
         data.get('crop_type', ''),
         data.get('area_hectares', 0),
+        data.get('location'),
+        data.get('soil_type', ''),
+        data.get('irrigation_type', ''),
+        data.get('season', ''),
+        data.get('health_score', 0),
+        data.get('risk_level', 'low'),
     )
     cache.delete(f'farms:{str(g.current_user["_id"])}')
 
-    return success_response({
-        'field': {
-            'field_id': str(field['field_id']),
-            'name': field['name'],
-            'crop_type': field['crop_type'],
-            'area_hectares': field['area_hectares'],
-        }
-    }, 'Field added', 201)
+    return success_response({'field': farm_model.serialize_field(field)}, 'Field added', 201)
+
+
+@farm_bp.route('/api/farms/<farm_id>/fields/<field_id>', methods=['PUT'])
+@require_auth
+def update_field(farm_id, field_id):
+    """Update a field on a farm."""
+    if not is_valid_object_id(farm_id) or not is_valid_object_id(field_id):
+        return error_response('Invalid ID', 400)
+
+    farm = farm_model.get_farm_by_id(farm_id)
+    if not farm:
+        return error_response('Farm not found', 404)
+    if str(farm['owner_id']) != str(g.current_user['_id']):
+        return error_response('Forbidden', 403)
+
+    data = request.get_json(silent=True) or {}
+    allowed_keys = (
+        'name',
+        'crop_type',
+        'area_hectares',
+        'location',
+        'soil_type',
+        'irrigation_type',
+        'season',
+        'health_score',
+        'risk_level',
+    )
+    updates = {key: data[key] for key in allowed_keys if key in data}
+
+    if updates:
+        farm_model.update_field(farm_id, field_id, updates)
+        cache.delete(f'farms:{str(g.current_user["_id"])}')
+
+    field = farm_model.get_field(farm_id, field_id)
+    if field is None:
+        return error_response('Field not found', 404)
+    return success_response({'field': farm_model.serialize_field(field)}, 'Field updated')
 
 
 @farm_bp.route('/api/farms/<farm_id>/fields/<field_id>', methods=['DELETE'])

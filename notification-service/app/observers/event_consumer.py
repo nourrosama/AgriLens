@@ -56,7 +56,7 @@ def start_consumer(app):
 
 def _dispatch(routing_key: str, event: dict):
     """Route events to notification channels."""
-    from app.channels import push_channel, sms_channel
+    from app.channels import push_channel
 
     user_id = event.get('user_id', '')
     scan_id = event.get('scan_id', '')
@@ -65,13 +65,11 @@ def _dispatch(routing_key: str, event: dict):
         disease = event.get('disease', 'Unknown')
         severity = event.get('severity', 'unknown')
         message = f'⚠️ Disease detected: {disease} (severity: {severity})'
-        sms_channel.send(user_id, message)
         push_channel.send(user_id, 'Disease Alert', message)
 
     elif routing_key == 'risk.high':
         risk = event.get('risk_level', 'high')
         message = f'🚨 High risk alert! Risk level: {risk}. Check your crops immediately.'
-        sms_channel.send(user_id, message)
         push_channel.send(user_id, 'High Risk Alert', message)
 
     elif routing_key == 'scan.completed':

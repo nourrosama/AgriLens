@@ -1,20 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Notification data model
-class NotificationData {
-  final int id;
-  final String titleEn;
-  final String titleAr;
-  final String messageEn;
-  final String messageAr;
-  final String timeEn;
-  final String timeAr;
-  final IconData icon;
-  final Color color;
-  final Color bgColor;
-  bool isRead;
-  final DateTime createdAt;
+import 'api_client.dart';
 
+class NotificationData {
   NotificationData({
     required this.id,
     required this.titleEn,
@@ -29,107 +17,160 @@ class NotificationData {
     this.isRead = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
+
+  final String id;
+  final String titleEn;
+  final String titleAr;
+  final String messageEn;
+  final String messageAr;
+  final String timeEn;
+  final String timeAr;
+  final IconData icon;
+  final Color color;
+  final Color bgColor;
+  bool isRead;
+  final DateTime createdAt;
+
+  factory NotificationData.fromJson(Map<String, dynamic> json) {
+    final category = json['category']?.toString() ?? 'info';
+    final createdAt = DateTime.tryParse(json['created_at']?.toString() ?? '');
+    final title = json['title']?.toString() ?? 'Notification';
+    final message = json['message']?.toString() ?? '';
+    return NotificationData(
+      id: json['id']?.toString() ?? '',
+      titleEn: title,
+      titleAr: title,
+      messageEn: message,
+      messageAr: message,
+      timeEn: _timeLabel(createdAt, false),
+      timeAr: _timeLabel(createdAt, true),
+      icon: _iconFor(category),
+      color: _colorFor(category),
+      bgColor: _bgColorFor(category),
+      isRead: json['is_read'] == true,
+      createdAt: createdAt,
+    );
+  }
+
+  static String _timeLabel(DateTime? createdAt, bool arabic) {
+    if (createdAt == null) {
+      return arabic ? 'الآن' : 'Just now';
+    }
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inHours < 1) {
+      return arabic ? 'الآن' : 'Just now';
+    }
+    if (diff.inHours < 24) {
+      return arabic ? 'منذ ${diff.inHours} ساعة' : '${diff.inHours}h ago';
+    }
+    return arabic ? 'منذ ${diff.inDays} يوم' : '${diff.inDays}d ago';
+  }
+
+  static IconData _iconFor(String category) {
+    switch (category) {
+      case 'disease':
+        return Icons.eco;
+      case 'forecast':
+        return Icons.trending_up;
+      default:
+        return Icons.notifications_active;
+    }
+  }
+
+  static Color _colorFor(String category) {
+    switch (category) {
+      case 'disease':
+        return const Color(0xFFF44336);
+      case 'forecast':
+        return const Color(0xFFFFC107);
+      default:
+        return const Color(0xFF4CAF50);
+    }
+  }
+
+  static Color _bgColorFor(String category) {
+    switch (category) {
+      case 'disease':
+        return const Color(0xFFFFEBEE);
+      case 'forecast':
+        return const Color(0xFFFFF8E1);
+      default:
+        return const Color(0xFFE8F5E9);
+    }
+  }
 }
 
-/// Provider that manages notifications.
-/// Ready to connect to backend — see TODO comments for API integration points.
 class NotificationsProvider extends ChangeNotifier {
-  final List<NotificationData> _notifications = [
-    NotificationData(
-      id: 1,
-      titleEn: 'Moderate Risk Detected',
-      titleAr: 'تم اكتشاف خطر متوسط',
-      messageEn: 'Field B - North section showing early symptoms',
-      messageAr: 'الحقل ب - القسم الشمالي يظهر أعراض مبكرة',
-      timeEn: '2 hours ago',
-      timeAr: 'منذ ساعتين',
-      icon: Icons.warning_rounded,
-      color: const Color(0xFFFFC107),
-      bgColor: const Color(0xFFFFF3E0),
-      createdAt: DateTime.now().subtract(const Duration(hours: 2)),
-    ),
-    NotificationData(
-      id: 2,
-      titleEn: 'Risk Forecast Updated',
-      titleAr: 'تحديث توقعات الخطر',
-      messageEn: 'Disease risk will increase on Thursday',
-      messageAr: 'سيزداد خطر المرض يوم الخميس',
-      timeEn: '5 hours ago',
-      timeAr: 'منذ 5 ساعات',
-      icon: Icons.trending_up,
-      color: const Color(0xFF4CAF50),
-      bgColor: const Color(0xFFE8F5E9),
-      createdAt: DateTime.now().subtract(const Duration(hours: 5)),
-    ),
-    NotificationData(
-      id: 3,
-      titleEn: 'Weather Alert',
-      titleAr: 'تنبيه طقس',
-      messageEn: 'Heavy rain expected tomorrow',
-      messageAr: 'أمطار غزيرة متوقعة غداً',
-      timeEn: '1 day ago',
-      timeAr: 'منذ يوم',
-      icon: Icons.cloud,
-      color: const Color(0xFF2196F3),
-      bgColor: const Color(0xFFE3F2FD),
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    NotificationData(
-      id: 4,
-      titleEn: 'Treatment Completed',
-      titleAr: 'اكتمل العلاج',
-      messageEn: 'Field A treatment successfully applied',
-      messageAr: 'تم تطبيق علاج الحقل أ بنجاح',
-      timeEn: '2 days ago',
-      timeAr: 'منذ يومين',
-      icon: Icons.check_circle,
-      color: const Color(0xFF4CAF50),
-      bgColor: const Color(0xFFE8F5E9),
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    NotificationData(
-      id: 5,
-      titleEn: 'New Disease Detected',
-      titleAr: 'تم اكتشاف مرض جديد',
-      messageEn: 'Late blight found in Field C',
-      messageAr: 'تم العثور على اللفحة المتأخرة في الحقل ج',
-      timeEn: '3 days ago',
-      timeAr: 'منذ 3 أيام',
-      icon: Icons.eco,
-      color: const Color(0xFFF44336),
-      bgColor: const Color(0xFFFFEBEE),
-      createdAt: DateTime.now().subtract(const Duration(days: 3)),
-    ),
-  ];
+  NotificationsProvider({ApiClient? apiClient})
+    : _apiClient = apiClient ?? ApiClient() {
+    loadNotifications();
+  }
+
+  final ApiClient _apiClient;
+  final List<NotificationData> _notifications = [];
+  bool _isLoading = false;
+  String? _errorMessage;
 
   List<NotificationData> get notifications => List.unmodifiable(_notifications);
+  List<NotificationData> get todayNotifications => _notifications
+      .where((item) => DateTime.now().difference(item.createdAt).inDays < 1)
+      .toList();
+  List<NotificationData> get earlierNotifications => _notifications
+      .where((item) => DateTime.now().difference(item.createdAt).inDays >= 1)
+      .toList();
+  int get unreadCount => _notifications.where((item) => !item.isRead).length;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
 
-  List<NotificationData> get todayNotifications =>
-      _notifications.where((n) => DateTime.now().difference(n.createdAt).inDays < 1).toList();
-
-  List<NotificationData> get earlierNotifications =>
-      _notifications.where((n) => DateTime.now().difference(n.createdAt).inDays >= 1).toList();
-
-  int get unreadCount => _notifications.where((n) => !n.isRead).length;
-
-  /// TODO: Replace with API call to PUT /api/notifications/:id/read
-  void markAsRead(int id) {
-    final notif = _notifications.firstWhere((n) => n.id == id, orElse: () => _notifications.first);
-    notif.isRead = true;
-    notifyListeners();
-  }
-
-  /// TODO: Replace with API call to PUT /api/notifications/read-all
-  void markAllAsRead() {
-    for (final n in _notifications) {
-      n.isRead = true;
+  Future<void> loadNotifications() async {
+    _setLoading(true);
+    try {
+      final response = await _apiClient.get('/api/notifications', auth: true);
+      final items =
+          ((response['data'] as Map<String, dynamic>)['notifications']
+                      as List<dynamic>? ??
+                  [])
+              .cast<Map<String, dynamic>>();
+      _notifications
+        ..clear()
+        ..addAll(items.map(NotificationData.fromJson));
+      _errorMessage = null;
+    } catch (error) {
+      _errorMessage = error.toString();
+    } finally {
+      _setLoading(false);
     }
-    notifyListeners();
   }
 
-  /// TODO: Replace with API call to POST /api/notifications
-  void addNotification(NotificationData notification) {
-    _notifications.insert(0, notification);
+  Future<void> markAsRead(String id) async {
+    try {
+      await _apiClient.put('/api/notifications/$id/read', auth: true);
+      final index = _notifications.indexWhere((item) => item.id == id);
+      if (index != -1) {
+        _notifications[index].isRead = true;
+        notifyListeners();
+      }
+    } catch (error) {
+      _errorMessage = error.toString();
+      notifyListeners();
+    }
+  }
+
+  Future<void> markAllAsRead() async {
+    try {
+      await _apiClient.put('/api/notifications/read-all', auth: true);
+      for (final item in _notifications) {
+        item.isRead = true;
+      }
+      notifyListeners();
+    } catch (error) {
+      _errorMessage = error.toString();
+      notifyListeners();
+    }
+  }
+
+  void _setLoading(bool value) {
+    _isLoading = value;
     notifyListeners();
   }
 }

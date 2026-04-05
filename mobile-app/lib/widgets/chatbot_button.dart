@@ -1,37 +1,38 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:agrilens/core/theme.dart';
 
-/// Floating chatbot button — matches TSX design exactly:
-/// Simple green circle with chat icon, shadow, positioned bottom-right
 class ChatbotButton extends StatelessWidget {
   const ChatbotButton({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Positioned(
-      right: 24,
-      bottom: 96,
+      right: 20,
+      bottom: 90,
       child: GestureDetector(
         onTap: () => context.push('/chatbot'),
         child: Container(
-          width: 56,
-          height: 56,
+          width: 60,
+          height: 60,
           decoration: BoxDecoration(
-            color: AppColors.primary,
+            gradient: const LinearGradient(
+              colors: [Color(0xFF4CAF50), Color(0xFF2E7D32)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.4),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
             ],
           ),
           child: const Icon(
-            Icons.chat_rounded,
+            Icons.smart_toy_rounded,
             color: Colors.white,
-            size: 24,
+            size: 28,
           ),
         ),
       ),

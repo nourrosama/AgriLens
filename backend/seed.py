@@ -1,31 +1,37 @@
 """
-Seed script — populates MongoDB with sample data for development.
+Seed script -- populates MongoDB with sample data for development.
 Run: python seed.py
 """
 import os
 import sys
 from datetime import datetime, timezone
+
 from bson import ObjectId
-from pymongo import MongoClient
 from dotenv import load_dotenv
+from pymongo import MongoClient
+from pymongo.errors import ConfigurationError
 
 load_dotenv()
 
-MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/agrilens')
+MONGO_URI = os.getenv('MONGO_URI', '').strip()
+if not MONGO_URI:
+    raise RuntimeError('MONGO_URI is required. Set your Atlas connection string in backend/.env.')
+
 client = MongoClient(MONGO_URI)
-db = client.get_default_database()
+try:
+    db = client.get_default_database()
+except ConfigurationError:
+    db = client['agrilens']
 
 
 def seed():
-    print('🌱 Seeding AgriLens database...')
+    print('Seeding AgriLens database...')
 
-    # ── Clear existing data ───────────────────────────────────
     db.users.delete_many({})
     db.farms.delete_many({})
     db.scans.delete_many({})
     db.audit_logs.delete_many({})
 
-    # ── Demo User ─────────────────────────────────────────────
     user_id = ObjectId()
     db.users.insert_one({
         '_id': user_id,
@@ -37,110 +43,66 @@ def seed():
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
     })
-    print(f'  ✅ User created: +201234567890 (id: {user_id})')
+    print(f'User created: +201234567890 (id: {user_id})')
 
-    # ── Demo Farm ─────────────────────────────────────────────
     farm_id = ObjectId()
-    field_a_id = ObjectId()
-    field_b_id = ObjectId()
+    field_id = ObjectId()
     db.farms.insert_one({
         '_id': farm_id,
         'owner_id': user_id,
-        'name': 'المزرعة الرئيسية',
-        'location': {'lat': 30.0444, 'lng': 31.2357},
-        'fields': [
-            {
-                'field_id': field_a_id,
-                'name': 'الحقل أ',
-                'crop_type': 'tomato',
-                'area_hectares': 2.5,
-            },
-            {
-                'field_id': field_b_id,
-                'name': 'الحقل ب',
-                'crop_type': 'potato',
-                'area_hectares': 1.8,
-            },
-        ],
+        'name': 'Demo Farm',
+        'location': {'label': 'Giza', 'lat': 29.987, 'lng': 31.2118},
+        'fields': [{
+            'field_id': field_id,
+            'name': 'Tomato Field A',
+            'crop_type': 'tomato',
+            'location': {'label': 'North Plot', 'lat': 29.987, 'lng': 31.2118},
+            'area_hectares': 1.2,
+            'soil_type': 'loamy',
+            'irrigation_type': 'drip',
+            'season': 'spring',
+            'health_score': 82,
+            'risk_level': 'medium',
+        }],
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
     })
-    db.users.update_one({'_id': user_id}, {'$push': {'farms': farm_id}})
-    print(f'  ✅ Farm created: المزرعة الرئيسية (id: {farm_id})')
+    print(f'Farm created: Demo Farm (id: {farm_id})')
 
-    # ── Demo Scans ────────────────────────────────────────────
-    scan1_id = ObjectId()
     db.scans.insert_one({
-        '_id': scan1_id,
         'user_id': user_id,
         'farm_id': farm_id,
-        'field_id': field_a_id,
-        'image_url': '/uploads/sample_tomato_leaf.jpg',
+        'field_id': field_id,
+        'media_url': '/uploads/demo-tomato.jpg',
+        'image_url': '/uploads/demo-tomato.jpg',
+        'storage_backend': 'local',
         'scan_type': 'image',
+        'crop_type': 'tomato',
+        'media_type': 'image',
         'status': 'completed',
         'detection_result': {
-            'disease': 'Tomato___Early_blight',
-            'confidence': 0.92,
+            'crop_type': 'tomato',
+            'disease': 'Early blight',
+            'scientific_name': 'Alternaria solani',
+            'confidence': 0.91,
             'severity': 'medium',
             'is_healthy': False,
-            'bbox': [45, 60, 210, 190],
             'risk_level': 'medium',
-            'recommendation': 'Apply copper-based fungicide within 72 hours',
-            'model_version': 'v1.0.0',
+            'recommendation': 'Remove affected leaves and monitor humidity closely.',
+            'model_version': 'demo-seed',
         },
-        'device_info': {
-            'device_type': 'mobile',
-            'app_version': '1.0.0',
-        },
-        'created_at': datetime.now(timezone.utc),
-    })
-
-    scan2_id = ObjectId()
-    db.scans.insert_one({
-        '_id': scan2_id,
-        'user_id': user_id,
-        'farm_id': farm_id,
-        'field_id': field_b_id,
-        'image_url': '/uploads/sample_healthy_leaf.jpg',
-        'scan_type': 'image',
-        'status': 'completed',
-        'detection_result': {
-            'disease': 'Tomato___healthy',
-            'confidence': 0.98,
-            'severity': 'none',
-            'is_healthy': True,
-            'bbox': [30, 40, 200, 180],
-            'risk_level': 'low',
-            'recommendation': 'No action needed — plant is healthy',
-            'model_version': 'v1.0.0',
-        },
-        'device_info': {
-            'device_type': 'mobile',
-            'app_version': '1.0.0',
-        },
-        'created_at': datetime.now(timezone.utc),
-    })
-    print(f'  ✅ 2 scans created')
-
-    # ── Researcher user ───────────────────────────────────────
-    researcher_id = ObjectId()
-    db.users.insert_one({
-        '_id': researcher_id,
-        'phone': '+201098765432',
-        'name': 'Dr. Researcher',
-        'language': 'en',
-        'role': 'researcher',
-        'farms': [],
+        'device_info': {'device_type': 'seed', 'app_version': '1.0.0'},
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
     })
-    print(f'  ✅ Researcher user created: +201098765432')
+    print('Scan created')
 
-    print('\n🎉 Seed complete! Database ready for development.')
-    print(f'   Demo farmer phone: +201234567890')
-    print(f'   Demo researcher phone: +201098765432')
-    print(f'   Mock OTP code: 123456')
+    print(f'Seed completed in database: {db.name}')
 
 
 if __name__ == '__main__':
-    seed()
+    try:
+        seed()
+    except Exception as exc:
+        print(f'Seed failed: {exc}')
+        sys.exit(1)

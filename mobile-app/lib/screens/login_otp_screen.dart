@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
 
 /// OTP verification — 6-digit code entry
 class LoginOtpScreen extends StatefulWidget {
@@ -13,12 +14,13 @@ class LoginOtpScreen extends StatefulWidget {
 }
 
 class _LoginOtpScreenState extends State<LoginOtpScreen> {
-  final List<TextEditingController> _controllers =
-      List.generate(6, (_) => TextEditingController());
+  final List<TextEditingController> _controllers = List.generate(
+    6,
+    (_) => TextEditingController(),
+  );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
-  bool get _isComplete =>
-      _controllers.every((c) => c.text.isNotEmpty);
+  bool get _isComplete => _controllers.every((c) => c.text.isNotEmpty);
 
   @override
   void dispose() {
@@ -41,6 +43,7 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final userProvider = context.watch<UserProvider>();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -49,7 +52,8 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: MediaQuery.of(context).size.height -
+              minHeight:
+                  MediaQuery.of(context).size.height -
                   MediaQuery.of(context).padding.top -
                   MediaQuery.of(context).padding.bottom -
                   96,
@@ -74,16 +78,16 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
                   Text(
                     lang.t('login.otpTitle'),
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppColors.primaryDark,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${lang.t('login.otpSubtitle')} +20 1234567890',
+                    '${lang.t('login.otpSubtitle')} ${userProvider.pendingPhone ?? '+20'}',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.textPrimary,
-                        ),
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 40),
 
@@ -113,12 +117,16 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
                               enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                    color: AppColors.border, width: 2),
+                                  color: AppColors.border,
+                                  width: 2,
+                                ),
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
-                                    color: AppColors.primary, width: 2),
+                                  color: AppColors.primary,
+                                  width: 2,
+                                ),
                               ),
                             ),
                             onChanged: (v) => _onDigitChanged(i, v),
@@ -150,17 +158,45 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isComplete
-                          ? () => context.go('/login-success')
+                      onPressed: _isComplete && !userProvider.isLoading
+                          ? () async {
+                              final otp = _controllers
+                                  .map((controller) => controller.text)
+                                  .join();
+                              final messenger = ScaffoldMessenger.of(context);
+                              final ok = await context
+                                  .read<UserProvider>()
+                                  .verifyOtp(otp);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              if (ok) {
+                                context.go('/login-success');
+                              } else {
+                                messenger.showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      userProvider.errorMessage ??
+                                          'Verification failed',
+                                    ),
+                                    backgroundColor: AppColors.error,
+                                  ),
+                                );
+                              }
+                            }
                           : null,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor:
-                            _isComplete ? AppColors.primary : AppColors.border,
-                        foregroundColor:
-                            _isComplete ? Colors.white : AppColors.textSecondary,
+                        backgroundColor: _isComplete && !userProvider.isLoading
+                            ? AppColors.primary
+                            : AppColors.border,
+                        foregroundColor: _isComplete && !userProvider.isLoading
+                            ? Colors.white
+                            : AppColors.textSecondary,
                       ),
                       child: Text(
-                        lang.t('login.verify'),
+                        userProvider.isLoading
+                            ? lang.t('common.loading')
+                            : lang.t('login.verify'),
                         style: const TextStyle(fontSize: 20),
                       ),
                     ),

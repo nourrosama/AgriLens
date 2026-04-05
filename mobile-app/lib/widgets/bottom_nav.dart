@@ -1,91 +1,100 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
 
-/// Bottom navigation bar — Home, Fields, Reports, Profile
 class BottomNav extends StatelessWidget {
   final String active;
-
   const BottomNav({super.key, required this.active});
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
-
-    final items = [
-      _NavItem('home', Icons.home_rounded, lang.t('nav.home'), '/home'),
-      _NavItem('fields', Icons.eco_rounded, lang.t('nav.fields'), '/fields'),
-      _NavItem('reports', Icons.bar_chart_rounded, lang.t('nav.reports'), '/reports'),
-      _NavItem('profile', Icons.person_rounded, lang.t('nav.profile'), '/profile'),
-    ];
-
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: const Border(
-          top: BorderSide(color: AppColors.border),
-        ),
+        border: Border(top: BorderSide(color: const Color(0xFFE0E0E0))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, -2),
           ),
         ],
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: items.map((item) {
-              final isActive = item.id == active;
-              return GestureDetector(
-                onTap: () {
-                  if (!isActive) context.go(item.route);
-                },
-                child: SizedBox(
-                  width: 70,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        item.icon,
-                        size: 28,
-                        color: isActive
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isActive
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 8,
+        bottom: MediaQuery.of(context).padding.bottom + 8,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _NavItem(
+            icon: Icons.home_rounded,
+            label: lang.t('nav.home'),
+            isActive: active == 'home',
+            onTap: () => context.go('/home'),
           ),
-        ),
+          _NavItem(
+            icon: Icons.eco_rounded,
+            label: lang.t('nav.fields'),
+            isActive: active == 'fields',
+            onTap: () => context.go('/fields'),
+          ),
+          _NavItem(
+            icon: Icons.bar_chart_rounded,
+            label: lang.t('nav.reports'),
+            isActive: active == 'reports',
+            onTap: () => context.go('/reports'),
+          ),
+          _NavItem(
+            icon: Icons.person_rounded,
+            label: lang.t('nav.profile'),
+            isActive: active == 'profile',
+            onTap: () => context.go('/profile'),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _NavItem {
-  final String id;
+class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
-  final String route;
+  final bool isActive;
+  final VoidCallback onTap;
 
-  _NavItem(this.id, this.icon, this.label, this.route);
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isActive ? const Color(0xFF4CAF50) : const Color(0xFF9E9E9E);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 70,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 28, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11, color: color),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
