@@ -33,15 +33,31 @@ def _mongo_kwargs(uri: str) -> dict:
 def init_db(app):
     """Initialize MongoDB client from app config. Call once on startup."""
     global _client, _db
-    uri = app.config.get('MONGO_URI', 'mongodb://localhost:27017/agrilens')
-    _client = MongoClient(uri, **_mongo_kwargs(uri))
-    _db = _resolve_database(_client)
+    uri = (app.config.get('MONGO_URI', '') or '').strip()
+    if not uri:
+        app.logger.error('MONGO_URI is required. Atlas/local Mongo URI was not provided.')
+        _client = None
+        _db = None
+        return None
+
     try:
+        _client = MongoClient(uri, **_mongo_kwargs(uri))
         _client.admin.command('ping')
+        _db = _resolve_database(_client)
         app.logger.info('MongoDB connected to database: %s', _db.name)
     except Exception as exc:
         app.logger.warning('MongoDB not reachable: %s', exc)
+        _client = None
+        _db = None
     return _db
+
+
+def get_db_status() -> dict:
+    """Expose runtime MongoDB state for health checks."""
+    return {
+        'mongo_ready': _db is not None,
+        'database': getattr(_db, 'name', None),
+    }
 
 
 def get_db():

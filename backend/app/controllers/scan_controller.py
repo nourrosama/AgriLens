@@ -108,6 +108,7 @@ def upload_scan():
             if media_type == 'video'
             else storage_service.upload_image(file)
         )
+        storage_backend = storage_service.get_storage_backend()
     except Exception as exc:
         current_app.logger.exception('Failed to store uploaded scan media: %s', exc)
         return error_response('Unable to store the uploaded file right now. Please try again.', 503)
@@ -116,13 +117,16 @@ def upload_scan():
         user_id=user_id,
         farm_id=farm_id,
         field_id=field_id,
+        media_url=media_url,
         image_url=media_url,
+        storage_backend=storage_backend,
         scan_type=media_type,
         crop_type=crop_type,
         media_type=media_type,
         device_info=device_info,
     )
     scan_id = str(scan['_id'])
+    event_publisher.scan_created(scan_id, media_url)
 
     if media_type == 'video':
         scan_model.update_scan(scan_id, {'status': 'completed'})

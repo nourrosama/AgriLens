@@ -3,7 +3,9 @@ Scan model -- MongoDB CRUD for image/video scans and detection results.
 Status lifecycle: pending -> processing -> completed | failed | expired
 """
 from datetime import datetime, timezone
+
 from bson import ObjectId
+
 from app.models.db import scans_col
 
 VALID_STATUSES = ('pending', 'processing', 'completed', 'failed', 'expired')
@@ -13,7 +15,9 @@ def create_scan(
     user_id: str,
     farm_id: str = None,
     field_id: str = None,
+    media_url: str = '',
     image_url: str = '',
+    storage_backend: str = 'local',
     scan_type: str = 'image',
     crop_type: str = '',
     media_type: str = 'image',
@@ -24,7 +28,9 @@ def create_scan(
         'user_id': ObjectId(user_id),
         'farm_id': ObjectId(farm_id) if farm_id else None,
         'field_id': ObjectId(field_id) if field_id else None,
-        'image_url': image_url,
+        'media_url': media_url or image_url,
+        'image_url': image_url or media_url,
+        'storage_backend': storage_backend,
         'scan_type': scan_type,       # image | video
         'crop_type': crop_type,
         'media_type': media_type,     # image | video
@@ -118,14 +124,17 @@ def serialize(scan: dict) -> dict:
     if scan is None:
         return None
     det = scan.get('detection_result')
-    image_url = scan.get('image_url', '')
+    media_url = scan.get('media_url') or scan.get('image_url', '')
+    image_url = scan.get('image_url') or media_url
+    storage_backend = scan.get('storage_backend') or _infer_storage_backend(media_url)
     return {
         'id': str(scan['_id']),
         'user_id': str(scan.get('user_id', '')),
         'farm_id': str(scan['farm_id']) if scan.get('farm_id') else None,
         'field_id': str(scan['field_id']) if scan.get('field_id') else None,
+        'media_url': media_url,
         'image_url': image_url,
-        'storage_backend': 'firebase' if image_url.startswith('http') else 'local',
+        'storage_backend': storage_backend,
         'scan_type': scan.get('scan_type', 'image'),
         'crop_type': scan.get('crop_type', ''),
         'media_type': scan.get('media_type', 'image'),
@@ -135,3 +144,13 @@ def serialize(scan: dict) -> dict:
         'created_at': scan.get('created_at', '').isoformat() if scan.get('created_at') else None,
         'updated_at': scan.get('updated_at', '').isoformat() if scan.get('updated_at') else None,
     }
+
+
+def _infer_storage_backend(media_url: str) -> str:
+    if not media_url or media_url.startswith('/uploads/'):
+        return 'local'
+    if 'res.cloudinary.com' in media_url:
+        return 'cloudinary'
+    if media_url.startswith('http://') or media_url.startswith('https://'):
+        return 'remote'
+    return 'local'
