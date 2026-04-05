@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -18,6 +19,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   final _apiClient = ApiClient();
   final List<_Msg> _messages = [];
   bool _isTyping = false;
+  bool _showSuggestions = true;
 
   @override
   void initState() {
@@ -26,24 +28,34 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final lang = context.read<LanguageProvider>();
-      setState(() => _messages.add(_Msg(lang.t('chat.greeting'), false)));
+      final greeting = '👋 ${lang.t('chat.greeting')}\n\n${lang.t('chat.subtitle')}';
+      setState(() {
+        _messages.add(_Msg(greeting, false));
+        _showSuggestions = true;
+      });
     });
   }
 
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    
     setState(() {
       _messages.add(_Msg(text, true));
       _isTyping = true;
+      _showSuggestions = false;
     });
     _controller.clear();
     _scrollToBottom();
 
     try {
+      // Use test endpoint on web (no auth required), regular endpoint on mobile
+      final endpoint = kIsWeb ? '/api/chatbot-test' : '/api/chatbot';
+      final requiresAuth = !kIsWeb;
+      
       final response = await _apiClient.post(
-        '/api/chatbot',
-        auth: true,
+        endpoint,
+        auth: requiresAuth,
         body: {'message': text},
       );
       final payload =
@@ -54,12 +66,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         _messages.add(_Msg(payload['reply']?.toString() ?? '', false));
         _isTyping = false;
       });
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _messages.add(
           _Msg(
-            'Unable to reach AgriBot right now. Please try again in a moment.',
+            'Unable to reach AgriBot right now. Please try again in a moment. Error: $e',
             false,
           ),
         );
@@ -160,7 +172,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 itemCount:
                     _messages.length +
                     (_isTyping ? 1 : 0) +
-                    (_messages.length == 1 ? 1 : 0),
+                    (_showSuggestions && _messages.length == 1 ? 1 : 0),
                 itemBuilder: (context, index) {
                   if (index < _messages.length) {
                     return _messageBubble(_messages[index], lang);
@@ -168,7 +180,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   if (_isTyping && index == _messages.length) {
                     return _typingIndicator(lang);
                   }
-                  return _suggestions(lang, suggestions);
+                  if (_showSuggestions && _messages.length == 1) {
+                    return _suggestions(lang, suggestions);
+                  }
+                  return const SizedBox.shrink();
                 },
               ),
             ),
@@ -254,20 +269,28 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             : (lang.isRTL ? Alignment.centerRight : Alignment.centerLeft),
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.8,
+            maxWidth: MediaQuery.of(context).size.width * 0.85,
           ),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: isUser ? AppColors.primary : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: isUser ? null : Border.all(color: AppColors.border),
+            boxShadow: isUser ? [
+              BoxShadow(
+                color: AppColors.primary.withValues(alpha: 0.2),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ] : null,
           ),
           child: Text(
             msg.text,
             style: TextStyle(
               color: isUser ? Colors.white : AppColors.textSecondary,
-              fontSize: 16,
+              fontSize: 15,
               height: 1.5,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ),
@@ -303,41 +326,92 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     return Padding(
       padding: const EdgeInsets.only(top: 16),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             lang.t('chat.tryAsking'),
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 14,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 12),
-          ...suggestions.map(
-            (question) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: GestureDetector(
-                onTap: () => setState(() => _controller.text = question),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    question,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 16,
+          const SizedBox(height: 16),
+          ...suggestions.asMap().entries.map(
+            (entry) {
+              final index = entry.key;
+              final question = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: GestureDetector(
+                  onTap: () {
+                    _controller.text = question;
+                    Future.delayed(const Duration(milliseconds: 100), _send);
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 28,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: AppColors.primary,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            question,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 15,
+                              height: 1.4,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          lang.isRTL ? Icons.arrow_back : Icons.arrow_forward,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         ],
       ),

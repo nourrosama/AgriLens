@@ -1,3 +1,4 @@
+import 'dart:io' as io;
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
@@ -16,14 +17,22 @@ class AppConfig {
     if (_defaultBaseUrl.isNotEmpty) {
       return [_defaultBaseUrl];
     }
+
+    // On web, use localhost for development
     if (kIsWeb) {
       return ['http://127.0.0.1:5000'];
     }
+
     // Android emulator
-    return [
-      'http://10.0.2.2:5000',
-      'http://192.168.191.135:5000',
-    ];
+    if (!kIsWeb && io.Platform.isAndroid) {
+      return [
+        'http://10.0.2.2:5000',
+        if (_androidLanBaseUrl.isNotEmpty) _androidLanBaseUrl,
+        'http://192.168.191.135:5000',
+      ];
+    }
+
+    return ['http://127.0.0.1:5000'];
   }
 
   static void setResolvedApiBaseUrl(String baseUrl) {
