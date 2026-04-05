@@ -130,7 +130,7 @@ class UserProvider extends ChangeNotifier {
       // On web, use test login endpoint for development
       if (kIsWeb) {
         final response = await _apiClient.post(
-          '/api/auth/test-login',
+          '/api/auth/send-otp',
           body: {'phone': phone},
         );
         final data = response['data'] as Map<String, dynamic>;
@@ -168,7 +168,7 @@ class UserProvider extends ChangeNotifier {
     _setLoading(true);
     try {
       // On web, use test verification endpoint
-      final endpoint = kIsWeb ? '/api/auth/test-verify' : '/api/auth/verify-otp';
+      final endpoint = '/api/auth/verify-otp';
       
       final response = await _apiClient.post(
         endpoint,
@@ -178,11 +178,6 @@ class UserProvider extends ChangeNotifier {
       final token = data['token']?.toString() ?? '';
       final userJson = data['user'] as Map<String, dynamic>;
       await _sessionStorage.saveToken(token);
-      
-      // On web testing, mark profile as complete to skip registration
-      if (kIsWeb) {
-        userJson['profile_completed'] = true;
-      }
       
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
