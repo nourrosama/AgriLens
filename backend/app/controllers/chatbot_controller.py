@@ -9,6 +9,18 @@ from app.views.responses import success_response, error_response
 chatbot_bp = Blueprint('chatbot', __name__)
 
 
+# Public test endpoint for development - no auth required
+@chatbot_bp.route('/api/chatbot-test', methods=['POST'])
+def chat_test():
+    """Public chatbot endpoint for testing (no auth required)."""
+    data = request.get_json(silent=True) or {}
+    message = (data.get('message') or '').strip()
+    if not message:
+        return error_response('Message is required', 400)
+    response = insights_service.build_chat_response(message)
+    return success_response({'message': response, 'user_id': 'test-user'})
+
+
 @chatbot_bp.route('/api/chatbot', methods=['POST'])
 @require_auth
 def chat():

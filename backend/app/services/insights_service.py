@@ -271,16 +271,86 @@ def build_chat_response(message: str) -> dict:
         'Best fertilizer for wheat?',
         'When should I water my crops?',
     ]
-    if 'tomato' in normalized or 'طماطم' in normalized:
-        reply = 'Tomatoes are commonly affected by early blight, late blight, leaf mold, and viral infections. Scan suspicious leaves early and keep humidity under control.'
-    elif 'blight' in normalized or 'لفحة' in normalized:
-        reply = 'To reduce blight risk, improve airflow, avoid wet foliage at night, and remove infected leaves quickly. Forecast and humidity trends help plan prevention.'
-    elif 'fertilizer' in normalized or 'سماد' in normalized:
-        reply = 'Start with a balanced NPK plan and adjust by crop stage and soil test results. Excess nitrogen can increase disease susceptibility in some crops.'
-    elif 'water' in normalized or 'irrig' in normalized or 'ري' in normalized:
-        reply = 'Water early in the morning when possible, and avoid keeping foliage wet for long periods. Drip irrigation is preferred for disease-sensitive crops.'
-    else:
-        reply = 'I can help with disease detection follow-up, prevention tips, crop care basics, and how to interpret scan and forecast results.'
+    
+    # Define knowledge base for various topics
+    knowledge_base = {
+        'disease': {
+            'tomato': 'Tomatoes are commonly affected by:\n• Early Blight: Brown spots with concentric rings on lower leaves\n• Late Blight: Water-soaked spots and white mold on leaf undersides\n• Leaf Mold: Yellow patches on upper leaf, gray mold below\n• Viral Infections: Mosaic patterns, yellowing, stunted growth\n\nPrevention: Keep humidity controlled, improve airflow, avoid wet foliage, remove infected leaves quickly.',
+            'paddy': 'Paddy (Rice) is affected by:\n• Blast: Gray lesions on leaves and stems\n• Brown Spot: Reddish-brown spots on leaves\n• Sheath Blight: Water-soaked spots on leaf sheaths\n• Bacterial Leaf Blight: Yellow-white stripes\n\nPrevention: Use resistant varieties, proper water management, balanced fertilization, and timely fungicide application.',
+            'wheat': 'Wheat diseases include:\n• Leaf Rust: Orange pustules on leaves\n• Stripe Rust: Yellow pustules in stripes\n• Powdery Mildew: White powder on leaves\n• Septoria: Brown spots with dark rings\n\nPrevention: Crop rotation, resistant varieties, fungicide spraying at boot stage.',
+            'potato': 'Potato diseases:\n• Late Blight: Water-soaked spots, white mold, rapid spread\n• Early Blight: Concentric rings on leaves\n• Scab: Raised corky lesions on tubers\n• Verticillium Wilt: Yellow/brown wilting from bottom\n\nPrevention: Proper spacing, fungicide application, remove volunteers, use quality seed.',
+        },
+        'prevention': {
+            'blight': 'To reduce blight risk:\n1. Improve airflow: Proper spacing between plants\n2. Avoid wet foliage at night: Water early morning, use drip irrigation\n3. Remove infected leaves quickly to prevent spread\n4. Use fungicides: Apply preventively in humid conditions\n5. Monitor weather: Use forecast to plan fungicide timing',
+            'disease': 'General disease prevention:\n1. Scout your fields regularly for early detection\n2. Use the AgriLens scanner for quick disease identification\n3. Practice crop rotation (3+ year rotation)\n4. Remove crop residues from previous season\n5. Maintain proper plant spacing for airflow\n6. Follow integrated pest management (IPM) practices',
+            'pest': 'Pest prevention strategies:\n1. Use insect scouts/traps to monitor populations\n2. Introduce natural predators\n3. Remove weeds that harbor pests\n4. Time plantings to avoid pest peaks\n5. Use recommended insecticides when threshold is reached',
+        },
+        'fertilizer': {
+            'nitrogen': 'Nitrogen tips:\n• Promotes leaf and stem growth\n• Use at vegetative stage (V4-V10)\n• Split applications for better uptake\n• Too much increases disease susceptibility\n• Typical: 100-150 kg/ha for cereals, 150-200 for vegetables',
+            'phosphorus': 'Phosphorus benefits:\n• Promotes root development\n• Important for flowering and grain fill\n• Apply at planting or early season\n• Typical: 40-80 kg/ha P2O5',
+            'potassium': 'Potassium improves:\n• Disease resistance and plant strength\n• Fruit quality and shelf life\n• Stress tolerance (drought, cold)\n• Typical: 60-150 kg/ha K2O depending on crop',
+            'balanced': 'For most crops, use NPK ratios:\n• Leafy vegetables: 20-10-10\n• Fruiting crops: 10-10-20\n• Root crops: 15-20-20\n• Cereals: 15-10-10\nAdjust based on soil test results.',
+        },
+        'watering': {
+            'irrigation': 'Water management tips:\n1. Water early morning (5-8 AM) to minimize disease\n2. Use drip irrigation when possible\n3. Avoid wetting foliage late afternoon\n4. Monitor soil moisture: 60-70% field capacity ideal\n5. Adjust for rainfall and weather forecasts\n6. Young plants need more frequent, lighter watering',
+            'schedule': 'General watering schedule:\n• Vegetables: 25-50 mm/week (depends on rainfall)\n• Small grains: 1-2 irrigation cycles\n• Paddy: 5-7 cm water depth maintained\n• Potatoes: 400-600 mm total season\n• Check soil before each irrigation',
+            'drainage': 'Drainage importance:\n• Poor drainage causes root diseases\n• Leads to nutrient deficiencies\n• Increases pest and disease pressure\n• Ensure fields slope for water runoff\n• Consider raised beds in wet areas',
+        },
+    }
+    
+    # Check for specific topics and keywords
+    reply = None
+    
+    # Disease-related queries
+    if any(word in normalized for word in ['disease', 'blight', 'rot', 'wilt', 'spot', 'مرض', 'آفة', 'لفحة']):
+        if 'tomato' in normalized or 'طماطم' in normalized:
+            reply = knowledge_base['disease'].get('tomato')
+        elif 'paddy' in normalized or 'rice' in normalized or 'أرز' in normalized:
+            reply = knowledge_base['disease'].get('paddy')
+        elif 'wheat' in normalized or 'قمح' in normalized:
+            reply = knowledge_base['disease'].get('wheat')
+        elif 'potato' in normalized or 'بطاطس' in normalized:
+            reply = knowledge_base['disease'].get('potato')
+        elif 'blight' in normalized or 'لفحة' in normalized:
+            reply = knowledge_base['prevention'].get('blight')
+        else:
+            reply = 'Tell me which crop you\'re asking about (tomato, paddy, wheat, potato) so I can provide specific disease information.'
+    
+    # Prevention-related queries
+    elif any(word in normalized for word in ['prevent', 'prevent', 'control', 'manage', 'protection', 'الوقاية', 'منع']):
+        if 'blight' in normalized or 'لفحة' in normalized:
+            reply = knowledge_base['prevention'].get('blight')
+        elif 'pest' in normalized or 'آفة' in normalized:
+            reply = knowledge_base['prevention'].get('pest')
+        else:
+            reply = knowledge_base['prevention'].get('disease')
+    
+    # Fertilizer-related queries
+    elif any(word in normalized for word in ['fertiliz', 'nutrient', 'npk', 'nitrogen', 'phosphorus', 'potassium', 'سماد', 'غذاء']):
+        if 'nitrogen' in normalized or 'n ' in normalized or 'نيتروجين' in normalized:
+            reply = knowledge_base['fertilizer'].get('nitrogen')
+        elif 'phosphorus' in normalized or 'p ' in normalized or 'فسفور' in normalized:
+            reply = knowledge_base['fertilizer'].get('phosphorus')
+        elif 'potassium' in normalized or 'k ' in normalized or 'بوتاسيوم' in normalized:
+            reply = knowledge_base['fertilizer'].get('potassium')
+        elif 'balance' in normalized or 'npk' in normalized:
+            reply = knowledge_base['fertilizer'].get('balanced')
+        else:
+            reply = 'Ask about nitrogen (N), phosphorus (P), potassium (K), or balanced fertilizer recommendations.'
+    
+    # Watering-related queries
+    elif any(word in normalized for word in ['water', 'irrig', 'drain', 'moisture', 'ري', 'سقاية', 'الماء']):
+        if 'schedule' in normalized or 'timer' in normalized or 'when' in normalized or 'جدول' in normalized:
+            reply = knowledge_base['watering'].get('schedule')
+        elif 'drain' in normalized or 'تصريف' in normalized:
+            reply = knowledge_base['watering'].get('drainage')
+        else:
+            reply = knowledge_base['watering'].get('irrigation')
+    
+    # Default response if no specific topic matched
+    if not reply:
+        reply = 'I can help you with:\n• Disease identification and prevention\n• Fertilizer and nutrient management\n• Watering and irrigation scheduling\n• Pest and disease control tips\n• Crop-specific care advice\n\nTry asking about a specific crop (tomato, wheat, paddy, potato) or management topic!'
+    
     return {
         'reply': reply,
         'suggestions': suggestions,

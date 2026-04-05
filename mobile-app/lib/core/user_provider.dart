@@ -127,6 +127,31 @@ class UserProvider extends ChangeNotifier {
   Future<bool> sendOtp(String phone) async {
     _setLoading(true);
     try {
+      // On web, use test login endpoint for development
+      if (kIsWeb) {
+        final response = await _apiClient.post(
+          '/api/auth/test-login',
+          body: {'phone': phone},
+        );
+        final data = response['data'] as Map<String, dynamic>;
+        final token = data['token']?.toString() ?? '';
+        final userId = data['user_id']?.toString() ?? '';
+        
+        await _sessionStorage.saveToken(token);
+        _user = UserData(
+          id: userId,
+          phone: phone,
+          fullName: 'Test User',
+          isLoggedIn: true,
+        );
+        _pendingPhone = phone;
+        _errorMessage = null;
+        
+        // Skip push notifications on web
+        return true;
+      }
+      
+      // On mobile platforms, use actual OTP
       await _apiClient.post('/api/auth/send-otp', body: {'phone': phone});
       _pendingPhone = phone;
       _errorMessage = null;
@@ -142,17 +167,31 @@ class UserProvider extends ChangeNotifier {
   Future<bool> verifyOtp(String otp, {String? phone}) async {
     _setLoading(true);
     try {
+      // On web, use test verification endpoint
+      final endpoint = kIsWeb ? '/api/auth/test-verify' : '/api/auth/verify-otp';
+      
       final response = await _apiClient.post(
-        '/api/auth/verify-otp',
+        endpoint,
         body: {'phone': phone ?? _pendingPhone ?? _user.phone, 'code': otp},
       );
       final data = response['data'] as Map<String, dynamic>;
       final token = data['token']?.toString() ?? '';
       final userJson = data['user'] as Map<String, dynamic>;
       await _sessionStorage.saveToken(token);
+      
+      // On web testing, mark profile as complete to skip registration
+      if (kIsWeb) {
+        userJson['profile_completed'] = true;
+      }
+      
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
-      await PushNotificationsService.instance.registerCurrentDevice();
+      
+      // Skip push notifications on web
+      if (!kIsWeb) {
+        await PushNotificationsService.instance.registerCurrentDevice();
+      }
+      
       _errorMessage = null;
       return true;
     } catch (error) {
