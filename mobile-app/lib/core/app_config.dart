@@ -6,10 +6,6 @@ class AppConfig {
     'API_BASE_URL',
     defaultValue: '',
   );
-  static const String _androidLanBaseUrl = String.fromEnvironment(
-    'ANDROID_LAN_API_BASE_URL',
-    defaultValue: 'http://192.168.191.135:5000',
-  );
 
   static String? _resolvedBaseUrl;
 
@@ -21,16 +17,21 @@ class AppConfig {
     if (_defaultBaseUrl.isNotEmpty) {
       return [_defaultBaseUrl];
     }
-    if (!kIsWeb && io.Platform.isAndroid) {
-      return [
-        'http://10.0.2.2:5000',
-        if (_androidLanBaseUrl.isNotEmpty) _androidLanBaseUrl,
-      ];
-    }
+
     // On web, use localhost for development
     if (kIsWeb) {
       return ['http://127.0.0.1:5000'];
     }
+
+    // Android emulator
+    if (!kIsWeb && io.Platform.isAndroid) {
+      return [
+        'http://10.0.2.2:5000',
+        if (_androidLanBaseUrl.isNotEmpty) _androidLanBaseUrl,
+        'http://192.168.191.135:5000',
+      ];
+    }
+
     return ['http://127.0.0.1:5000'];
   }
 
@@ -39,9 +40,7 @@ class AppConfig {
   }
 
   static String resolveMediaUrl(String pathOrUrl) {
-    if (pathOrUrl.isEmpty) {
-      return pathOrUrl;
-    }
+    if (pathOrUrl.isEmpty) return pathOrUrl;
     if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
       return pathOrUrl;
     }

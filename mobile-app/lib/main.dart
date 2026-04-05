@@ -13,16 +13,20 @@ import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/push_notifications_service.dart';
 import 'package:agrilens/core/router.dart';
+import 'package:agrilens/firebase_options.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Initialize Firebase only on non-web platforms
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  // Push notifications are not supported on web
   if (!kIsWeb) {
-    await Firebase.initializeApp();
     await PushNotificationsService.instance.initialize();
   }
-  
+
   runApp(const AgriLensApp());
 }
 
