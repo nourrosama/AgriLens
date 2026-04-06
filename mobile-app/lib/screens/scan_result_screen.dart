@@ -1,4 +1,5 @@
-import 'dart:io';
+import 'dart:io' as io;
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -212,9 +213,11 @@ class _MediaPreview extends StatelessWidget {
   }
 
   Widget _buildImage() {
-    final localFile = File(result.imagePath);
-    if (localFile.existsSync()) {
-      return Image.file(localFile, fit: BoxFit.cover);
+    if (!kIsWeb) {
+      final localFile = io.File(result.imagePath);
+      if (localFile.existsSync()) {
+        return Image.file(localFile, fit: BoxFit.cover);
+      }
     }
     if ((result.remoteMediaUrl ?? '').isNotEmpty) {
       return Image.network(
