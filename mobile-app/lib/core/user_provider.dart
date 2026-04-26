@@ -127,31 +127,6 @@ class UserProvider extends ChangeNotifier {
   Future<bool> sendOtp(String phone) async {
     _setLoading(true);
     try {
-      // On web, use test login endpoint for development
-      if (kIsWeb) {
-        final response = await _apiClient.post(
-          '/api/auth/send-otp',
-          body: {'phone': phone},
-        );
-        final data = response['data'] as Map<String, dynamic>;
-        final token = data['token']?.toString() ?? '';
-        final userId = data['user_id']?.toString() ?? '';
-        
-        await _sessionStorage.saveToken(token);
-        _user = UserData(
-          id: userId,
-          phone: phone,
-          fullName: 'Test User',
-          isLoggedIn: true,
-        );
-        _pendingPhone = phone;
-        _errorMessage = null;
-        
-        // Skip push notifications on web
-        return true;
-      }
-      
-      // On mobile platforms, use actual OTP
       await _apiClient.post('/api/auth/send-otp', body: {'phone': phone});
       _pendingPhone = phone;
       _errorMessage = null;
