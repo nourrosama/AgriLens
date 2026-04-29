@@ -2,8 +2,9 @@
 Auth controller — OTP send/verify, profile CRUD.
 Uses Twilio Verify for OTP (no manual Redis storage).
 """
-from flask import Blueprint, request, g
+from flask import Blueprint, current_app, request, g
 from app.services import auth_service
+from app.services import storage_service
 from app.models import user_model, audit_model
 from app.middleware.auth_middleware import require_auth
 from app.utils.validators import is_valid_phone, sanitize_phone
@@ -173,12 +174,33 @@ def update_profile():
       401:
         description: Unauthorized
     """
-    data = request.get_json(silent=True) or {}
+    if request.content_type and request.content_type.startswith('multipart/form-data'):
+        data = request.form.to_dict()
+    else:
+        data = request.get_json(silent=True) or {}
+
     allowed = {}
     if 'name' in data:
-        allowed['name'] = data['name']
+        allowed['name'] = str(data['name']).strip()
+    if 'email' in data:
+        allowed['email'] = str(data['email']).strip()
+    if 'country' in data:
+        allowed['country'] = str(data['country']).strip()
+    if 'photo_url' in data:
+        allowed['photo_url'] = str(data['photo_url']).strip()
+    if 'profile_completed' in data:
+        value = data['profile_completed']
+        allowed['profile_completed'] = value is True or str(value).lower() in ('1', 'true', 'yes')
     if 'language' in data and data['language'] in ('ar', 'en'):
         allowed['language'] = data['language']
+
+    photo = request.files.get('photo')
+    if photo and photo.filename:
+        try:
+            allowed['photo_url'] = storage_service.upload_profile_image(photo)
+        except Exception as exc:
+            current_app.logger.exception('Failed to store profile photo: %s', exc)
+            return error_response('Unable to store the profile photo right now. Please try again.', 503)
 
     if allowed:
         user_model.update_user(str(g.current_user['_id']), allowed)

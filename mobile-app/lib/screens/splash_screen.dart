@@ -28,11 +28,17 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
     _controller.forward();
 
-    Future.delayed(const Duration(milliseconds: 2500), () {
+    Future.delayed(const Duration(milliseconds: 2500), () async {
       if (!mounted) {
         return;
       }
       final userProvider = context.read<UserProvider>();
+      while (mounted && !userProvider.isHydrated) {
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+      }
+      if (!mounted) {
+        return;
+      }
       if (userProvider.isLoggedIn) {
         context.read<ScanHistoryProvider>().syncQueuedScans();
       }

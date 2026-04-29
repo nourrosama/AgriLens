@@ -1,9 +1,11 @@
 """
-RabbitMQ event publisher — Observer pattern.
-Publishes events: scan.created, scan.completed, disease.detected, risk.high
+RabbitMQ event publisher for scan and alert events.
+Publishes: scan.created, scan.completed, disease.detected, risk.high.
 """
 import json
 import logging
+import time
+
 import pika
 
 logger = logging.getLogger(__name__)
@@ -17,14 +19,24 @@ def init_publisher(app):
     """Establish RabbitMQ connection and declare the exchange."""
     global _connection, _channel
     url = app.config.get('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672/')
-    try:
-        params = pika.URLParameters(url)
-        _connection = pika.BlockingConnection(params)
-        _channel = _connection.channel()
-        _channel.exchange_declare(exchange=EXCHANGE, exchange_type='topic', durable=True)
-        app.logger.info('✅ RabbitMQ publisher connected')
-    except Exception as e:
-        app.logger.warning(f'⚠️  RabbitMQ not reachable: {e} — events will be logged only')
+    params = pika.URLParameters(url)
+
+    for attempt in range(1, 11):
+        try:
+            _connection = pika.BlockingConnection(params)
+            _channel = _connection.channel()
+            _channel.exchange_declare(exchange=EXCHANGE, exchange_type='topic', durable=True)
+            app.logger.info('RabbitMQ publisher connected')
+            return
+        except Exception as exc:
+            app.logger.warning(
+                'RabbitMQ publisher not ready (attempt %s/10): %s',
+                attempt,
+                exc,
+            )
+            time.sleep(2)
+
+    app.logger.warning('RabbitMQ not reachable after retries; events will be logged only')
 
 
 def publish(routing_key: str, payload: dict):
@@ -37,19 +49,17 @@ def publish(routing_key: str, payload: dict):
                 routing_key=routing_key,
                 body=message,
                 properties=pika.BasicProperties(
-                    delivery_mode=2,  # persistent
+                    delivery_mode=2,
                     content_type='application/json',
                 ),
             )
-            logger.info(f'📤 Published [{routing_key}]')
-        except Exception as e:
-            logger.warning(f'Publish failed: {e} — logging event instead')
-            logger.info(f'[EVENT] {routing_key}: {message}')
+            logger.info('Published [%s]', routing_key)
+        except Exception as exc:
+            logger.warning('Publish failed: %s; logging event instead', exc)
+            logger.info('[EVENT] %s: %s', routing_key, message)
     else:
-        logger.info(f'[EVENT-LOCAL] {routing_key}: {message}')
+        logger.info('[EVENT-LOCAL] %s: %s', routing_key, message)
 
-
-# ── Convenience helpers ───────────────────────────────────────
 
 def scan_created(scan_id: str, media_url: str):
     publish('scan.created', {

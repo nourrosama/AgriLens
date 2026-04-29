@@ -5,7 +5,7 @@ import os
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv()
 
 
 class Config:
@@ -17,7 +17,7 @@ class Config:
     # Security
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
     JWT_SECRET = os.getenv('JWT_SECRET', 'jwt-dev-secret')
-    JWT_EXPIRY_HOURS = int(os.getenv('JWT_EXPIRY_HOURS', '24'))
+    JWT_EXPIRY_HOURS = int(os.getenv('JWT_EXPIRY_HOURS', '720'))
 
     # Twilio Verify
     TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')

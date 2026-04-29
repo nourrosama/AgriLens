@@ -105,10 +105,11 @@ class ApiClient {
     required String fieldName,
     bool auth = false,
     Map<String, String>? fields,
+    String method = 'POST',
   }) async {
     final headers = await _headers(auth: auth, json: false);
     final streamedResponse = await _sendWithFallback((baseUrl) async {
-      final request = http.MultipartRequest('POST', _uri(baseUrl, path));
+      final request = http.MultipartRequest(method, _uri(baseUrl, path));
       request.headers.addAll(headers);
       request.fields.addAll(fields ?? const {});
       request.files.add(
@@ -174,7 +175,7 @@ class ApiClient {
     required bool auth,
     bool json = true,
   }) async {
-    final headers = <String, String>{};
+    final headers = <String, String>{'ngrok-skip-browser-warning': 'true'};
     if (json) {
       headers['Content-Type'] = 'application/json';
       headers['Accept'] = 'application/json';

@@ -8,7 +8,7 @@ from flasgger import Swagger
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv()
 
 
 def create_app():

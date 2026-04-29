@@ -155,8 +155,8 @@ class FieldsProvider extends ChangeNotifier {
     try {
       final locationPayload = {
         'label': location,
-        if (latitude != null) 'lat': latitude,
-        if (longitude != null) 'lng': longitude,
+        'lat': ?latitude,
+        'lng': ?longitude,
       };
       final farmId = await _ensureFarm(locationPayload);
       await _apiClient.post(
@@ -217,8 +217,8 @@ class FieldsProvider extends ChangeNotifier {
               : {
                   'location': {
                     'label': location ?? field.location,
-                    if (latitude != null) 'lat': latitude,
-                    if (longitude != null) 'lng': longitude,
+                    'lat': ?latitude,
+                    'lng': ?longitude,
                   },
                 }),
           ...?(soilType == null ? null : {'soil_type': soilType}),
@@ -274,7 +274,7 @@ class FieldsProvider extends ChangeNotifier {
         auth: true,
         body: {
           'name': 'Main Farm',
-          if (location != null) 'location': location,
+          'location': ?location,
         },
       );
       final farm =
