@@ -33,6 +33,7 @@ class Config:
     CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
     CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY', '').strip()
     CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET', '').strip()
+    CLOUDINARY_UPLOAD_TIMEOUT = int(os.getenv('CLOUDINARY_UPLOAD_TIMEOUT', '30'))
 
     # Uploads
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')

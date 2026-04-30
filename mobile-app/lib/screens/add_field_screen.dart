@@ -205,10 +205,12 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
                         lang.t('addField.selectCrop'),
                         _cropType,
                         [
-                          for (final c in ['tomato'])
+                          for (final c in ['tomato', 'potato', 'apple'])
                             DropdownMenuItem(
                               value: c,
-                              child: Text(lang.t('crops.$c')),
+                              child: Text(
+                                c == 'apple' ? 'Apple' : lang.t('crops.$c'),
+                              ),
                             ),
                         ],
                         (v) => setState(() => _cropType = v),

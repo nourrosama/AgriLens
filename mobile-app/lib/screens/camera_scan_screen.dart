@@ -17,7 +17,16 @@ import 'package:agrilens/core/web_file_picker.dart'
     as web_picker;
 
 class CameraScanScreen extends StatefulWidget {
-  const CameraScanScreen({super.key});
+  const CameraScanScreen({
+    super.key,
+    this.farmId,
+    this.fieldId,
+    this.initialCropType,
+  });
+
+  final String? farmId;
+  final String? fieldId;
+  final String? initialCropType;
 
   @override
   State<CameraScanScreen> createState() => _CameraScanScreenState();
@@ -48,7 +57,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final crop = context.read<CropProvider>();
-    if (crop.hasCropSelected) {
+    if ((widget.initialCropType ?? '').isNotEmpty) {
+      unawaited(crop.selectCrop(widget.initialCropType!));
+      _showCropSelection = false;
+    } else if (crop.hasCropSelected) {
       _showCropSelection = false;
     }
     unawaited(_initializeCamera());
@@ -234,6 +246,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       imageBytes: bytes,
       imageName: filename,
       cropType: crop.selectedCrop,
+      farmId: widget.farmId,
+      fieldId: widget.fieldId,
     );
     if (!mounted) return;
     setState(() => _scanning = false);
@@ -313,6 +327,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     final result = await scanProvider.submitScan(
       imageFile: imageFile,
       cropType: crop.selectedCrop,
+      farmId: widget.farmId,
+      fieldId: widget.fieldId,
     );
     if (!mounted) {
       return;
@@ -332,6 +348,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     final result = await scanProvider.submitVideoScan(
       videoFile: videoFile,
       cropType: crop.selectedCrop,
+      farmId: widget.farmId,
+      fieldId: widget.fieldId,
     );
     if (!mounted) {
       return;

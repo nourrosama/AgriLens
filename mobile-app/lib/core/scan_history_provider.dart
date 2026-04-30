@@ -1,8 +1,6 @@
 import 'dart:io' as io;
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'app_config.dart';
@@ -168,19 +166,47 @@ class ScanHistoryProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> loadScans() async {
+  Future<void> loadScans({
+    String? farmId,
+    String? fieldId,
+    String? cropType,
+  }) async {
     _setLoading(true);
     try {
-      final response = await _apiClient.get('/api/scans', auth: true);
+      final response = await _apiClient.get(
+        '/api/scans',
+        auth: true,
+        query: {
+          ...?(farmId == null ? null : {'farm_id': farmId}),
+          ...?(fieldId == null ? null : {'field_id': fieldId}),
+          ...?(cropType == null || cropType.isEmpty
+              ? null
+              : {'crop_type': cropType}),
+        },
+      );
       final items =
           ((response['data'] as Map<String, dynamic>)['scans']
                       as List<dynamic>? ??
                   [])
               .whereType<Map<String, dynamic>>()
               .toList();
-      _scans
-        ..clear()
-        ..addAll(items.map(ScanResult.fromJson));
+      final loadedScans = items.map(ScanResult.fromJson).toList();
+      if (farmId == null &&
+          fieldId == null &&
+          (cropType == null || cropType.isEmpty)) {
+        _scans
+          ..clear()
+          ..addAll(loadedScans);
+      } else {
+        if (fieldId != null) {
+          _scans.removeWhere((scan) => scan.fieldId == fieldId);
+        } else if (farmId != null) {
+          _scans.removeWhere((scan) => scan.farmId == farmId);
+        }
+        for (final scan in loadedScans.reversed) {
+          _upsertScan(scan);
+        }
+      }
       _errorMessage = null;
     } catch (error) {
       _errorMessage = error.toString();
@@ -245,6 +271,7 @@ class ScanHistoryProvider extends ChangeNotifier {
         auth: true,
         fieldName: mediaType == 'video' ? 'video' : 'image',
         file: file,
+        timeout: const Duration(seconds: 90),
         fields: {
           'crop_type': cropType,
           ...?(farmId == null ? null : {'farm_id': farmId}),
@@ -328,7 +355,8 @@ class ScanHistoryProvider extends ChangeNotifier {
     _isLoading = value;
     notifyListeners();
   }
-Future<ScanResult?> _submitMediaWeb({
+
+  Future<ScanResult?> _submitMediaWeb({
     required Uint8List bytes,
     required String filename,
     required String mediaType,
@@ -344,6 +372,7 @@ Future<ScanResult?> _submitMediaWeb({
         fieldName: 'image',
         bytes: bytes,
         filename: filename,
+        timeout: const Duration(seconds: 90),
         fields: {
           'crop_type': cropType,
           ...?(farmId == null ? null : {'farm_id': farmId}),

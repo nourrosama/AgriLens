@@ -235,6 +235,13 @@ def build_weather(location: dict | None = None, days: int = 7) -> dict:
 
     free_weather = _build_openweather_free(lat, lng, api_key, days)
     if free_weather:
+        current_app.logger.info(
+            'Weather provider source=%s lat=%.4f lon=%.4f forecast_days=%s',
+            free_weather.get('source'),
+            lat,
+            lng,
+            len(free_weather.get('forecast', [])),
+        )
         return free_weather
 
     return _fallback_weather(location, days)

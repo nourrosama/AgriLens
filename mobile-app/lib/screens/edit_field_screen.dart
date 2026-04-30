@@ -138,17 +138,9 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
                         _locationCtrl,
                       ),
                       const SizedBox(height: 20),
-                      _buildField(
-                        'Latitude',
-                        _latitudeCtrl,
-                        isNumber: true,
-                      ),
+                      _buildField('Latitude', _latitudeCtrl, isNumber: true),
                       const SizedBox(height: 20),
-                      _buildField(
-                        'Longitude',
-                        _longitudeCtrl,
-                        isNumber: true,
-                      ),
+                      _buildField('Longitude', _longitudeCtrl, isNumber: true),
                       const SizedBox(height: 20),
                       _buildField(
                         'Area (${lang.t('units.feddan')})',
@@ -159,11 +151,15 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
                       _buildDropdown(
                         'Crop Type',
                         _cropType,
-                        ['tomato']
+                        ['tomato', 'potato', 'apple']
                             .map(
                               (crop) => DropdownMenuItem(
                                 value: crop,
-                                child: Text(lang.t('crops.$crop')),
+                                child: Text(
+                                  crop == 'apple'
+                                      ? 'Apple'
+                                      : lang.t('crops.$crop'),
+                                ),
                               ),
                             )
                             .toList(),
@@ -337,10 +333,7 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
               const SizedBox(height: 8),
               const Text(
                 'This action cannot be undone. All field data will be permanently removed.',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -430,10 +423,7 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
               SizedBox(height: 8),
               Text(
                 'Field information has been updated',
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: AppColors.textPrimary, fontSize: 16),
               ),
             ],
           ),

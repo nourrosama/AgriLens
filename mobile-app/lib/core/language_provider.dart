@@ -173,6 +173,8 @@ const Map<String, Map<String, String>> _translations = {
     'crops.tomatoes': 'Tomatoes',
     'crops.potato': 'Potato',
     'crops.potatoes': 'Potatoes',
+    'crops.apple': 'Apple',
+    'crops.apples': 'Apples',
     'crops.sweetPotato': 'Sweet Potato',
     'crops.cotton': 'Cotton',
     'crops.onion': 'Onion',

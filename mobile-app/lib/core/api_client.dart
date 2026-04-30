@@ -106,6 +106,7 @@ class ApiClient {
     bool auth = false,
     Map<String, String>? fields,
     String method = 'POST',
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     final headers = await _headers(auth: auth, json: false);
     final streamedResponse = await _sendWithFallback((baseUrl) async {
@@ -116,7 +117,7 @@ class ApiClient {
         await http.MultipartFile.fromPath(fieldName, file.path),
       );
       return request.send();
-    });
+    }, timeout: timeout);
     final response = await http.Response.fromStream(streamedResponse);
     return _decode(response);
   }
@@ -128,6 +129,7 @@ class ApiClient {
     required String fieldName,
     bool auth = false,
     Map<String, String>? fields,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     final headers = await _headers(auth: auth, json: false);
     final streamedResponse = await _sendWithFallback((baseUrl) async {
@@ -138,19 +140,23 @@ class ApiClient {
         http.MultipartFile.fromBytes(fieldName, bytes, filename: filename),
       );
       return request.send();
-    });
+    }, timeout: timeout);
     final response = await http.Response.fromStream(streamedResponse);
     return _decode(response);
   }
 
   Future<T> _sendWithFallback<T>(
-    Future<T> Function(String baseUrl) request,
-  ) async {
+    Future<T> Function(String baseUrl) request, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     ApiException? lastError;
 
     for (final baseUrl in AppConfig.apiBaseUrlCandidates) {
       try {
-        final response = await _runRequest(() => request(baseUrl));
+        final response = await _runRequest(
+          () => request(baseUrl),
+          timeout: timeout,
+        );
         AppConfig.setResolvedApiBaseUrl(baseUrl);
         return response;
       } on ApiException catch (error) {
@@ -168,9 +174,12 @@ class ApiClient {
         );
   }
 
-  Future<T> _runRequest<T>(Future<T> Function() request) async {
+  Future<T> _runRequest<T>(
+    Future<T> Function() request, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     try {
-      return await request().timeout(const Duration(seconds: 15));
+      return await request().timeout(timeout);
     } on TimeoutException {
       throw ApiException(
         'Request timed out. Check that the backend is running and that API_BASE_URL points to the correct host for this device.',

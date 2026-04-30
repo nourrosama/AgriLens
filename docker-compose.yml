@@ -28,6 +28,9 @@ services:
       - "5001:5001"
     environment:
       MODEL_PATH: /models/tomato_model.pth
+      TOMATO_MODEL_PATH: /models/tomato_model.pth
+      POTATO_MODEL_PATH: /models/potato_model.pth
+      APPLE_MODEL_PATH: /models/apple_model.pth
       MODEL_FORCE_CPU: "true"
     volumes:
       - ./detection-service:/app
