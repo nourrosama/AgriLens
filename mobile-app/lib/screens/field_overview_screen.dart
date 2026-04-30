@@ -69,6 +69,14 @@ class FieldOverviewScreen extends StatelessWidget {
     final riskLabel = field.status == 'healthy'
         ? lang.t('forecast.lowRisk')
         : lang.t('forecast.moderateRisk');
+    final fieldWeather = field.weatherSnapshot;
+    final temperature =
+        (fieldWeather['temperature'] as num?)?.round() ??
+        weatherProvider.temperature;
+    final humidity =
+        (fieldWeather['humidity'] as num?)?.round() ?? weatherProvider.humidity;
+    final wind =
+        (fieldWeather['wind_kmh'] as num?)?.round() ?? weatherProvider.wind;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -122,7 +130,10 @@ class FieldOverviewScreen extends StatelessWidget {
                   await Future.wait([
                     fieldsProvider.loadFields(),
                     scanProvider.loadScans(),
-                    weatherProvider.refreshWeather(),
+                    weatherProvider.refreshWeather(
+                      farmId: field.farmId,
+                      fieldId: field.id,
+                    ),
                   ]);
                 },
                 child: SingleChildScrollView(
@@ -275,21 +286,21 @@ class FieldOverviewScreen extends StatelessWidget {
                                   child: _conditionItem(
                                     Icons.thermostat,
                                     lang.t('home.temp'),
-                                    '${weatherProvider.temperature}${lang.t('units.celsius')}',
+                                    '$temperature${lang.t('units.celsius')}',
                                   ),
                                 ),
                                 Expanded(
                                   child: _conditionItem(
                                     Icons.water_drop,
                                     lang.t('home.humidity'),
-                                    '${weatherProvider.humidity}${lang.t('units.percent')}',
+                                    '$humidity${lang.t('units.percent')}',
                                   ),
                                 ),
                                 Expanded(
                                   child: _conditionItem(
                                     Icons.air,
                                     lang.t('home.wind'),
-                                    '${weatherProvider.wind} ${lang.t('units.kmh')}',
+                                    '$wind ${lang.t('units.kmh')}',
                                   ),
                                 ),
                               ],

@@ -402,7 +402,7 @@ class HomeScreen extends StatelessWidget {
                             const SizedBox(height: 16),
                             // 7-day forecast bars
                             SizedBox(
-                              height: 100,
+                              height: 108,
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 mainAxisAlignment:
@@ -413,7 +413,9 @@ class HomeScreen extends StatelessWidget {
                                     children: [
                                       Container(
                                         width: 8,
-                                        height: (day.temp / 40) * 70,
+                                        height: ((day.temp / 40) * 64)
+                                            .clamp(12.0, 64.0)
+                                            .toDouble(),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF4CAF50),
                                           borderRadius: BorderRadius.circular(

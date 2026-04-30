@@ -4,6 +4,7 @@ Farm controller — CRUD for farms and embedded fields.
 from flask import Blueprint, request, g
 from app.middleware.auth_middleware import require_auth
 from app.models import farm_model, user_model, audit_model
+from app.services import insights_service
 from app.services import cache
 from app.utils.validators import is_valid_object_id
 from app.views.responses import success_response, error_response
@@ -51,7 +52,13 @@ def create_farm():
         return error_response('Farm name is required', 400)
 
     user_id = str(g.current_user['_id'])
-    farm = farm_model.create_farm(user_id, name, data.get('location'))
+    location = data.get('location')
+    farm = farm_model.create_farm(user_id, name, location)
+    if location:
+        farm_model.update_farm(str(farm['_id']), {
+            'weather_snapshot': insights_service.build_weather(location),
+        })
+        farm = farm_model.get_farm_by_id(str(farm['_id']))
     user_model.add_farm_ref(user_id, farm['_id'])
 
     # Invalidate cache
@@ -165,6 +172,7 @@ def update_farm(farm_id):
         updates['name'] = data['name']
     if 'location' in data:
         updates['location'] = data['location']
+        updates['weather_snapshot'] = insights_service.build_weather(data['location'])
 
     if updates:
         farm_model.update_farm(farm_id, updates)
@@ -275,6 +283,15 @@ def add_field(farm_id):
         data.get('health_score', 0),
         data.get('risk_level', 'low'),
     )
+    location = data.get('location') or {}
+    if location:
+        weather = insights_service.build_weather(location)
+        farm_model.update_field(
+            farm_id,
+            str(field['field_id']),
+            {'weather_snapshot': weather},
+        )
+        field = farm_model.get_field(farm_id, str(field['field_id'])) or field
     cache.delete(f'farms:{str(g.current_user["_id"])}')
 
     return success_response({'field': farm_model.serialize_field(field)}, 'Field added', 201)
@@ -306,6 +323,8 @@ def update_field(farm_id, field_id):
         'risk_level',
     )
     updates = {key: data[key] for key in allowed_keys if key in data}
+    if 'location' in updates:
+        updates['weather_snapshot'] = insights_service.build_weather(updates['location'])
 
     if updates:
         farm_model.update_field(farm_id, field_id, updates)

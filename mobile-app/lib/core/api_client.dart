@@ -120,7 +120,8 @@ class ApiClient {
     final response = await http.Response.fromStream(streamedResponse);
     return _decode(response);
   }
-Future<Map<String, dynamic>> multipartBytes(
+
+  Future<Map<String, dynamic>> multipartBytes(
     String path, {
     required Uint8List bytes,
     required String filename,
@@ -183,11 +184,12 @@ Future<Map<String, dynamic>> multipartBytes(
     } on http.ClientException catch (error) {
       final message = error.message.toLowerCase();
       throw ApiException(
-        error.message,
+        'Unable to reach the server. Check that the backend is running and that API_BASE_URL points to the correct host for this device.',
         isConnectivityError:
             message.contains('cleartext') ||
             message.contains('failed host lookup') ||
-            message.contains('connection refused'),
+            message.contains('connection refused') ||
+            message.contains('failed to fetch'),
       );
     }
   }
