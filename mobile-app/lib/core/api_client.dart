@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'app_config.dart';
@@ -114,6 +114,27 @@ class ApiClient {
       request.fields.addAll(fields ?? const {});
       request.files.add(
         await http.MultipartFile.fromPath(fieldName, file.path),
+      );
+      return request.send();
+    });
+    final response = await http.Response.fromStream(streamedResponse);
+    return _decode(response);
+  }
+Future<Map<String, dynamic>> multipartBytes(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String fieldName,
+    bool auth = false,
+    Map<String, String>? fields,
+  }) async {
+    final headers = await _headers(auth: auth, json: false);
+    final streamedResponse = await _sendWithFallback((baseUrl) async {
+      final request = http.MultipartRequest('POST', _uri(baseUrl, path));
+      request.headers.addAll(headers);
+      request.fields.addAll(fields ?? const {});
+      request.files.add(
+        http.MultipartFile.fromBytes(fieldName, bytes, filename: filename),
       );
       return request.send();
     });

@@ -1,5 +1,7 @@
-import 'dart:io';
+import 'dart:io' as io;
+import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
@@ -188,13 +190,25 @@ class ScanHistoryProvider extends ChangeNotifier {
   }
 
   Future<ScanResult?> submitScan({
-    required File imageFile,
+    io.File? imageFile,
+    Uint8List? imageBytes,
+    String? imageName,
     required String cropType,
     String? farmId,
     String? fieldId,
   }) async {
+    if (kIsWeb && imageBytes != null) {
+      return _submitMediaWeb(
+        bytes: imageBytes,
+        filename: imageName ?? 'scan.jpg',
+        mediaType: 'image',
+        cropType: cropType,
+        farmId: farmId,
+        fieldId: fieldId,
+      );
+    }
     return _submitMedia(
-      file: imageFile,
+      file: imageFile!,
       mediaType: 'image',
       cropType: cropType,
       farmId: farmId,
@@ -203,7 +217,7 @@ class ScanHistoryProvider extends ChangeNotifier {
   }
 
   Future<ScanResult?> submitVideoScan({
-    required File videoFile,
+    required io.File videoFile,
     required String cropType,
     String? farmId,
     String? fieldId,
@@ -218,7 +232,7 @@ class ScanHistoryProvider extends ChangeNotifier {
   }
 
   Future<ScanResult?> _submitMedia({
-    required File file,
+    required io.File file,
     required String mediaType,
     required String cropType,
     String? farmId,
@@ -267,7 +281,7 @@ class ScanHistoryProvider extends ChangeNotifier {
   Future<void> syncQueuedScans() async {
     final queued = await _queueStore.listQueuedScans();
     for (final item in queued) {
-      final file = File(item.imagePath);
+      final file = io.File(item.imagePath);
       if (!file.existsSync()) {
         await _queueStore.removeQueuedScan(item.id);
         continue;
@@ -313,5 +327,45 @@ class ScanHistoryProvider extends ChangeNotifier {
   void _setLoading(bool value) {
     _isLoading = value;
     notifyListeners();
+  }
+Future<ScanResult?> _submitMediaWeb({
+    required Uint8List bytes,
+    required String filename,
+    required String mediaType,
+    required String cropType,
+    String? farmId,
+    String? fieldId,
+  }) async {
+    _setLoading(true);
+    try {
+      final response = await _apiClient.multipartBytes(
+        '/api/scans',
+        auth: true,
+        fieldName: 'image',
+        bytes: bytes,
+        filename: filename,
+        fields: {
+          'crop_type': cropType,
+          ...?(farmId == null ? null : {'farm_id': farmId}),
+          ...?(fieldId == null ? null : {'field_id': fieldId}),
+          'device_type': 'web',
+          'app_version': '1.0.0',
+        },
+      );
+      final scanJson =
+          (response['data'] as Map<String, dynamic>)['scan']
+              as Map<String, dynamic>;
+      final scan = ScanResult.fromJson(scanJson);
+      _upsertScan(scan);
+      _errorMessage = null;
+      notifyListeners();
+      return scan;
+    } catch (error) {
+      _errorMessage = error.toString();
+      notifyListeners();
+      return null;
+    } finally {
+      _setLoading(false);
+    }
   }
 }
