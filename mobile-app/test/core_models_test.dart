@@ -1,5 +1,7 @@
 import 'package:agrilens/core/app_config.dart';
+import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/fields_provider.dart';
+import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/session_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -91,6 +93,42 @@ void main() {
 
       expect(resolved, contains('/uploads/leaf.jpg'));
       expect(resolved, startsWith('http://'));
+    });
+  });
+
+  group('CropProvider', () {
+    test('includes icon-backed crop choices for new model crops', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = CropProvider();
+      await Future<void>.delayed(Duration.zero);
+
+      final values = CropProvider.crops.map((crop) => crop.value).toSet();
+
+      expect(values, containsAll(['grape', 'wheat', 'mushroom', 'sugarCane']));
+      expect(CropProvider.crops.every((crop) => crop.emoji.isNotEmpty), isTrue);
+      expect(
+        CropProvider.crops
+            .firstWhere((crop) => crop.value == 'sugarCane')
+            .scanEnabled,
+        isFalse,
+      );
+
+      await provider.selectCrop('mushroom');
+
+      expect(provider.selectedCrop, 'mushroom');
+      expect(provider.selectedCropInfo?.labelEn, 'Mushroom');
+    });
+  });
+
+  group('LanguageProvider', () {
+    test('translates new crop labels and scan coming-soon copy', () async {
+      SharedPreferences.setMockInitialValues({});
+      final provider = LanguageProvider();
+      await provider.setLanguage('ar');
+
+      expect(provider.t('crops.sugarCane'), 'قصب السكر');
+      expect(provider.t('crops.grape'), 'عنب');
+      expect(provider.t('scan.comingSoon'), 'قريباً');
     });
   });
 }
