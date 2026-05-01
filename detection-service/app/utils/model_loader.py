@@ -14,6 +14,8 @@ import numpy as np
 import requests
 import timm
 import torch
+from torch import nn
+from torchvision.models import efficientnet_b3
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +63,169 @@ def _details(
         'risk_level': risk_level,
         'recommendation': recommendation,
     }
+
+
+GRAPE_LABELS = [
+    'Bacterial Rot',
+    'Black Rot',
+    'Downey Mildew',
+    'Esca (Black Measles)',
+    'Healthy',
+    'Leaf Blight',
+    'Powdery Mildew',
+]
+
+WHEAT_LABELS = [
+    'Aphid',
+    'Black_Rust',
+    'Blast',
+    'Brown_Rust',
+    'Common_Root_Rot',
+    'Fusarium_Head_Blight',
+    'Healthy',
+    'Leaf_Blight',
+    'Mildew',
+    'Mite',
+    'Septoria',
+    'Smut',
+    'Stem_fly',
+    'Tan_spot',
+    'Yellow_Rust',
+]
+
+MUSHROOM_LABELS = [
+    'Agaricus_augustus',
+    'Agaricus_xanthodermus',
+    'Amanita_amerirubescens',
+    'Amanita_augusta',
+    'Amanita_brunnescens',
+    'Amanita_calyptroderma',
+    'Amanita_flavoconia',
+    'Amanita_muscaria',
+    'Amanita_persicina',
+    'Amanita_phalloides',
+    'Amanita_velosa',
+    'Armillaria_mellea',
+    'Armillaria_tabescens',
+    'Artomyces_pyxidatus',
+    'Bolbitius_titubans',
+    'Boletus_pallidus',
+    'Boletus_rex-veris',
+    'Cantharellus_californicus',
+    'Cantharellus_cinnabarinus',
+    'Cerioporus_squamosus',
+    'Chlorophyllum_brunneum',
+    'Chlorophyllum_molybdites',
+    'Clitocybe_nuda',
+    'Coprinellus_micaceus',
+    'Coprinopsis_lagopus',
+    'Coprinus_comatus',
+    'Crucibulum_laeve',
+    'Cryptoporus_volvatus',
+    'Daedaleopsis_confragosa',
+    'Entoloma_abortivum',
+    'Flammulina_velutipes',
+    'Fomitopsis_mounceae',
+    'Galerina_marginata',
+    'Ganoderma_applanatum',
+    'Ganoderma_curtisii',
+    'Ganoderma_oregonense',
+    'Ganoderma_tsugae',
+    'Gliophorus_psittacinus',
+    'Gloeophyllum_sepiarium',
+    'Grifola_frondosa',
+    'Gymnopilus_luteofolius',
+    'Hericium_coralloides',
+    'Hericium_erinaceus',
+    'Hygrophoropsis_aurantiaca',
+    'Hypholoma_fasciculare',
+    'Hypholoma_lateritium',
+    'Hypomyces_lactifluorum',
+    'Ischnoderma_resinosum',
+    'Laccaria_ochropurpurea',
+    'Laetiporus_sulphureus',
+    'Leratiomyces_ceres',
+    'Leucoagaricus_americanus',
+    'Leucoagaricus_leucothites',
+    'Lycogala_epidendrum',
+    'Lycoperdon_perlatum',
+    'Lycoperdon_pyriforme',
+    'Mycena_haematopus',
+    'Mycena_leaiana',
+    'Omphalotus_illudens',
+    'Omphalotus_olivascens',
+    'Panaeolus_papilionaceus',
+    'Panellus_stipticus',
+    'Phaeolus_schweinitzii',
+    'Phlebia_tremellosa',
+    'Phyllotopsis_nidulans',
+    'Pleurotus_ostreatus',
+    'Pleurotus_pulmonarius',
+    'Psathyrella_candolleana',
+    'Pseudohydnum_gelatinosum',
+    'Psilocybe_azurescens',
+    'Psilocybe_caerulescens',
+    'Psilocybe_cubensis',
+    'Psilocybe_cyanescens',
+    'Psilocybe_ovoideocystidiata',
+    'Psilocybe_pelliculosa',
+    'Retiboletus_ornatipes',
+    'Sarcomyxa_serotina',
+    'Schizophyllum_commune',
+    'Stereum_hirsutum',
+    'Stereum_ostrea',
+    'Stropharia_ambigua',
+    'Suillus_americanus',
+    'Suillus_luteus',
+    'Suillus_spraguei',
+    'Tapinella_atrotomentosa',
+    'Trametes_betulina',
+    'Trametes_gibbosa',
+    'Trametes_versicolor',
+    'Trichaptum_biforme',
+    'Tricholoma_murrillianum',
+    'Tricholomopsis_rutilans',
+    'Tylopilus_felleus',
+    'Tylopilus_rubrobrunneus',
+    'Volvopluteus_gloiocephalus',
+]
+
+
+def _format_label(label: str) -> str:
+    return label.replace('_', ' ')
+
+
+def _disease_details(label: str, scientific_name: str = 'Plant disease') -> dict[str, str]:
+    if label.lower() == 'healthy':
+        return _details(
+            'Healthy',
+            'Healthy plant',
+            'none',
+            'low',
+            'No disease detected. Keep monitoring and maintain balanced crop care.',
+        )
+    normalized = _format_label(label)
+    high_keywords = ('rot', 'rust', 'blast', 'blight', 'smut', 'mildew', 'septoria', 'esca')
+    severity = 'high' if any(keyword in normalized.lower() for keyword in high_keywords) else 'medium'
+    risk_level = 'high' if severity == 'high' else 'medium'
+    return _details(
+        normalized,
+        scientific_name,
+        severity,
+        risk_level,
+        'Inspect affected plants, remove heavily infected tissue, improve airflow, and follow local treatment guidance.',
+    )
+
+
+def _mushroom_details(label: str) -> dict[str, str]:
+    species = _format_label(label)
+    return _details(
+        f'Mushroom species: {species}',
+        species,
+        'none',
+        'low',
+        'Species classification only. Do not use this result as edibility or safety advice.',
+    )
 
 
 CROP_CONFIGS: dict[str, CropConfig] = {
@@ -265,10 +430,39 @@ CROP_CONFIGS: dict[str, CropConfig] = {
             ),
         },
     ),
+    'grape': CropConfig(
+        name='grape',
+        env_key='GRAPE_MODEL_PATH',
+        default_filename='grape_model.pth',
+        img_size=384,
+        model_name='efficientnet_b3',
+        labels=GRAPE_LABELS,
+        details={label: _disease_details(label, 'Grape disease') for label in GRAPE_LABELS},
+    ),
+    'wheat': CropConfig(
+        name='wheat',
+        env_key='WHEAT_MODEL_PATH',
+        default_filename='wheat_model.pth',
+        img_size=384,
+        model_name='torchvision_efficientnet_b3_custom',
+        labels=WHEAT_LABELS,
+        details={label: _disease_details(label, 'Wheat disease or pest') for label in WHEAT_LABELS},
+    ),
+    'mushroom': CropConfig(
+        name='mushroom',
+        env_key='MUSHROOM_MODEL_PATH',
+        default_filename='mushroom_model.pth',
+        img_size=384,
+        model_name='torchvision_efficientnet_b3_custom',
+        labels=MUSHROOM_LABELS,
+        details={label: _mushroom_details(label) for label in MUSHROOM_LABELS},
+    ),
 }
 
 ALIASES = {
     'apples': 'apple',
+    'grapes': 'grape',
+    'mushrooms': 'mushroom',
     'potatoes': 'potato',
     'tomatoes': 'tomato',
 }
@@ -356,7 +550,7 @@ def _extract_state_dict(checkpoint: Any) -> OrderedDict[str, torch.Tensor]:
 
 
 def _infer_num_classes(state_dict: OrderedDict[str, torch.Tensor]) -> tuple[int, str]:
-    for key in ('classifier.weight', 'head.fc.weight', 'fc.weight'):
+    for key in ('classifier.4.weight', 'classifier.weight', 'head.fc.weight', 'fc.weight'):
         tensor = state_dict.get(key)
         if tensor is not None and tensor.ndim >= 1:
             return int(tensor.shape[0]), key
@@ -364,9 +558,29 @@ def _infer_num_classes(state_dict: OrderedDict[str, torch.Tensor]) -> tuple[int,
 
 
 def _model_name_candidates(config: CropConfig) -> list[str]:
+    if config.model_name == 'torchvision_efficientnet_b3_custom':
+        return [config.model_name]
     candidates = [config.model_name]
     candidates.extend(name for name in SUPPORTED_BACKBONES if name not in candidates)
     return candidates
+
+
+def _create_model(model_name: str, num_classes: int):
+    if model_name == 'torchvision_efficientnet_b3_custom':
+        model = efficientnet_b3(weights=None)
+        model.classifier = nn.Sequential(
+            nn.Dropout(p=0.3, inplace=True),
+            nn.Linear(1536, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(p=0.3, inplace=True),
+            nn.Linear(512, num_classes),
+        )
+        return model
+    return timm.create_model(
+        model_name,
+        pretrained=False,
+        num_classes=num_classes,
+    )
 
 
 def init_model_loader(app) -> None:
@@ -401,11 +615,7 @@ def init_model_loader(app) -> None:
             errors = []
             for model_name in _model_name_candidates(config):
                 try:
-                    model = timm.create_model(
-                        model_name,
-                        pretrained=False,
-                        num_classes=num_classes,
-                    )
+                    model = _create_model(model_name, num_classes)
                     model.load_state_dict(state_dict, strict=True)
                     model = model.to(dev)
                     model.eval()

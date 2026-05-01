@@ -128,6 +128,52 @@ CATALOG = {
             'recommendation': 'No disease detected. Maintain balanced nutrition and scouting.',
         },
     ],
+    'grape': [
+        {
+            'disease': 'Grape Black Rot',
+            'scientific_name': 'Grape disease',
+            'severity': 'high',
+            'risk_level': 'high',
+            'recommendation': 'Remove infected tissue, improve airflow, and avoid prolonged leaf wetness.',
+        },
+        {
+            'disease': 'Grape Powdery Mildew',
+            'scientific_name': 'Grape disease',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Monitor canopy humidity and apply locally recommended treatment if symptoms spread.',
+        },
+        {
+            'disease': 'Grape Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Continue routine vineyard scouting.',
+        },
+    ],
+    'mushroom': [
+        {
+            'disease': 'Mushroom species: Agaricus augustus',
+            'scientific_name': 'Agaricus augustus',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'Species classification only. Do not use this result as edibility or safety advice.',
+        },
+        {
+            'disease': 'Mushroom species: Amanita muscaria',
+            'scientific_name': 'Amanita muscaria',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'Species classification only. Do not use this result as edibility or safety advice.',
+        },
+        {
+            'disease': 'Mushroom species: Pleurotus ostreatus',
+            'scientific_name': 'Pleurotus ostreatus',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'Species classification only. Do not use this result as edibility or safety advice.',
+        },
+    ],
     'sweetpotato': [
         {
             'disease': 'Sweet Potato Leaf Spot',
@@ -149,7 +195,13 @@ CATALOG = {
 
 def _normalize_crop(crop_type: str) -> str:
     normalized = (crop_type or 'tomato').strip().lower().replace('_', '').replace(' ', '')
-    aliases = {'apples': 'apple', 'potatoes': 'potato', 'tomatoes': 'tomato'}
+    aliases = {
+        'apples': 'apple',
+        'grapes': 'grape',
+        'mushrooms': 'mushroom',
+        'potatoes': 'potato',
+        'tomatoes': 'tomato',
+    }
     normalized = aliases.get(normalized, normalized)
     return normalized if normalized in CATALOG else 'tomato'
 
