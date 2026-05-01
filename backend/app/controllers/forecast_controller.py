@@ -34,6 +34,11 @@ def get_forecast():
         if not is_valid_object_id(field_id):
             return error_response('Invalid field ID', 400)
         scope['field_id'] = field_id
+        if farm_id:
+            field = farm_model.get_field(farm_id, field_id)
+            if not field:
+                return error_response('Field not found', 404)
+            location = field.get('location', {}) or location
 
     if farm_id:
         scans = scan_model.get_scans_by_farm(farm_id, 1, 50)

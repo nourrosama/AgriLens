@@ -17,7 +17,9 @@ class CropInfo {
 
 class CropProvider extends ChangeNotifier {
   static const List<CropInfo> crops = [
-    CropInfo(value: 'tomato', labelEn: 'Tomato', labelAr: 'طماطم', emoji: '🍅'),
+    CropInfo(value: 'tomato', labelEn: 'Tomato', labelAr: 'Tomato', emoji: 'T'),
+    CropInfo(value: 'potato', labelEn: 'Potato', labelAr: 'Potato', emoji: 'P'),
+    CropInfo(value: 'apple', labelEn: 'Apple', labelAr: 'Apple', emoji: 'A'),
   ];
 
   String _selectedCrop = '';
@@ -41,16 +43,21 @@ class CropProvider extends ChangeNotifier {
 
   Future<void> _loadSaved() async {
     final prefs = await SharedPreferences.getInstance();
-    _selectedCrop = prefs.getString('selected_crop') ?? crops.first.value;
+    final savedCrop = prefs.getString('selected_crop') ?? crops.first.value;
+    _selectedCrop = crops.any((crop) => crop.value == savedCrop)
+        ? savedCrop
+        : crops.first.value;
     _isLoaded = true;
     notifyListeners();
   }
 
   Future<void> selectCrop(String cropValue) async {
-    _selectedCrop = cropValue;
+    _selectedCrop = crops.any((crop) => crop.value == cropValue)
+        ? cropValue
+        : crops.first.value;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_crop', cropValue);
+    await prefs.setString('selected_crop', _selectedCrop);
   }
 
   void clearCrop() {

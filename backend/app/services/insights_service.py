@@ -142,37 +142,107 @@ def _parse_openweather(payload: dict, days: int) -> dict:
     }
 
 
+def _parse_openweather_free(current_payload: dict, forecast_payload: dict, days: int) -> dict:
+    current_weather = current_payload.get('weather') or [{}]
+    current_main = current_payload.get('main') or {}
+    current_wind = current_payload.get('wind') or {}
+    grouped = {}
+
+    for entry in forecast_payload.get('list', []):
+        timestamp = entry.get('dt')
+        if timestamp is None:
+            continue
+        day_key = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime('%Y-%m-%d')
+        grouped.setdefault(day_key, []).append(entry)
+
+    forecast = []
+    for day_key, entries in list(grouped.items())[:days]:
+        representative = min(
+            entries,
+            key=lambda item: abs(
+                datetime.fromtimestamp(item.get('dt', 0), tz=timezone.utc).hour - 12
+            ),
+        )
+        main = representative.get('main') or {}
+        wind = representative.get('wind') or {}
+        weather_items = representative.get('weather') or current_weather
+        forecast.append({
+            'day': datetime.fromisoformat(day_key).strftime('%a'),
+            'temperature': round(float(main.get('temp', current_main.get('temp', 0)))),
+            'humidity': round(float(main.get('humidity', current_main.get('humidity', 0)))),
+            'wind_kmh': round(float(wind.get('speed', current_wind.get('speed', 0))) * 3.6),
+            'condition': _normalize_condition(weather_items[0].get('main', 'Clouds')),
+        })
+
+    if not forecast:
+        forecast = [{
+            'day': datetime.now(timezone.utc).strftime('%a'),
+            'temperature': round(float(current_main.get('temp', 0))),
+            'humidity': round(float(current_main.get('humidity', 0))),
+            'wind_kmh': round(float(current_wind.get('speed', 0)) * 3.6),
+            'condition': _normalize_condition(current_weather[0].get('main', 'Clouds')),
+        }]
+
+    return {
+        'temperature': round(float(current_main.get('temp', forecast[0]['temperature']))),
+        'humidity': round(float(current_main.get('humidity', forecast[0]['humidity']))),
+        'wind_kmh': round(float(current_wind.get('speed', 0)) * 3.6),
+        'condition': _normalize_condition(current_weather[0].get('main', forecast[0]['condition'])),
+        'forecast': forecast[:days],
+        'generated_at': datetime.now(timezone.utc).isoformat(),
+        'source': 'openweather',
+    }
+
+
+def _build_openweather_free(lat: float, lng: float, api_key: str, days: int) -> dict | None:
+    params = {
+        'lat': lat,
+        'lon': lng,
+        'appid': api_key,
+        'units': 'metric',
+    }
+    try:
+        current = requests.get(
+            'https://api.openweathermap.org/data/2.5/weather',
+            params=params,
+            timeout=10,
+        )
+        forecast = requests.get(
+            'https://api.openweathermap.org/data/2.5/forecast',
+            params=params,
+            timeout=10,
+        )
+        if current.ok and forecast.ok:
+            return _parse_openweather_free(current.json(), forecast.json(), days)
+        logger.warning(
+            'OpenWeather free endpoints failed current=%s forecast=%s',
+            current.status_code,
+            forecast.status_code,
+        )
+    except requests.RequestException as exc:
+        logger.warning('OpenWeather free endpoint error: %s', exc)
+    return None
+
+
 def build_weather(location: dict | None = None, days: int = 7) -> dict:
-    """Return normalized weather data, preferring OpenWeather when configured."""
+    """Return normalized weather data, preferring free OpenWeather endpoints."""
     coords = _extract_coordinates(location)
     api_key = current_app.config.get('OPENWEATHER_API_KEY', '')
     if not coords or not api_key:
         return _fallback_weather(location, days)
 
     lat, lng = coords
-    params = {
-        'lat': lat,
-        'lon': lng,
-        'appid': api_key,
-        'units': 'metric',
-        'exclude': 'minutely,hourly,alerts',
-    }
-    urls = []
-    primary = current_app.config.get('OPENWEATHER_API_URL', '')
-    fallback = current_app.config.get('OPENWEATHER_FALLBACK_URL', '')
-    if primary:
-        urls.append(primary)
-    if fallback and fallback not in urls:
-        urls.append(fallback)
 
-    for url in urls:
-        try:
-            response = requests.get(url, params=params, timeout=10)
-            if response.ok:
-                return _parse_openweather(response.json(), days)
-            logger.warning('OpenWeather request failed (%s): %s', response.status_code, response.text)
-        except requests.RequestException as exc:
-            logger.warning('OpenWeather request error: %s', exc)
+    free_weather = _build_openweather_free(lat, lng, api_key, days)
+    if free_weather:
+        current_app.logger.info(
+            'Weather provider source=%s lat=%.4f lon=%.4f forecast_days=%s',
+            free_weather.get('source'),
+            lat,
+            lng,
+            len(free_weather.get('forecast', [])),
+        )
+        return free_weather
 
     return _fallback_weather(location, days)
 

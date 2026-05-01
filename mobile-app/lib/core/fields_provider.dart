@@ -17,12 +17,14 @@ class FieldData {
     this.health = 85,
     this.farmName = '',
     this.locationData = const {},
+    this.weatherSnapshot = const {},
   });
 
   final String id;
   final String farmId;
   final String farmName;
   final Map<String, dynamic> locationData;
+  final Map<String, dynamic> weatherSnapshot;
   String name;
   String location;
   String area;
@@ -32,9 +34,8 @@ class FieldData {
   String? season;
   String status;
   int health;
-  double? get latitude => _toDouble(
-    locationData['lat'] ?? locationData['latitude'],
-  );
+  double? get latitude =>
+      _toDouble(locationData['lat'] ?? locationData['latitude']);
   double? get longitude => _toDouble(
     locationData['lng'] ?? locationData['lon'] ?? locationData['longitude'],
   );
@@ -69,6 +70,9 @@ class FieldData {
       status: riskLevel == 'low' ? 'healthy' : 'warning',
       health: healthScore,
       locationData: location is Map<String, dynamic> ? location : const {},
+      weatherSnapshot: json['weather_snapshot'] is Map<String, dynamic>
+          ? json['weather_snapshot'] as Map<String, dynamic>
+          : const {},
     );
   }
 
@@ -155,8 +159,8 @@ class FieldsProvider extends ChangeNotifier {
     try {
       final locationPayload = {
         'label': location,
-        if (latitude != null) 'lat': latitude,
-        if (longitude != null) 'lng': longitude,
+        'lat': ?latitude,
+        'lng': ?longitude,
       };
       final farmId = await _ensureFarm(locationPayload);
       await _apiClient.post(
@@ -217,8 +221,8 @@ class FieldsProvider extends ChangeNotifier {
               : {
                   'location': {
                     'label': location ?? field.location,
-                    if (latitude != null) 'lat': latitude,
-                    if (longitude != null) 'lng': longitude,
+                    'lat': ?latitude,
+                    'lng': ?longitude,
                   },
                 }),
           ...?(soilType == null ? null : {'soil_type': soilType}),
@@ -272,10 +276,7 @@ class FieldsProvider extends ChangeNotifier {
       final response = await _apiClient.post(
         '/api/farms',
         auth: true,
-        body: {
-          'name': 'Main Farm',
-          if (location != null) 'location': location,
-        },
+        body: {'name': 'Main Farm', 'location': ?location},
       );
       final farm =
           (response['data'] as Map<String, dynamic>)['farm']

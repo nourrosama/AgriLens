@@ -56,7 +56,14 @@ final GoRouter appRouter = GoRouter(
       builder: (ctx, state) => const LoginSuccessScreen(),
     ),
     GoRoute(path: '/home', builder: (ctx, state) => const HomeScreen()),
-    GoRoute(path: '/scan', builder: (ctx, state) => const CameraScanScreen()),
+    GoRoute(
+      path: '/scan',
+      builder: (ctx, state) => CameraScanScreen(
+        farmId: state.uri.queryParameters['farmId'],
+        fieldId: state.uri.queryParameters['fieldId'],
+        initialCropType: state.uri.queryParameters['cropType'],
+      ),
+    ),
     GoRoute(
       path: '/scan-result',
       builder: (ctx, state) => const ScanResultScreen(),

@@ -1,7 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
-import 'push_notifications_service.dart';
 import 'session_storage.dart';
 
 class UserData {
@@ -69,6 +70,20 @@ class UserData {
       isLoggedIn: true,
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': fullName,
+      'phone': phone,
+      'email': email,
+      'country': country,
+      'photo_url': profilePhotoPath ?? '',
+      'language': language,
+      'plan': plan,
+      'profile_completed': profileCompleted,
+    };
+  }
 }
 
 class UserProvider extends ChangeNotifier {
@@ -103,21 +118,37 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> hydrate() async {
     _setLoading(true);
+    Map<String, dynamic>? cachedUser;
     try {
       final token = await _sessionStorage.readToken();
       if (token == null || token.isEmpty) {
         _user = const UserData();
         return;
       }
+
+      cachedUser = await _sessionStorage.readUser();
+      if (cachedUser != null) {
+        _user = UserData.fromJson(cachedUser);
+        notifyListeners();
+      }
+
       final response = await _apiClient.get('/api/auth/me', auth: true);
       final userJson =
           (response['data'] as Map<String, dynamic>)['user']
               as Map<String, dynamic>;
       _user = UserData.fromJson(userJson);
-      await PushNotificationsService.instance.registerCurrentDevice();
+      await _sessionStorage.saveUser(userJson);
+    } on ApiException catch (error) {
+      if (error.statusCode == 401 || error.statusCode == 403) {
+        await _sessionStorage.clearSession();
+        _user = const UserData();
+      } else if (cachedUser == null) {
+        _user = const UserData();
+      }
     } catch (_) {
-      await _sessionStorage.clearToken();
-      _user = const UserData();
+      if (cachedUser == null) {
+        _user = const UserData();
+      }
     } finally {
       _isHydrated = true;
       _setLoading(false);
@@ -169,7 +200,7 @@ class UserProvider extends ChangeNotifier {
     try {
       // On web, use test verification endpoint
       final endpoint = '/api/auth/verify-otp';
-      
+
       final response = await _apiClient.post(
         endpoint,
         body: {'phone': phone ?? _pendingPhone ?? _user.phone, 'code': otp},
@@ -178,15 +209,11 @@ class UserProvider extends ChangeNotifier {
       final token = data['token']?.toString() ?? '';
       final userJson = data['user'] as Map<String, dynamic>;
       await _sessionStorage.saveToken(token);
-      
+      await _sessionStorage.saveUser(userJson);
+
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
-      
-      // Skip push notifications on web
-      if (!kIsWeb) {
-        await PushNotificationsService.instance.registerCurrentDevice();
-      }
-      
+
       _errorMessage = null;
       return true;
     } catch (error) {
@@ -220,24 +247,48 @@ class UserProvider extends ChangeNotifier {
   }) async {
     _setLoading(true);
     try {
-      final response = await _apiClient.put(
+      final body = {
+        ...?(fullName == null ? null : {'name': fullName}),
+        ...?(email == null ? null : {'email': email}),
+        ...?(country == null ? null : {'country': country}),
+        ...?(language == null ? null : {'language': language}),
+        ...?(profileCompleted == null
+            ? null
+            : {'profile_completed': profileCompleted}),
+      };
+      final photoFile = _localPhotoFile(photoPath);
+      final textResponse = await _apiClient.put(
         '/api/auth/me',
         auth: true,
         body: {
-          ...?(fullName == null ? null : {'name': fullName}),
-          ...?(email == null ? null : {'email': email}),
-          ...?(country == null ? null : {'country': country}),
-          ...?(photoPath == null ? null : {'photo_url': photoPath}),
-          ...?(language == null ? null : {'language': language}),
-          ...?(profileCompleted == null
+          ...body,
+          ...?(photoPath == null || photoFile != null
               ? null
-              : {'profile_completed': profileCompleted}),
+              : {'photo_url': photoPath}),
         },
       );
-      final userJson =
-          (response['data'] as Map<String, dynamic>)['user']
+      final textUserJson =
+          (textResponse['data'] as Map<String, dynamic>)['user']
               as Map<String, dynamic>;
-      _user = UserData.fromJson(userJson);
+      _user = UserData.fromJson(textUserJson);
+      await _sessionStorage.saveUser(textUserJson);
+
+      if (photoFile != null) {
+        final photoResponse = await _apiClient.multipart(
+          '/api/auth/me',
+          auth: true,
+          file: photoFile,
+          fieldName: 'photo',
+          fields: const {},
+          method: 'PUT',
+        );
+        final photoUserJson =
+            (photoResponse['data'] as Map<String, dynamic>)['user']
+                as Map<String, dynamic>;
+        _user = UserData.fromJson(photoUserJson);
+        await _sessionStorage.saveUser(photoUserJson);
+      }
+
       _errorMessage = null;
       return true;
     } catch (error) {
@@ -249,11 +300,23 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
-    await PushNotificationsService.instance.unregisterCurrentDevice();
-    await _sessionStorage.clearToken();
+    await _sessionStorage.clearSession();
     _pendingPhone = null;
     _user = const UserData();
     notifyListeners();
+  }
+
+  File? _localPhotoFile(String? photoPath) {
+    if (photoPath == null || photoPath.isEmpty) {
+      return null;
+    }
+    if (photoPath.startsWith('http://') ||
+        photoPath.startsWith('https://') ||
+        photoPath.startsWith('/uploads/')) {
+      return null;
+    }
+    final file = File(photoPath);
+    return file.existsSync() ? file : null;
   }
 
   void _setLoading(bool value) {

@@ -52,7 +52,7 @@ class HomeScreen extends StatelessWidget {
                         'assets/images/logo.png',
                         width: 40,
                         height: 40,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (context, error, stackTrace) => Container(
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
@@ -122,10 +122,7 @@ class HomeScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              Container(
-                height: 1,
-                color: const Color(0xFFE0E0E0),
-              ),
+              Container(height: 1, color: const Color(0xFFE0E0E0)),
 
               // ── Body ──────────────────────────────────────
               Expanded(
@@ -138,8 +135,7 @@ class HomeScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   lang.t('home.plantHealth'),
@@ -165,10 +161,8 @@ class HomeScreen extends StatelessWidget {
                                     child: LinearProgressIndicator(
                                       value: healthPercent / 100,
                                       minHeight: 12,
-                                      backgroundColor:
-                                          const Color(0xFFF5F5F5),
-                                      valueColor:
-                                          const AlwaysStoppedAnimation(
+                                      backgroundColor: const Color(0xFFF5F5F5),
+                                      valueColor: const AlwaysStoppedAnimation(
                                         Color(0xFF4CAF50),
                                       ),
                                     ),
@@ -212,8 +206,9 @@ class HomeScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF4CAF50)
-                                    .withValues(alpha: 0.3),
+                                color: const Color(
+                                  0xFF4CAF50,
+                                ).withValues(alpha: 0.3),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -223,8 +218,7 @@ class HomeScreen extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       lang.t('home.quickScan'),
@@ -238,8 +232,9 @@ class HomeScreen extends StatelessWidget {
                                     Text(
                                       lang.t('home.quickScanDesc'),
                                       style: TextStyle(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.9),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
                                         fontSize: 14,
                                       ),
                                     ),
@@ -262,8 +257,7 @@ class HomeScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   lang.t('home.activeAlerts'),
@@ -274,8 +268,7 @@ class HomeScreen extends StatelessWidget {
                                   ),
                                 ),
                                 GestureDetector(
-                                  onTap: () =>
-                                      context.push('/notifications'),
+                                  onTap: () => context.push('/notifications'),
                                   child: Text(
                                     lang.t('home.viewAll'),
                                     style: const TextStyle(
@@ -291,16 +284,28 @@ class HomeScreen extends StatelessWidget {
                             _buildAlertBubble(
                               notifications.notifications.isNotEmpty
                                   ? (lang.isRTL
-                                      ? notifications.notifications.first.titleAr
-                                      : notifications.notifications.first.titleEn)
+                                        ? notifications
+                                              .notifications
+                                              .first
+                                              .titleAr
+                                        : notifications
+                                              .notifications
+                                              .first
+                                              .titleEn)
                                   : lang.t('home.moderateRisk'),
                               notifications.notifications.isNotEmpty
                                   ? (lang.isRTL
-                                      ? notifications.notifications.first.messageAr
-                                      : notifications.notifications.first.messageEn)
+                                        ? notifications
+                                              .notifications
+                                              .first
+                                              .messageAr
+                                        : notifications
+                                              .notifications
+                                              .first
+                                              .messageEn)
                                   : (lang.isRTL
-                                      ? 'القسم الشمالي - الحقل أ'
-                                      : 'Field A - North Section'),
+                                        ? 'القسم الشمالي - الحقل أ'
+                                        : 'Field A - North Section'),
                               const Color(0xFFFFF3E0),
                               Icons.warning_amber_rounded,
                               const Color(0xFFFFC107),
@@ -325,8 +330,7 @@ class HomeScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text(
                                   lang.t('home.weatherToday'),
@@ -345,12 +349,10 @@ class HomeScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 16),
                             Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       '${weather.temperature}${lang.t('units.celsius')}',
@@ -372,8 +374,7 @@ class HomeScreen extends StatelessWidget {
                                   ],
                                 ),
                                 Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
                                   children: [
                                     Text(
                                       '${lang.t('home.humidity')}: ${weather.humidity}${lang.t('units.percent')}',
@@ -401,26 +402,25 @@ class HomeScreen extends StatelessWidget {
                             const SizedBox(height: 16),
                             // 7-day forecast bars
                             SizedBox(
-                              height: 100,
+                              height: 108,
                               child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
-                                children:
-                                    weather.forecast.map((day) {
+                                children: weather.forecast.map((day) {
                                   return Column(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.end,
+                                    mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
                                       Container(
                                         width: 8,
-                                        height: (day.temp / 40) * 70,
+                                        height: ((day.temp / 40) * 64)
+                                            .clamp(12.0, 64.0)
+                                            .toDouble(),
                                         decoration: BoxDecoration(
-                                          color:
-                                              const Color(0xFF4CAF50),
-                                          borderRadius:
-                                              BorderRadius.circular(4),
+                                          color: const Color(0xFF4CAF50),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                         ),
                                       ),
                                       const SizedBox(height: 8),
@@ -456,8 +456,7 @@ class HomeScreen extends StatelessWidget {
                               onTap: () => context.push('/fields'),
                               child: _buildCard(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Icon(
                                       Icons.eco_rounded,
@@ -481,12 +480,10 @@ class HomeScreen extends StatelessWidget {
                           const SizedBox(width: 16),
                           Expanded(
                             child: GestureDetector(
-                              onTap: () =>
-                                  context.push('/forecasting'),
+                              onTap: () => context.push('/forecasting'),
                               child: _buildCard(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     const Icon(
                                       Icons.trending_up_rounded,

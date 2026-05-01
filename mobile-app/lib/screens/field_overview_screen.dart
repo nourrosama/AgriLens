@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -10,10 +11,35 @@ import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/weather_provider.dart';
 
-class FieldOverviewScreen extends StatelessWidget {
+class FieldOverviewScreen extends StatefulWidget {
   const FieldOverviewScreen({super.key, required this.fieldId});
 
   final String fieldId;
+
+  @override
+  State<FieldOverviewScreen> createState() => _FieldOverviewScreenState();
+}
+
+class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
+  String? _requestedFieldScanLoad;
+
+  void _scheduleFieldScanLoad(FieldData field) {
+    if (_requestedFieldScanLoad == field.id) {
+      return;
+    }
+    _requestedFieldScanLoad = field.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        context.read<ScanHistoryProvider>().loadScans(
+          farmId: field.farmId,
+          fieldId: field.id,
+        ),
+      );
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +47,7 @@ class FieldOverviewScreen extends StatelessWidget {
     final fieldsProvider = context.watch<FieldsProvider>();
     final weatherProvider = context.watch<WeatherProvider>();
     final scanProvider = context.watch<ScanHistoryProvider>();
-    final field = fieldsProvider.getField(fieldId);
+    final field = fieldsProvider.getField(widget.fieldId);
 
     if (field == null) {
       return Scaffold(
@@ -62,13 +88,28 @@ class FieldOverviewScreen extends StatelessWidget {
       );
     }
 
+    _scheduleFieldScanLoad(field);
+
     final fieldScans =
         scanProvider.scans.where((scan) => scan.fieldId == field.id).toList()
           ..sort((a, b) => b.scannedAt.compareTo(a.scannedAt));
-    final trendPoints = _buildTrend(field.health, fieldScans);
-    final riskLabel = field.status == 'healthy'
-        ? lang.t('forecast.lowRisk')
-        : lang.t('forecast.moderateRisk');
+    final diseasedScanCount = fieldScans
+        .where((scan) => scan.hasDetection && !scan.isHealthy)
+        .length;
+    final latestScanLabel = fieldScans.isEmpty
+        ? (lang.isRTL ? 'لا توجد فحوصات' : 'No scans')
+        : (fieldScans.first.isHealthy
+              ? lang.t('scan.healthy')
+              : fieldScans.first.diseaseNameEn);
+    final trendPoints = _buildTrend(fieldScans);
+    final fieldWeather = field.weatherSnapshot;
+    final temperature =
+        (fieldWeather['temperature'] as num?)?.round() ??
+        weatherProvider.temperature;
+    final humidity =
+        (fieldWeather['humidity'] as num?)?.round() ?? weatherProvider.humidity;
+    final wind =
+        (fieldWeather['wind_kmh'] as num?)?.round() ?? weatherProvider.wind;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -106,7 +147,8 @@ class FieldOverviewScreen extends StatelessWidget {
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: () => context.push('/edit-field/$fieldId'),
+                    onPressed: () =>
+                        context.push('/edit-field/${widget.fieldId}'),
                     icon: const Icon(
                       Icons.edit_outlined,
                       color: AppColors.primary,
@@ -121,8 +163,14 @@ class FieldOverviewScreen extends StatelessWidget {
                 onRefresh: () async {
                   await Future.wait([
                     fieldsProvider.loadFields(),
-                    scanProvider.loadScans(),
-                    weatherProvider.refreshWeather(),
+                    scanProvider.loadScans(
+                      farmId: field.farmId,
+                      fieldId: field.id,
+                    ),
+                    weatherProvider.refreshWeather(
+                      farmId: field.farmId,
+                      fieldId: field.id,
+                    ),
                   ]);
                 },
                 child: SingleChildScrollView(
@@ -167,21 +215,21 @@ class FieldOverviewScreen extends StatelessWidget {
                                   AppColors.primaryDark,
                                 ),
                                 _miniStat(
-                                  lang.t('fields.health'),
-                                  '${field.health}${lang.t('units.percent')}',
+                                  lang.isRTL ? 'الفحوصات' : 'Scans',
+                                  '${fieldScans.length}',
                                   AppColors.primary,
                                 ),
                                 _miniStat(
-                                  lang.t('fields.riskLevel'),
-                                  riskLabel,
-                                  field.status == 'healthy'
-                                      ? AppColors.primary
-                                      : const Color(0xFFFFC107),
+                                  lang.t('fields.alerts'),
+                                  '$diseasedScanCount',
+                                  AppColors.primaryDark,
                                 ),
                                 _miniStat(
-                                  lang.t('fields.alerts'),
-                                  '${fieldScans.where((scan) => !scan.isHealthy).length}',
-                                  AppColors.primaryDark,
+                                  lang.isRTL ? 'آخر فحص' : 'Latest Scan',
+                                  latestScanLabel,
+                                  fieldScans.isEmpty
+                                      ? AppColors.textSecondary
+                                      : AppColors.primary,
                                 ),
                               ],
                             ),
@@ -216,7 +264,7 @@ class FieldOverviewScreen extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              lang.isRTL ? 'اتجاه الصحة' : 'Health Trend',
+                              'Scan Activity',
                               style: const TextStyle(
                                 color: AppColors.primaryDark,
                                 fontSize: 18,
@@ -230,7 +278,7 @@ class FieldOverviewScreen extends StatelessWidget {
                                 size: const Size(double.infinity, 160),
                                 painter: _LinePainter(
                                   trendPoints,
-                                  field.status == 'healthy'
+                                  diseasedScanCount == 0
                                       ? AppColors.primary
                                       : const Color(0xFFFFC107),
                                 ),
@@ -238,13 +286,17 @@ class FieldOverviewScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              field.status == 'healthy'
+                              fieldScans.isEmpty
                                   ? (lang.isRTL
-                                        ? 'صحة الحقل مستقرة حالياً.'
-                                        : 'Field health is currently stable.')
+                                        ? 'لا توجد فحوصات محفوظة لهذا الحقل بعد.'
+                                        : 'No scan results saved for this field yet.')
+                                  : diseasedScanCount == 0
+                                  ? (lang.isRTL
+                                        ? 'كل الفحوصات المحفوظة لهذا الحقل سليمة.'
+                                        : 'All saved scans for this field are healthy.')
                                   : (lang.isRTL
-                                        ? 'يوصى بمتابعة هذا الحقل عن قرب.'
-                                        : 'This field should be monitored closely.'),
+                                        ? 'توجد فحوصات مصابة محفوظة لهذا الحقل.'
+                                        : 'Saved scans include disease detections for this field.'),
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 14,
@@ -275,21 +327,21 @@ class FieldOverviewScreen extends StatelessWidget {
                                   child: _conditionItem(
                                     Icons.thermostat,
                                     lang.t('home.temp'),
-                                    '${weatherProvider.temperature}${lang.t('units.celsius')}',
+                                    '$temperature${lang.t('units.celsius')}',
                                   ),
                                 ),
                                 Expanded(
                                   child: _conditionItem(
                                     Icons.water_drop,
                                     lang.t('home.humidity'),
-                                    '${weatherProvider.humidity}${lang.t('units.percent')}',
+                                    '$humidity${lang.t('units.percent')}',
                                   ),
                                 ),
                                 Expanded(
                                   child: _conditionItem(
                                     Icons.air,
                                     lang.t('home.wind'),
-                                    '${weatherProvider.wind} ${lang.t('units.kmh')}',
+                                    '$wind ${lang.t('units.kmh')}',
                                   ),
                                 ),
                               ],
@@ -314,7 +366,17 @@ class FieldOverviewScreen extends StatelessWidget {
                                   ),
                                 ),
                                 TextButton(
-                                  onPressed: () => context.push('/scan'),
+                                  onPressed: () => context.push(
+                                    Uri(
+                                      path: '/scan',
+                                      queryParameters: {
+                                        'farmId': field.farmId,
+                                        'fieldId': field.id,
+                                        if ((field.cropType ?? '').isNotEmpty)
+                                          'cropType': field.cropType!,
+                                      },
+                                    ).toString(),
+                                  ),
                                   child: Text(lang.t('home.quickScan')),
                                 ),
                               ],
@@ -489,7 +551,8 @@ class FieldOverviewScreen extends StatelessWidget {
     );
   }
 
-  List<int> _buildTrend(int baselineHealth, List<ScanResult> scans) {
+  List<int> _buildTrend(List<ScanResult> scans) {
+    const baselineHealth = 100;
     if (scans.isEmpty) {
       return <int>[
         max(0, baselineHealth - 4),

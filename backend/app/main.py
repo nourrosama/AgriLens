@@ -2,18 +2,21 @@
 AgriLens Backend API - Application factory.
 Initializes MongoDB, Redis, RabbitMQ, media storage, Swagger, and all blueprints.
 """
+import logging
+
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 from flasgger import Swagger
 
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv()
 
 
 def create_app():
     """Application factory pattern."""
     app = Flask(__name__)
+    app.logger.setLevel(logging.INFO)
     CORS(app)
 
     from app.config.settings import Config

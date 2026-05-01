@@ -190,6 +190,7 @@ class ProfileScreen extends StatelessWidget {
     if (path.startsWith('/uploads/')) {
       return Image.network(
         '${AppConfig.apiBaseUrl}$path',
+        headers: const {'ngrok-skip-browser-warning': 'true'},
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) =>
             const Icon(Icons.person, size: 40, color: AppColors.primary),
@@ -198,6 +199,7 @@ class ProfileScreen extends StatelessWidget {
     if (path.startsWith('http://') || path.startsWith('https://')) {
       return Image.network(
         path,
+        headers: const {'ngrok-skip-browser-warning': 'true'},
         fit: BoxFit.cover,
         errorBuilder: (context, error, stackTrace) =>
             const Icon(Icons.person, size: 40, color: AppColors.primary),

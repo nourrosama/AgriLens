@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 
 import 'api_client.dart';
 
@@ -48,7 +49,7 @@ class DayWeather {
 class WeatherProvider extends ChangeNotifier {
   WeatherProvider({ApiClient? apiClient})
     : _apiClient = apiClient ?? ApiClient() {
-    refreshWeather();
+    refreshWeather(useCurrentLocation: true);
   }
 
   final ApiClient _apiClient;
@@ -57,6 +58,7 @@ class WeatherProvider extends ChangeNotifier {
   int _wind = 0;
   String _condition = 'Partly Cloudy';
   List<DayWeather> _forecast = const [];
+  String _source = 'fallback';
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -67,33 +69,73 @@ class WeatherProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String condition(bool isRTL) => _condition;
   List<DayWeather> get forecast => _forecast;
+  String get source => _source;
 
-  Future<void> refreshWeather({String? farmId}) async {
+  Future<void> refreshWeather({
+    String? farmId,
+    String? fieldId,
+    bool useCurrentLocation = false,
+  }) async {
     _setLoading(true);
     try {
+      final query = <String, dynamic>{
+        if (farmId != null && farmId.isNotEmpty) 'farm_id': farmId,
+        if (fieldId != null && fieldId.isNotEmpty) 'field_id': fieldId,
+      };
+      if (useCurrentLocation) {
+        final position = await _currentPosition();
+        if (position != null) {
+          query['lat'] = position.latitude;
+          query['lng'] = position.longitude;
+        }
+      }
       final response = await _apiClient.get(
         '/api/weather',
         auth: true,
-        query: {if (farmId != null && farmId.isNotEmpty) 'farm_id': farmId},
+        query: query,
       );
       final weather =
           (response['data'] as Map<String, dynamic>)['weather']
               as Map<String, dynamic>;
-      _temperature = (weather['temperature'] as num?)?.round() ?? 0;
-      _humidity = (weather['humidity'] as num?)?.round() ?? 0;
-      _wind = (weather['wind_kmh'] as num?)?.round() ?? 0;
-      _condition = weather['condition']?.toString() ?? 'Partly Cloudy';
-      _forecast =
-          ((weather['forecast'] as List<dynamic>? ?? [])
-                  .cast<Map<String, dynamic>>())
-              .map(DayWeather.fromJson)
-              .toList();
+      applyWeatherSnapshot(weather);
       _errorMessage = null;
     } catch (error) {
       _errorMessage = error.toString();
     } finally {
       _setLoading(false);
     }
+  }
+
+  void applyWeatherSnapshot(Map<String, dynamic> weather) {
+    _temperature = (weather['temperature'] as num?)?.round() ?? 0;
+    _humidity = (weather['humidity'] as num?)?.round() ?? 0;
+    _wind = (weather['wind_kmh'] as num?)?.round() ?? 0;
+    _condition = weather['condition']?.toString() ?? 'Partly Cloudy';
+    _source = weather['source']?.toString() ?? 'fallback';
+    _forecast =
+        ((weather['forecast'] as List<dynamic>? ?? [])
+                .cast<Map<String, dynamic>>())
+            .map(DayWeather.fromJson)
+            .toList();
+    notifyListeners();
+  }
+
+  Future<Position?> _currentPosition() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return null;
+    }
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return null;
+    }
+    return Geolocator.getCurrentPosition(
+      locationSettings: const LocationSettings(accuracy: LocationAccuracy.low),
+    );
   }
 
   void _setLoading(bool value) {

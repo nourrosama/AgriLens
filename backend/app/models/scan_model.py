@@ -86,14 +86,7 @@ def get_scan_by_id(scan_id: str) -> dict | None:
 
 def get_scans_by_user(user_id: str, page: int = 1, per_page: int = 20) -> list:
     """Paginated list of scans for a user, newest first."""
-    skip = (page - 1) * per_page
-    return list(
-        scans_col()
-        .find({'user_id': ObjectId(user_id)})
-        .sort('created_at', -1)
-        .skip(skip)
-        .limit(per_page)
-    )
+    return get_scans_filtered(user_id, page=page, per_page=per_page)
 
 
 def get_scans_by_farm(farm_id: str, page: int = 1, per_page: int = 20) -> list:
@@ -109,10 +102,29 @@ def get_scans_by_farm(farm_id: str, page: int = 1, per_page: int = 20) -> list:
 
 def get_scans_by_crop(user_id: str, crop_type: str, page: int = 1, per_page: int = 20) -> list:
     """Filter scans by crop type for a given user."""
+    return get_scans_filtered(user_id, crop_type=crop_type, page=page, per_page=per_page)
+
+
+def get_scans_filtered(
+    user_id: str,
+    farm_id: str = None,
+    field_id: str = None,
+    crop_type: str = '',
+    page: int = 1,
+    per_page: int = 20,
+) -> list:
+    """Paginated scan list for a user with optional farm, field, and crop filters."""
     skip = (page - 1) * per_page
+    query = {'user_id': ObjectId(user_id)}
+    if farm_id:
+        query['farm_id'] = ObjectId(farm_id)
+    if field_id:
+        query['field_id'] = ObjectId(field_id)
+    if crop_type:
+        query['crop_type'] = crop_type
     return list(
         scans_col()
-        .find({'user_id': ObjectId(user_id), 'crop_type': crop_type})
+        .find(query)
         .sort('created_at', -1)
         .skip(skip)
         .limit(per_page)

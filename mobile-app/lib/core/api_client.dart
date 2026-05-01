@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 import 'app_config.dart';
@@ -105,6 +105,31 @@ class ApiClient {
     required String fieldName,
     bool auth = false,
     Map<String, String>? fields,
+    String method = 'POST',
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    final headers = await _headers(auth: auth, json: false);
+    final streamedResponse = await _sendWithFallback((baseUrl) async {
+      final request = http.MultipartRequest(method, _uri(baseUrl, path));
+      request.headers.addAll(headers);
+      request.fields.addAll(fields ?? const {});
+      request.files.add(
+        await http.MultipartFile.fromPath(fieldName, file.path),
+      );
+      return request.send();
+    }, timeout: timeout);
+    final response = await http.Response.fromStream(streamedResponse);
+    return _decode(response);
+  }
+
+  Future<Map<String, dynamic>> multipartBytes(
+    String path, {
+    required Uint8List bytes,
+    required String filename,
+    required String fieldName,
+    bool auth = false,
+    Map<String, String>? fields,
+    Duration timeout = const Duration(seconds: 15),
   }) async {
     final headers = await _headers(auth: auth, json: false);
     final streamedResponse = await _sendWithFallback((baseUrl) async {
@@ -112,22 +137,26 @@ class ApiClient {
       request.headers.addAll(headers);
       request.fields.addAll(fields ?? const {});
       request.files.add(
-        await http.MultipartFile.fromPath(fieldName, file.path),
+        http.MultipartFile.fromBytes(fieldName, bytes, filename: filename),
       );
       return request.send();
-    });
+    }, timeout: timeout);
     final response = await http.Response.fromStream(streamedResponse);
     return _decode(response);
   }
 
   Future<T> _sendWithFallback<T>(
-    Future<T> Function(String baseUrl) request,
-  ) async {
+    Future<T> Function(String baseUrl) request, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     ApiException? lastError;
 
     for (final baseUrl in AppConfig.apiBaseUrlCandidates) {
       try {
-        final response = await _runRequest(() => request(baseUrl));
+        final response = await _runRequest(
+          () => request(baseUrl),
+          timeout: timeout,
+        );
         AppConfig.setResolvedApiBaseUrl(baseUrl);
         return response;
       } on ApiException catch (error) {
@@ -145,9 +174,12 @@ class ApiClient {
         );
   }
 
-  Future<T> _runRequest<T>(Future<T> Function() request) async {
+  Future<T> _runRequest<T>(
+    Future<T> Function() request, {
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
     try {
-      return await request().timeout(const Duration(seconds: 15));
+      return await request().timeout(timeout);
     } on TimeoutException {
       throw ApiException(
         'Request timed out. Check that the backend is running and that API_BASE_URL points to the correct host for this device.',
@@ -161,11 +193,12 @@ class ApiClient {
     } on http.ClientException catch (error) {
       final message = error.message.toLowerCase();
       throw ApiException(
-        error.message,
+        'Unable to reach the server. Check that the backend is running and that API_BASE_URL points to the correct host for this device.',
         isConnectivityError:
             message.contains('cleartext') ||
             message.contains('failed host lookup') ||
-            message.contains('connection refused'),
+            message.contains('connection refused') ||
+            message.contains('failed to fetch'),
       );
     }
   }
@@ -174,7 +207,7 @@ class ApiClient {
     required bool auth,
     bool json = true,
   }) async {
-    final headers = <String, String>{};
+    final headers = <String, String>{'ngrok-skip-browser-warning': 'true'};
     if (json) {
       headers['Content-Type'] = 'application/json';
       headers['Accept'] = 'application/json';

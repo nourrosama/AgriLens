@@ -26,7 +26,10 @@ class DiseaseMapScreen extends StatelessWidget {
         : const LatLng(30.0444, 31.2357);
 
     final healthyCount = fields.where((field) => field.health >= 80).length;
-    final monitorCount = fields.where((field) => field.health < 80).length;
+    final monitorCount = fields
+        .where((field) => field.health >= 60 && field.health < 80)
+        .length;
+    final highRiskCount = fields.where((field) => field.health < 60).length;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -55,7 +58,7 @@ class DiseaseMapScreen extends StatelessWidget {
                   const SizedBox(width: 16),
                   Expanded(
                     child: Text(
-                      lang.isRTL ? 'خريطة الحقول' : 'Field Map',
+                      lang.t('map.title'),
                       style: const TextStyle(
                         color: AppColors.primaryDark,
                         fontSize: 20,
@@ -90,44 +93,49 @@ class DiseaseMapScreen extends StatelessWidget {
                           ),
                           MarkerLayer(
                             markers: markerFields.map((item) {
-                              final statusColor = item.field.health >= 80
-                                  ? AppColors.primary
-                                  : const Color(0xFFFFC107);
+                              final statusColor = _statusColor(item.field);
                               return Marker(
                                 point: item.point!,
                                 width: 120,
                                 height: 70,
-                                child: Column(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(
-                                          999,
+                                child: GestureDetector(
+                                  onTap: () => context.push(
+                                    '/field-overview/${item.field.id}',
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
                                         ),
-                                        border: Border.all(color: statusColor),
-                                      ),
-                                      child: Text(
-                                        item.field.name,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: statusColor,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                          border: Border.all(
+                                            color: statusColor,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          item.field.name,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: statusColor,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Icon(
-                                      Icons.location_on,
-                                      color: statusColor,
-                                      size: 28,
-                                    ),
-                                  ],
+                                      const SizedBox(height: 4),
+                                      Icon(
+                                        Icons.location_on,
+                                        color: statusColor,
+                                        size: 28,
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               );
                             }).toList(),
@@ -154,7 +162,7 @@ class DiseaseMapScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            lang.isRTL ? 'مقياس الحالة' : 'Status Legend',
+                            lang.t('map.statusLegend'),
                             style: const TextStyle(
                               color: AppColors.primaryDark,
                               fontSize: 18,
@@ -165,26 +173,30 @@ class DiseaseMapScreen extends StatelessWidget {
                           _legendItem(
                             AppColors.primary,
                             lang.t('fields.healthy'),
-                            lang.isRTL
-                                ? 'صحة مستقرة أو خطر منخفض'
-                                : 'Stable health or low disease risk',
+                            lang.t('map.lowRiskDescription'),
                           ),
                           const SizedBox(height: 12),
                           _legendItem(
                             const Color(0xFFFFC107),
                             lang.t('fields.warning'),
-                            lang.isRTL
-                                ? 'تحتاج إلى متابعة أو فحص جديد'
-                                : 'Needs attention or a fresh scan',
+                            lang.t('map.mediumRiskDescription'),
                           ),
                           const SizedBox(height: 12),
                           _legendItem(
                             const Color(0xFFF44336),
                             lang.t('forecast.highRisk'),
-                            lang.isRTL
-                                ? 'إجراءات عاجلة مطلوبة'
-                                : 'Urgent action recommended',
+                            lang.t('map.highRiskDescription'),
                           ),
+                          if (markerFields.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(
+                              lang.t('map.openFieldDetails'),
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -201,7 +213,7 @@ class DiseaseMapScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            lang.isRTL ? 'الملخص' : 'Summary',
+                            lang.t('map.summary'),
                             style: const TextStyle(
                               color: AppColors.primaryDark,
                               fontSize: 18,
@@ -222,16 +234,20 @@ class DiseaseMapScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 8),
                           _summaryRow(
-                            lang.isRTL ? 'تحتاج متابعة' : 'Needs monitoring',
+                            lang.t('map.needsMonitoring'),
                             '$monitorCount',
                             const Color(0xFFFFC107),
+                          ),
+                          const SizedBox(height: 8),
+                          _summaryRow(
+                            lang.t('map.highRiskFields'),
+                            '$highRiskCount',
+                            const Color(0xFFF44336),
                           ),
                           if (markerFields.isEmpty) ...[
                             const SizedBox(height: 12),
                             Text(
-                              lang.isRTL
-                                  ? 'أضف إحداثيات للحقل لعرضه على الخريطة. حالياً يتم عرض قائمة منظمة فقط.'
-                                  : 'Add coordinates to a field to show it on the map. For now, a structured list is shown instead.',
+                              lang.t('map.noCoordinatesHint'),
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 13,
@@ -272,9 +288,7 @@ class DiseaseMapScreen extends StatelessWidget {
                                       width: 12,
                                       height: 12,
                                       decoration: BoxDecoration(
-                                        color: field.health >= 80
-                                            ? AppColors.primary
-                                            : const Color(0xFFFFC107),
+                                        color: _statusColor(field),
                                         shape: BoxShape.circle,
                                       ),
                                     ),
@@ -324,6 +338,16 @@ class DiseaseMapScreen extends StatelessWidget {
     return LatLng(lat, lng);
   }
 
+  Color _statusColor(FieldData field) {
+    if (field.health >= 80) {
+      return AppColors.primary;
+    }
+    if (field.health >= 60) {
+      return const Color(0xFFFFC107);
+    }
+    return const Color(0xFFF44336);
+  }
+
   Widget _mapFallback(LanguageProvider lang) {
     return Container(
       width: double.infinity,
@@ -346,9 +370,7 @@ class DiseaseMapScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              lang.isRTL
-                  ? 'لا توجد إحداثيات خريطة متاحة'
-                  : 'No map coordinates available',
+              lang.t('map.noCoordinatesTitle'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.primaryDark,
@@ -358,9 +380,7 @@ class DiseaseMapScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              lang.isRTL
-                  ? 'يمكنك الاستمرار في متابعة الحقول من القائمة إلى أن تتم إضافة المواقع.'
-                  : 'You can still monitor fields from the list until precise locations are added.',
+              lang.t('map.noCoordinatesMessage'),
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.textSecondary,

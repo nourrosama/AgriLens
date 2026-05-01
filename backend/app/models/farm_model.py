@@ -73,6 +73,7 @@ def add_field(
         'season': season,
         'health_score': health_score,
         'risk_level': risk_level,
+        'weather_snapshot': {},
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
     }
@@ -89,7 +90,7 @@ def add_field(
 def update_field(farm_id: str, field_id: str, updates: dict) -> bool:
     """Update a field sub-document in a farm."""
     updates = dict(updates)
-    updates['fields.$.updated_at'] = datetime.now(timezone.utc)
+    updates['updated_at'] = datetime.now(timezone.utc)
     set_updates = {f'fields.$.{key}': value for key, value in updates.items()}
     result = farms_col().update_one(
         {
@@ -130,6 +131,7 @@ def serialize_field(field: dict) -> dict:
         'season': field.get('season', ''),
         'health_score': field.get('health_score', 0),
         'risk_level': field.get('risk_level', 'low'),
+        'weather_snapshot': field.get('weather_snapshot', {}),
         'created_at': field.get('created_at', '').isoformat() if field.get('created_at') else None,
         'updated_at': field.get('updated_at', '').isoformat() if field.get('updated_at') else None,
     }
@@ -156,6 +158,7 @@ def serialize(farm: dict) -> dict:
         'owner_id': str(farm.get('owner_id', '')),
         'name': farm.get('name', ''),
         'location': farm.get('location', {}),
+        'weather_snapshot': farm.get('weather_snapshot', {}),
         'fields': [serialize_field(f) for f in farm.get('fields', [])],
         'created_at': farm.get('created_at', '').isoformat() if farm.get('created_at') else None,
         'updated_at': farm.get('updated_at', '').isoformat() if farm.get('updated_at') else None,

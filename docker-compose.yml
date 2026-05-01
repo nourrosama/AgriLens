@@ -8,6 +8,11 @@ services:
       - "5000:5000"
     env_file:
       - ./backend/.env
+    environment:
+      DETECTION_SERVICE_URL: http://detection-service:5001
+      FORECAST_SERVICE_URL: http://forecast-service:5002
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       - rabbitmq
       - redis
@@ -41,6 +46,9 @@ services:
       - "5003:5003"
     env_file:
       - ./backend/.env
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+      FIREBASE_CREDENTIALS_PATH: /app/secrets/firebase-service-account.json
     depends_on:
       - rabbitmq
     volumes:
@@ -61,5 +69,14 @@ services:
     ports:
       - "6379:6379"
 
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+
 volumes:
   backend_uploads:
+  mongo_data:

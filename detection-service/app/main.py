@@ -15,6 +15,9 @@ def create_app():
     app = Flask(__name__)
     CORS(app)
     app.config["MODEL_PATH"] = os.getenv("MODEL_PATH", "")
+    app.config["TOMATO_MODEL_PATH"] = os.getenv("TOMATO_MODEL_PATH", "")
+    app.config["POTATO_MODEL_PATH"] = os.getenv("POTATO_MODEL_PATH", "")
+    app.config["APPLE_MODEL_PATH"] = os.getenv("APPLE_MODEL_PATH", "")
     app.config["MODEL_FORCE_CPU"] = os.getenv("MODEL_FORCE_CPU", "true").lower() == "true"
 
     from app.controllers.detection_controller import detection_bp

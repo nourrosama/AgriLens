@@ -1,7 +1,8 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' as io;
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -11,8 +12,21 @@ import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 
+import 'package:agrilens/core/web_file_picker.dart'
+    if (dart.library.html) 'package:agrilens/core/web_file_picker.dart'
+    as web_picker;
+
 class CameraScanScreen extends StatefulWidget {
-  const CameraScanScreen({super.key});
+  const CameraScanScreen({
+    super.key,
+    this.farmId,
+    this.fieldId,
+    this.initialCropType,
+  });
+
+  final String? farmId;
+  final String? fieldId;
+  final String? initialCropType;
 
   @override
   State<CameraScanScreen> createState() => _CameraScanScreenState();
@@ -43,7 +57,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     final crop = context.read<CropProvider>();
-    if (crop.hasCropSelected) {
+    if ((widget.initialCropType ?? '').isNotEmpty) {
+      unawaited(crop.selectCrop(widget.initialCropType!));
+      _showCropSelection = false;
+    } else if (crop.hasCropSelected) {
       _showCropSelection = false;
     }
     unawaited(_initializeCamera());
@@ -173,16 +190,14 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     try {
       final photo = await controller.takePicture();
-      await _submitScan(File(photo.path));
+      await _submitScan(io.File(photo.path));
     } catch (error) {
       _showError('Failed to capture photo: $error');
     }
   }
 
   Future<void> _pickFromGallery() async {
-    if (_scanning) {
-      return;
-    }
+    if (_scanning) return;
 
     final crop = context.read<CropProvider>();
     if (!crop.hasCropSelected) {
@@ -190,24 +205,56 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       return;
     }
 
+    if (kIsWeb) {
+      await _pickFromGalleryWeb();
+      return;
+    }
+
     try {
       if (_captureMode == 'photo') {
         final photo = await _picker.pickImage(source: ImageSource.gallery);
-        if (photo != null) {
-          await _submitScan(File(photo.path));
-        }
+        if (photo != null) await _submitScan(io.File(photo.path));
         return;
       }
-
       final video = await _picker.pickVideo(
         source: ImageSource.gallery,
         maxDuration: const Duration(seconds: 30),
       );
-      if (video != null) {
-        await _submitVideo(File(video.path));
-      }
+      if (video != null) await _submitVideo(io.File(video.path));
     } catch (error) {
       _showError('Failed to open gallery: $error');
+    }
+  }
+
+  Future<void> _pickFromGalleryWeb() async {
+    try {
+      // ignore: avoid_web_libraries_in_flutter
+      final result = await web_picker.pickImageFromWeb();
+      if (result == null) return;
+      final (bytes, name) = result;
+      await _submitScanWeb(bytes, name);
+    } catch (error) {
+      _showError('Failed to open file picker: $error');
+    }
+  }
+
+  Future<void> _submitScanWeb(Uint8List bytes, String filename) async {
+    setState(() => _scanning = true);
+    final crop = context.read<CropProvider>();
+    final scanProvider = context.read<ScanHistoryProvider>();
+    final result = await scanProvider.submitScan(
+      imageBytes: bytes,
+      imageName: filename,
+      cropType: crop.selectedCrop,
+      farmId: widget.farmId,
+      fieldId: widget.fieldId,
+    );
+    if (!mounted) return;
+    setState(() => _scanning = false);
+    if (result != null) {
+      context.push('/scan-result', extra: result);
+    } else {
+      _showError(scanProvider.errorMessage ?? 'Scan failed');
     }
   }
 
@@ -254,7 +301,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         _isRecording = false;
         _recordingTime = 0;
       });
-      await _submitVideo(File(video.path));
+      await _submitVideo(io.File(video.path));
     } catch (error) {
       _timer?.cancel();
       setState(() {
@@ -273,13 +320,15 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     await _initializeCamera(cameraIndex: nextIndex);
   }
 
-  Future<void> _submitScan(File imageFile) async {
+  Future<void> _submitScan(io.File imageFile) async {
     setState(() => _scanning = true);
     final crop = context.read<CropProvider>();
     final scanProvider = context.read<ScanHistoryProvider>();
     final result = await scanProvider.submitScan(
       imageFile: imageFile,
       cropType: crop.selectedCrop,
+      farmId: widget.farmId,
+      fieldId: widget.fieldId,
     );
     if (!mounted) {
       return;
@@ -292,13 +341,15 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
-  Future<void> _submitVideo(File videoFile) async {
+  Future<void> _submitVideo(io.File videoFile) async {
     setState(() => _scanning = true);
     final crop = context.read<CropProvider>();
     final scanProvider = context.read<ScanHistoryProvider>();
     final result = await scanProvider.submitVideoScan(
       videoFile: videoFile,
       cropType: crop.selectedCrop,
+      farmId: widget.farmId,
+      fieldId: widget.fieldId,
     );
     if (!mounted) {
       return;

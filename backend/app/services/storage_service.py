@@ -87,6 +87,17 @@ def upload_image(file_obj, filename: str = None) -> str:
     )
 
 
+def upload_profile_image(file_obj, filename: str = None) -> str:
+    """Upload a profile image and return the public URL/path."""
+    return _upload_media(
+        file_obj,
+        folder='agrilens/profiles',
+        default_ext='jpg',
+        resource_type='image',
+        filename=filename,
+    )
+
+
 def upload_video(file_obj, filename: str = None) -> str:
     """Upload a video file and return the public URL/path."""
     return _upload_media(
@@ -168,6 +179,7 @@ def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, f
             overwrite=False,
             format=ext,
             folder=None,
+            timeout=current_app.config.get('CLOUDINARY_UPLOAD_TIMEOUT', 30),
         )
     except Exception as exc:  # pragma: no cover - runtime safety
         logger.warning('Cloudinary %s upload failed: %s', resource_type, exc)

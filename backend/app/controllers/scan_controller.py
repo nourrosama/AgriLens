@@ -240,20 +240,28 @@ def upload_scan():
 @scan_bp.route('/api/scans', methods=['GET'])
 @require_auth
 def list_scans():
-    """List scans for the current user (paginated, filterable by crop_type)."""
+    """List scans for the current user, optionally filtered by farm, field, or crop."""
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 20, type=int), 100)
     farm_id = request.args.get('farm_id')
+    field_id = request.args.get('field_id')
     crop_type = request.args.get('crop_type', '').strip()
 
     if farm_id:
         if not is_valid_object_id(farm_id):
             return error_response('Invalid farm_id', 400)
-        scans = scan_model.get_scans_by_farm(farm_id, page, per_page)
-    elif crop_type:
-        scans = scan_model.get_scans_by_crop(str(g.current_user['_id']), crop_type, page, per_page)
-    else:
-        scans = scan_model.get_scans_by_user(str(g.current_user['_id']), page, per_page)
+    if field_id:
+        if not is_valid_object_id(field_id):
+            return error_response('Invalid field_id', 400)
+
+    scans = scan_model.get_scans_filtered(
+        str(g.current_user['_id']),
+        farm_id=farm_id,
+        field_id=field_id,
+        crop_type=crop_type,
+        page=page,
+        per_page=per_page,
+    )
 
     return success_response(
         {

@@ -1,5 +1,5 @@
 """
-Detection proxy for the real tomato detection microservice.
+Detection proxy for the crop detection microservice.
 
 Mock fallback is available only when explicitly enabled by configuration.
 """
@@ -34,6 +34,52 @@ CATALOG = {
             'severity': 'none',
             'risk_level': 'low',
             'recommendation': 'No disease detected. Keep monitoring and maintain balanced irrigation.',
+        },
+    ],
+    'apple': [
+        {
+            'disease': 'Apple Scab',
+            'scientific_name': 'Venturia inaequalis',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Remove infected leaves and fruit debris, improve airflow, and monitor wet conditions.',
+        },
+        {
+            'disease': 'Black Rot',
+            'scientific_name': 'Botryosphaeria obtusa',
+            'severity': 'high',
+            'risk_level': 'high',
+            'recommendation': 'Prune infected branches and remove mummified fruit to reduce spread.',
+        },
+        {
+            'disease': 'Apple Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Continue routine monitoring.',
+        },
+    ],
+    'potato': [
+        {
+            'disease': 'Potato Bacterial Disease',
+            'scientific_name': 'Bacterial pathogen',
+            'severity': 'high',
+            'risk_level': 'high',
+            'recommendation': 'Remove infected plants and sanitize tools after field work.',
+        },
+        {
+            'disease': 'Potato Fungal Disease',
+            'scientific_name': 'Fungal pathogen',
+            'severity': 'medium',
+            'risk_level': 'medium',
+            'recommendation': 'Improve airflow and avoid overhead irrigation during humid periods.',
+        },
+        {
+            'disease': 'Potato Healthy',
+            'scientific_name': 'Healthy plant',
+            'severity': 'none',
+            'risk_level': 'low',
+            'recommendation': 'No disease detected. Continue routine scouting.',
         },
     ],
     'corn': [
@@ -103,6 +149,8 @@ CATALOG = {
 
 def _normalize_crop(crop_type: str) -> str:
     normalized = (crop_type or 'tomato').strip().lower().replace('_', '').replace(' ', '')
+    aliases = {'apples': 'apple', 'potatoes': 'potato', 'tomatoes': 'tomato'}
+    normalized = aliases.get(normalized, normalized)
     return normalized if normalized in CATALOG else 'tomato'
 
 
