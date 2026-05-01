@@ -17,6 +17,8 @@ def is_valid_phone(phone: str) -> bool:
 
 def is_valid_object_id(value: str) -> bool:
     """Check if string is a valid MongoDB ObjectId."""
+    if not value:
+        return False
     try:
         ObjectId(value)
         return True
