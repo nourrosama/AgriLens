@@ -50,8 +50,18 @@ if "torch" not in sys.modules:
     class _Module:
         pass
 
+    class _Layer:
+        def __init__(self, *args, **kwargs):
+            pass
+
     torch.cuda = _Cuda()
-    torch.nn = types.SimpleNamespace(Module=_Module)
+    torch.nn = types.SimpleNamespace(
+        Module=_Module,
+        Dropout=_Layer,
+        Linear=_Layer,
+        ReLU=_Layer,
+        Sequential=lambda *layers: list(layers),
+    )
     torch.Tensor = object
     torch.device = lambda value: value
     torch.no_grad = _NoGrad
@@ -61,3 +71,15 @@ if "torch" not in sys.modules:
     torch.argmax = lambda values: 0
     torch.topk = lambda values, k: types.SimpleNamespace(indices=[], values=[])
     sys.modules["torch"] = torch
+
+if "torchvision" not in sys.modules:
+    torchvision = types.ModuleType("torchvision")
+    models = types.ModuleType("torchvision.models")
+
+    class _FakeVisionModel:
+        classifier = None
+
+    models.efficientnet_b3 = lambda weights=None: _FakeVisionModel()
+    torchvision.models = models
+    sys.modules["torchvision"] = torchvision
+    sys.modules["torchvision.models"] = models
