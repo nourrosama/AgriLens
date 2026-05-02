@@ -113,8 +113,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         child: Column(
           children: [
             Container(
-              color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
               child: Row(
                 children: [
                   GestureDetector(
@@ -192,8 +194,10 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
               ),
             ),
             Container(
-              color: Colors.white,
               padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -204,29 +208,17 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                         hintText: lang.t('chat.placeholder'),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: AppColors.border,
-                            width: 2,
-                          ),
+                          borderSide: const BorderSide(color: AppColors.border, width: 2),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: AppColors.border,
-                            width: 2,
-                          ),
+                          borderSide: const BorderSide(color: AppColors.border, width: 2),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(16),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
+                          borderSide: const BorderSide(color: AppColors.primary, width: 2),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                       ),
                     ),
                   ),
@@ -291,38 +283,58 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 : null,
           ),
           child: isUser
-    ? Text(
-        msg.text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 15,
-          height: 1.5,
-        ),
-      )
-    : MarkdownBody(
-        data: msg.text,
-        styleSheet: MarkdownStyleSheet(
-          p: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 15,
-            height: 1.6,
-          ),
-          strong: const TextStyle(
-            color: AppColors.primaryDark,
-            fontWeight: FontWeight.bold,
-            fontSize: 15,
-          ),
-          listBullet: const TextStyle(
-            color: AppColors.primary,
-            fontSize: 15,
-          ),
-          h3: const TextStyle(
-            color: AppColors.primaryDark,
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ),
+              ? Text(
+                  msg.text,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                )
+              : MarkdownBody(
+                  data: msg.text,
+                  styleSheet: MarkdownStyleSheet(
+                    p: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 15,
+                      height: 1.6,
+                    ),
+                    strong: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
+                    listBullet: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 15,
+                    ),
+                    h1: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      height: 1.4,
+                    ),
+                    h2: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      height: 1.4,
+                    ),
+                    h3: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      height: 1.4,
+                    ),
+                    blockquoteDecoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(4),
+                      border: const Border(
+                        left: BorderSide(color: AppColors.primary, width: 3),
+                      ),
+                    ),
+                  ),
+                ),
         ),
       ),
     );
@@ -380,10 +392,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                   },
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 16,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
