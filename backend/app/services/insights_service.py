@@ -332,95 +332,146 @@ def build_dashboard_summary(user_id: str) -> dict:
     }
 
 
-def build_chat_response(message: str) -> dict:
+def build_chat_response(message: str, lang: str = 'en') -> dict:
     """Generate a rule-based assistant response for the mobile chatbot."""
     normalized = (message or '').strip().lower()
-    suggestions = [
+    is_arabic = lang == 'ar' or any('\u0600' <= c <= '\u06ff' for c in message)
+
+    suggestions_en = [
         'What diseases affect tomatoes?',
         'How to prevent leaf blight?',
         'Best fertilizer for wheat?',
         'When should I water my crops?',
     ]
-    
-    # Define knowledge base for various topics
+    suggestions_ar = [
+        'ما هي الأمراض التي تصيب الطماطم؟',
+        'كيف أمنع لفحة الأوراق؟',
+        'أفضل سماد للقمح؟',
+        'متى أسقي محاصيلي؟',
+    ]
+    suggestions = suggestions_ar if is_arabic else suggestions_en
+
     knowledge_base = {
         'disease': {
-            'tomato': 'Tomatoes are commonly affected by:\n• Early Blight: Brown spots with concentric rings on lower leaves\n• Late Blight: Water-soaked spots and white mold on leaf undersides\n• Leaf Mold: Yellow patches on upper leaf, gray mold below\n• Viral Infections: Mosaic patterns, yellowing, stunted growth\n\nPrevention: Keep humidity controlled, improve airflow, avoid wet foliage, remove infected leaves quickly.',
-            'paddy': 'Paddy (Rice) is affected by:\n• Blast: Gray lesions on leaves and stems\n• Brown Spot: Reddish-brown spots on leaves\n• Sheath Blight: Water-soaked spots on leaf sheaths\n• Bacterial Leaf Blight: Yellow-white stripes\n\nPrevention: Use resistant varieties, proper water management, balanced fertilization, and timely fungicide application.',
-            'wheat': 'Wheat diseases include:\n• Leaf Rust: Orange pustules on leaves\n• Stripe Rust: Yellow pustules in stripes\n• Powdery Mildew: White powder on leaves\n• Septoria: Brown spots with dark rings\n\nPrevention: Crop rotation, resistant varieties, fungicide spraying at boot stage.',
-            'potato': 'Potato diseases:\n• Late Blight: Water-soaked spots, white mold, rapid spread\n• Early Blight: Concentric rings on leaves\n• Scab: Raised corky lesions on tubers\n• Verticillium Wilt: Yellow/brown wilting from bottom\n\nPrevention: Proper spacing, fungicide application, remove volunteers, use quality seed.',
+            'tomato': {
+                'en': 'Tomatoes are commonly affected by:\n• Early Blight: Brown spots with concentric rings\n• Late Blight: Water-soaked spots and white mold\n• Leaf Mold: Yellow patches on upper leaf\n• Viral Infections: Mosaic patterns, yellowing\n\nPrevention: Control humidity, improve airflow, remove infected leaves quickly.',
+                'ar': 'الطماطم تتأثر عادةً بـ:\n• اللفحة المبكرة: بقع بنية بحلقات متحدة المركز\n• اللفحة المتأخرة: بقع مبللة وعفن أبيض\n• عفن الأوراق: بقع صفراء على الجانب العلوي\n• الإصابات الفيروسية: تبرقش وصفار وتقزم\n\nالوقاية: تحكم في الرطوبة، حسّن التهوية، أزل الأوراق المصابة فوراً.',
+            },
+            'paddy': {
+                'en': 'Paddy (Rice) is affected by:\n• Blast: Gray lesions on leaves and stems\n• Brown Spot: Reddish-brown spots\n• Sheath Blight: Water-soaked spots on sheaths\n• Bacterial Leaf Blight: Yellow-white stripes\n\nPrevention: Use resistant varieties, proper water management.',
+                'ar': 'الأرز يتأثر بـ:\n• الانفجار: آفات رمادية على الأوراق والسيقان\n• البقعة البنية: بقع بنية محمرة\n• لفحة الغمد: بقع مبللة على الأغماد\n• التبقع البكتيري: خطوط صفراء-بيضاء\n\nالوقاية: استخدم أصنافاً مقاومة، إدارة مياه جيدة.',
+            },
+            'wheat': {
+                'en': 'Wheat diseases include:\n• Leaf Rust: Orange pustules on leaves\n• Stripe Rust: Yellow pustules in stripes\n• Powdery Mildew: White powder on leaves\n• Septoria: Brown spots with dark rings\n\nPrevention: Crop rotation, resistant varieties, fungicide at boot stage.',
+                'ar': 'أمراض القمح تشمل:\n• صدأ الأوراق: بثرات برتقالية\n• الصدأ الأصفر: بثرات صفراء في خطوط\n• البياض الدقيقي: مسحوق أبيض على الأوراق\n• السبتوريا: بقع بنية بحلقات داكنة\n\nالوقاية: دورة زراعية، أصناف مقاومة، مبيد فطري.',
+            },
+            'potato': {
+                'en': 'Potato diseases:\n• Late Blight: Water-soaked spots, white mold\n• Early Blight: Concentric rings on leaves\n• Scab: Raised corky lesions on tubers\n• Verticillium Wilt: Yellow/brown wilting\n\nPrevention: Proper spacing, fungicide, use quality seed.',
+                'ar': 'أمراض البطاطس:\n• اللفحة المتأخرة: بقع مبللة وعفن أبيض\n• اللفحة المبكرة: حلقات متحدة المركز\n• الجرب: آفات فلينية على الدرنات\n• ذبول فيرتيسيليوم: ذبول أصفر/بني\n\nالوقاية: تباعد جيد، مبيد فطري، بذور عالية الجودة.',
+            },
         },
         'prevention': {
-            'blight': 'To reduce blight risk:\n1. Improve airflow: Proper spacing between plants\n2. Avoid wet foliage at night: Water early morning, use drip irrigation\n3. Remove infected leaves quickly to prevent spread\n4. Use fungicides: Apply preventively in humid conditions\n5. Monitor weather: Use forecast to plan fungicide timing',
-            'disease': 'General disease prevention:\n1. Scout your fields regularly for early detection\n2. Use the AgriLens scanner for quick disease identification\n3. Practice crop rotation (3+ year rotation)\n4. Remove crop residues from previous season\n5. Maintain proper plant spacing for airflow\n6. Follow integrated pest management (IPM) practices',
-            'pest': 'Pest prevention strategies:\n1. Use insect scouts/traps to monitor populations\n2. Introduce natural predators\n3. Remove weeds that harbor pests\n4. Time plantings to avoid pest peaks\n5. Use recommended insecticides when threshold is reached',
+            'blight': {
+                'en': 'To reduce blight risk:\n1. Improve airflow with proper plant spacing\n2. Water early morning, use drip irrigation\n3. Remove infected leaves quickly\n4. Apply fungicides preventively in humid conditions\n5. Monitor weather forecasts for timing',
+                'ar': 'للحد من خطر اللفحة:\n1. حسّن التهوية بالتباعد الجيد بين النباتات\n2. اسقِ في الصباح الباكر، استخدم الري بالتنقيط\n3. أزل الأوراق المصابة فوراً\n4. طبق المبيدات الفطرية وقائياً في الظروف الرطبة\n5. راقب توقعات الطقس',
+            },
+            'disease': {
+                'en': 'General disease prevention:\n1. Scout fields regularly for early detection\n2. Use AgriLens scanner for quick identification\n3. Practice crop rotation (3+ years)\n4. Remove crop residues after harvest\n5. Maintain proper plant spacing\n6. Follow integrated pest management (IPM)',
+                'ar': 'الوقاية العامة من الأمراض:\n1. افحص الحقول بانتظام للكشف المبكر\n2. استخدم ماسح AgriLens للتعرف السريع\n3. طبق دورة زراعية (3+ سنوات)\n4. أزل بقايا المحاصيل بعد الحصاد\n5. حافظ على تباعد مناسب بين النباتات\n6. اتبع الإدارة المتكاملة للآفات',
+            },
+            'pest': {
+                'en': 'Pest prevention:\n1. Use traps to monitor populations\n2. Introduce natural predators\n3. Remove weeds that harbor pests\n4. Time plantings to avoid pest peaks\n5. Use insecticides when threshold is reached',
+                'ar': 'الوقاية من الآفات:\n1. استخدم مصائد لمراقبة الأعداد\n2. أدخل المفترسات الطبيعية\n3. أزل الأعشاب التي تأوي الآفات\n4. نظّم مواعيد الزراعة لتجنب ذروة الآفات\n5. استخدم المبيدات عند الوصول للعتبة الحرجة',
+            },
         },
         'fertilizer': {
-            'nitrogen': 'Nitrogen tips:\n• Promotes leaf and stem growth\n• Use at vegetative stage (V4-V10)\n• Split applications for better uptake\n• Too much increases disease susceptibility\n• Typical: 100-150 kg/ha for cereals, 150-200 for vegetables',
-            'phosphorus': 'Phosphorus benefits:\n• Promotes root development\n• Important for flowering and grain fill\n• Apply at planting or early season\n• Typical: 40-80 kg/ha P2O5',
-            'potassium': 'Potassium improves:\n• Disease resistance and plant strength\n• Fruit quality and shelf life\n• Stress tolerance (drought, cold)\n• Typical: 60-150 kg/ha K2O depending on crop',
-            'balanced': 'For most crops, use NPK ratios:\n• Leafy vegetables: 20-10-10\n• Fruiting crops: 10-10-20\n• Root crops: 15-20-20\n• Cereals: 15-10-10\nAdjust based on soil test results.',
+            'nitrogen': {
+                'en': 'Nitrogen tips:\n• Promotes leaf and stem growth\n• Apply at vegetative stage\n• Split applications for better uptake\n• Too much increases disease risk\n• Typical: 100-150 kg/ha for cereals',
+                'ar': 'نصائح النيتروجين:\n• يعزز نمو الأوراق والسيقان\n• يُطبق في مرحلة النمو الخضري\n• قسّم الجرعات لامتصاص أفضل\n• الزيادة ترفع خطر الأمراض\n• النموذجي: 100-150 كجم/هكتار للحبوب',
+            },
+            'phosphorus': {
+                'en': 'Phosphorus benefits:\n• Promotes root development\n• Important for flowering and grain fill\n• Apply at planting\n• Typical: 40-80 kg/ha P2O5',
+                'ar': 'فوائد الفوسفور:\n• يعزز نمو الجذور\n• مهم للتزهير وامتلاء الحبوب\n• يُطبق عند الزراعة\n• النموذجي: 40-80 كجم/هكتار',
+            },
+            'potassium': {
+                'en': 'Potassium improves:\n• Disease resistance and plant strength\n• Fruit quality and shelf life\n• Stress tolerance\n• Typical: 60-150 kg/ha K2O',
+                'ar': 'البوتاسيوم يحسّن:\n• مقاومة الأمراض وقوة النبات\n• جودة الثمار ومدة صلاحيتها\n• تحمل الإجهاد\n• النموذجي: 60-150 كجم/هكتار',
+            },
+            'balanced': {
+                'en': 'For most crops, use NPK ratios:\n• Leafy vegetables: 20-10-10\n• Fruiting crops: 10-10-20\n• Root crops: 15-20-20\n• Cereals: 15-10-10\nAdjust based on soil test.',
+                'ar': 'لمعظم المحاصيل استخدم نسب NPK:\n• الخضار الورقية: 20-10-10\n• محاصيل الثمار: 10-10-20\n• محاصيل الجذور: 15-20-20\n• الحبوب: 15-10-10\nعدّل بناءً على تحليل التربة.',
+            },
         },
         'watering': {
-            'irrigation': 'Water management tips:\n1. Water early morning (5-8 AM) to minimize disease\n2. Use drip irrigation when possible\n3. Avoid wetting foliage late afternoon\n4. Monitor soil moisture: 60-70% field capacity ideal\n5. Adjust for rainfall and weather forecasts\n6. Young plants need more frequent, lighter watering',
-            'schedule': 'General watering schedule:\n• Vegetables: 25-50 mm/week (depends on rainfall)\n• Small grains: 1-2 irrigation cycles\n• Paddy: 5-7 cm water depth maintained\n• Potatoes: 400-600 mm total season\n• Check soil before each irrigation',
-            'drainage': 'Drainage importance:\n• Poor drainage causes root diseases\n• Leads to nutrient deficiencies\n• Increases pest and disease pressure\n• Ensure fields slope for water runoff\n• Consider raised beds in wet areas',
+            'irrigation': {
+                'en': 'Water management tips:\n1. Water early morning (5-8 AM)\n2. Use drip irrigation when possible\n3. Avoid wetting foliage late afternoon\n4. Keep soil moisture at 60-70% field capacity\n5. Adjust for rainfall and weather forecasts',
+                'ar': 'نصائح إدارة المياه:\n1. اسقِ في الصباح الباكر (5-8 صباحاً)\n2. استخدم الري بالتنقيط قدر الإمكان\n3. تجنب ترطيب الأوراق في المساء\n4. حافظ على رطوبة التربة عند 60-70%\n5. عدّل حسب الأمطار وتوقعات الطقس',
+            },
+            'schedule': {
+                'en': 'General watering schedule:\n• Vegetables: 25-50 mm/week\n• Small grains: 1-2 irrigation cycles\n• Paddy: 5-7 cm water depth\n• Potatoes: 400-600 mm total season',
+                'ar': 'جدول الري العام:\n• الخضروات: 25-50 مم/أسبوع\n• الحبوب الصغيرة: 1-2 دورة ري\n• الأرز: عمق ماء 5-7 سم\n• البطاطس: 400-600 مم للموسم كله',
+            },
+            'drainage': {
+                'en': 'Drainage importance:\n• Poor drainage causes root diseases\n• Leads to nutrient deficiencies\n• Ensure fields slope for water runoff\n• Consider raised beds in wet areas',
+                'ar': 'أهمية الصرف:\n• ضعف الصرف يسبب أمراض الجذور\n• يؤدي إلى نقص العناصر الغذائية\n• تأكد من انحدار الحقول لتصريف المياه\n• فكر في الأسرّة المرتفعة في المناطق الرطبة',
+            },
         },
     }
-    
-    # Check for specific topics and keywords
+
+    def get(obj, key):
+        return obj[key]['ar'] if is_arabic else obj[key]['en']
+
     reply = None
-    
-    # Disease-related queries
-    if any(word in normalized for word in ['disease', 'blight', 'rot', 'wilt', 'spot', 'مرض', 'آفة', 'لفحة']):
+
+    if any(word in normalized for word in ['disease', 'blight', 'rot', 'wilt', 'spot', 'مرض', 'آفة', 'لفحة', 'أمراض']):
         if 'tomato' in normalized or 'طماطم' in normalized:
-            reply = knowledge_base['disease'].get('tomato')
+            reply = get(knowledge_base['disease'], 'tomato')
         elif 'paddy' in normalized or 'rice' in normalized or 'أرز' in normalized:
-            reply = knowledge_base['disease'].get('paddy')
+            reply = get(knowledge_base['disease'], 'paddy')
         elif 'wheat' in normalized or 'قمح' in normalized:
-            reply = knowledge_base['disease'].get('wheat')
+            reply = get(knowledge_base['disease'], 'wheat')
         elif 'potato' in normalized or 'بطاطس' in normalized:
-            reply = knowledge_base['disease'].get('potato')
+            reply = get(knowledge_base['disease'], 'potato')
         elif 'blight' in normalized or 'لفحة' in normalized:
-            reply = knowledge_base['prevention'].get('blight')
+            reply = get(knowledge_base['prevention'], 'blight')
         else:
-            reply = 'Tell me which crop you\'re asking about (tomato, paddy, wheat, potato) so I can provide specific disease information.'
-    
-    # Prevention-related queries
-    elif any(word in normalized for word in ['prevent', 'prevent', 'control', 'manage', 'protection', 'الوقاية', 'منع']):
+            reply = 'أخبرني عن أي محصول تسأل (طماطم، أرز، قمح، بطاطس) لأقدم معلومات محددة.' if is_arabic else 'Tell me which crop you\'re asking about (tomato, paddy, wheat, potato).'
+
+    elif any(word in normalized for word in ['prevent', 'control', 'manage', 'protect', 'الوقاية', 'منع']):
         if 'blight' in normalized or 'لفحة' in normalized:
-            reply = knowledge_base['prevention'].get('blight')
+            reply = get(knowledge_base['prevention'], 'blight')
         elif 'pest' in normalized or 'آفة' in normalized:
-            reply = knowledge_base['prevention'].get('pest')
+            reply = get(knowledge_base['prevention'], 'pest')
         else:
-            reply = knowledge_base['prevention'].get('disease')
-    
-    # Fertilizer-related queries
-    elif any(word in normalized for word in ['fertiliz', 'nutrient', 'npk', 'nitrogen', 'phosphorus', 'potassium', 'سماد', 'غذاء']):
-        if 'nitrogen' in normalized or 'n ' in normalized or 'نيتروجين' in normalized:
-            reply = knowledge_base['fertilizer'].get('nitrogen')
-        elif 'phosphorus' in normalized or 'p ' in normalized or 'فسفور' in normalized:
-            reply = knowledge_base['fertilizer'].get('phosphorus')
-        elif 'potassium' in normalized or 'k ' in normalized or 'بوتاسيوم' in normalized:
-            reply = knowledge_base['fertilizer'].get('potassium')
+            reply = get(knowledge_base['prevention'], 'disease')
+
+    elif any(word in normalized for word in ['fertiliz', 'nutrient', 'npk', 'nitrogen', 'phosphorus', 'potassium', 'سماد', 'غذاء', 'تسميد']):
+        if 'nitrogen' in normalized or 'نيتروجين' in normalized:
+            reply = get(knowledge_base['fertilizer'], 'nitrogen')
+        elif 'phosphorus' in normalized or 'فسفور' in normalized:
+            reply = get(knowledge_base['fertilizer'], 'phosphorus')
+        elif 'potassium' in normalized or 'بوتاسيوم' in normalized:
+            reply = get(knowledge_base['fertilizer'], 'potassium')
         elif 'balance' in normalized or 'npk' in normalized:
-            reply = knowledge_base['fertilizer'].get('balanced')
+            reply = get(knowledge_base['fertilizer'], 'balanced')
         else:
-            reply = 'Ask about nitrogen (N), phosphorus (P), potassium (K), or balanced fertilizer recommendations.'
-    
-    # Watering-related queries
-    elif any(word in normalized for word in ['water', 'irrig', 'drain', 'moisture', 'ري', 'سقاية', 'الماء']):
-        if 'schedule' in normalized or 'timer' in normalized or 'when' in normalized or 'جدول' in normalized:
-            reply = knowledge_base['watering'].get('schedule')
+            reply = 'اسأل عن النيتروجين أو الفوسفور أو البوتاسيوم أو السماد المتوازن.' if is_arabic else 'Ask about nitrogen (N), phosphorus (P), potassium (K), or balanced fertilizer.'
+
+    elif any(word in normalized for word in ['water', 'irrig', 'drain', 'moisture', 'ري', 'سقاية', 'الماء', 'تصريف']):
+        if any(w in normalized for w in ['schedule', 'when', 'timer', 'جدول', 'متى']):
+            reply = get(knowledge_base['watering'], 'schedule')
         elif 'drain' in normalized or 'تصريف' in normalized:
-            reply = knowledge_base['watering'].get('drainage')
+            reply = get(knowledge_base['watering'], 'drainage')
         else:
-            reply = knowledge_base['watering'].get('irrigation')
-    
-    # Default response if no specific topic matched
+            reply = get(knowledge_base['watering'], 'irrigation')
+
     if not reply:
-        reply = 'I can help you with:\n• Disease identification and prevention\n• Fertilizer and nutrient management\n• Watering and irrigation scheduling\n• Pest and disease control tips\n• Crop-specific care advice\n\nTry asking about a specific crop (tomato, wheat, paddy, potato) or management topic!'
-    
+        reply = (
+            'يمكنني مساعدتك في:\n• التعرف على الأمراض والوقاية منها\n• إدارة الأسمدة والعناصر الغذائية\n• جدول الري والسقاية\n• نصائح مكافحة الآفات\n• رعاية المحاصيل المحددة\n\nجرب السؤال عن محصول معين (طماطم، قمح، أرز، بطاطس)!'
+            if is_arabic else
+            'I can help you with:\n• Disease identification and prevention\n• Fertilizer and nutrient management\n• Watering and irrigation scheduling\n• Pest and disease control tips\n• Crop-specific care advice\n\nTry asking about a specific crop (tomato, wheat, paddy, potato)!'
+        )
+
     return {
         'reply': reply,
         'suggestions': suggestions,

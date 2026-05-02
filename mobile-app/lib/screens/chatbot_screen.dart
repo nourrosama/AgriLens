@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/api_client.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -39,7 +40,8 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
-    
+    final lang = context.read<LanguageProvider>();
+
     setState(() {
       _messages.add(_Msg(text, true));
       _isTyping = true;
@@ -49,14 +51,16 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _scrollToBottom();
 
     try {
-      // Use test endpoint on web (no auth required), regular endpoint on mobile
       final endpoint = kIsWeb ? '/api/chatbot-test' : '/api/chatbot';
       final requiresAuth = !kIsWeb;
-      
+
       final response = await _apiClient.post(
         endpoint,
         auth: requiresAuth,
-        body: {'message': text},
+        body: {
+          'message': text,
+          'lang': lang.isRTL ? 'ar' : 'en',
+        },
       );
       final payload =
           (response['data'] as Map<String, dynamic>)['message']
@@ -276,23 +280,49 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             color: isUser ? AppColors.primary : Colors.white,
             borderRadius: BorderRadius.circular(16),
             border: isUser ? null : Border.all(color: AppColors.border),
-            boxShadow: isUser ? [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.2),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ] : null,
+            boxShadow: isUser
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
-          child: Text(
-            msg.text,
-            style: TextStyle(
-              color: isUser ? Colors.white : AppColors.textSecondary,
-              fontSize: 15,
-              height: 1.5,
-              fontWeight: FontWeight.w400,
-            ),
+          child: isUser
+    ? Text(
+        msg.text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          height: 1.5,
+        ),
+      )
+    : MarkdownBody(
+        data: msg.text,
+        styleSheet: MarkdownStyleSheet(
+          p: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 15,
+            height: 1.6,
           ),
+          strong: const TextStyle(
+            color: AppColors.primaryDark,
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+          ),
+          listBullet: const TextStyle(
+            color: AppColors.primary,
+            fontSize: 15,
+          ),
+          h3: const TextStyle(
+            color: AppColors.primaryDark,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
         ),
       ),
     );
@@ -428,14 +458,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
 
 class _Msg {
   _Msg(this.text, this.isUser);
-
   final String text;
   final bool isUser;
 }
 
 class _AnimatedDot extends StatefulWidget {
   const _AnimatedDot({required this.delay});
-
   final int delay;
 
   @override
