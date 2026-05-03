@@ -39,6 +39,12 @@ class Config:
     UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
     MAX_CONTENT_LENGTH = 50 * 1024 * 1024  # 50 MB
 
+    # Video analysis pipeline (FR-5)
+    VIDEO_FRAME_INTERVAL_SEC = float(os.getenv('VIDEO_FRAME_INTERVAL_SEC', 2))
+    VIDEO_MAX_FRAMES = int(os.getenv('VIDEO_MAX_FRAMES', 20))
+    VIDEO_BLUR_THRESHOLD = float(os.getenv('VIDEO_BLUR_THRESHOLD', 80.0))
+    VIDEO_MIN_FRAMES_REQUIRED = int(os.getenv('VIDEO_MIN_FRAMES_REQUIRED', 1))
+
     # Inter-service URLs
     DETECTION_SERVICE_URL = os.getenv('DETECTION_SERVICE_URL', 'http://localhost:5001')
     FORECAST_SERVICE_URL = os.getenv('FORECAST_SERVICE_URL', 'http://localhost:5002')

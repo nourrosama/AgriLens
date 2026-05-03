@@ -44,3 +44,7 @@ logs/
 *.onnx
 *.tflite
 datasets/
+
+# ==== Uploaded scan media (local storage) ====
+backend/uploads/*
+!backend/uploads/.gitkeep
