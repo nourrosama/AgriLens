@@ -112,9 +112,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Column(
           children: [
             Container(
-              color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: const BoxDecoration(
+                color: Colors.white,
                 border: Border(bottom: BorderSide(color: AppColors.border)),
               ),
               child: Row(

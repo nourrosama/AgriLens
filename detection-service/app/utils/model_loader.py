@@ -4,7 +4,7 @@ Multi-crop disease classifier loader backed by PyTorch `.pth` checkpoints.
 from __future__ import annotations
 
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import logging
 import os
 from typing import Any
@@ -14,6 +14,8 @@ import numpy as np
 import requests
 import timm
 import torch
+
+from app.utils.gradcam import GradCAM, _get_target_layer, generate_overlay_base64
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ class ModelState:
     device: torch.device
     model_path: str
     config: CropConfig
+    grad_cam: GradCAM | None = field(default=None)
 
 
 def _details(
@@ -409,8 +412,26 @@ def init_model_loader(app) -> None:
                     model.load_state_dict(state_dict, strict=True)
                     model = model.to(dev)
                     model.eval()
+
+                    # Register Grad-CAM hooks once at startup
+                    grad_cam: GradCAM | None = None
+                    try:
+                        target_layer = _get_target_layer(model)
+                        grad_cam = GradCAM(model, target_layer)
+                        app.logger.info(
+                            'Grad-CAM hooks registered on %s.%s for %s',
+                            model_name,
+                            target_layer.__class__.__name__,
+                            crop,
+                        )
+                    except Exception as exc:
+                        app.logger.warning(
+                            'Could not register Grad-CAM for %s: %s', crop, exc
+                        )
+
                     _states[crop] = ModelState(
                         model=model,
+                        grad_cam=grad_cam,
                         metadata={
                             'model_name': model_name,
                             'num_classes': num_classes,
@@ -551,6 +572,8 @@ def _predict_from_bgr(image_bgr: np.ndarray, crop_type: str | None) -> dict[str,
         'top_predictions': top_predictions,
         'model_version': f"{state.metadata.get('model_name', config.model_name)}-{config.name}-pth-v1",
         'model_input_size': img_size,
+        # Internal key used by _predict_from_bgr_with_gradcam; stripped before returning to callers
+        '_predicted_id': predicted_id,
     }
 
 
@@ -558,7 +581,9 @@ def predict_from_file_bytes(file_bytes: bytes, crop_type: str | None = 'tomato')
     image = cv2.imdecode(np.frombuffer(file_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
     if image is None:
         raise ValueError('Could not decode image bytes')
-    return _predict_from_bgr(image, crop_type)
+    result = _predict_from_bgr(image, crop_type)
+    result.pop('_predicted_id', None)
+    return result
 
 
 def predict_from_url(
@@ -569,3 +594,69 @@ def predict_from_url(
     response = requests.get(image_url, timeout=timeout)
     response.raise_for_status()
     return predict_from_file_bytes(response.content, crop_type)
+
+
+# ---------------------------------------------------------------------------
+# Grad-CAM-augmented prediction
+# ---------------------------------------------------------------------------
+
+def _predict_from_bgr_with_gradcam(image_bgr: np.ndarray, crop_type: str | None) -> dict[str, Any]:
+    """Run prediction and append a base64 Grad-CAM overlay to the result."""
+    # 1. Standard prediction (no_grad path) - includes _predicted_id
+    result = _predict_from_bgr(image_bgr, crop_type)
+
+    state = _ensure_ready(crop_type)
+    if state.grad_cam is None:
+        result['gradcam_overlay'] = None
+        result.pop('_predicted_id', None)
+        return result
+
+    config = state.config
+    img_size = int(state.metadata.get('img_size', config.img_size))
+    input_tensor = _prepare_tensor(image_bgr, img_size, state.device)
+    predicted_id = result.get('_predicted_id')
+
+    # 2. Second forward pass with gradients for Grad-CAM
+    try:
+        inp_grad = input_tensor.clone().requires_grad_(True)
+        with torch.enable_grad():
+            cam = state.grad_cam.generate(
+                inp_grad,
+                class_idx=predicted_id,
+                output_size=(img_size, img_size),
+            )
+
+        # De-normalise original image for the overlay (RGB float [0, 1])
+        img_rgb = cv2.cvtColor(image_bgr, cv2.COLOR_BGR2RGB)
+        img_resized = cv2.resize(img_rgb, (img_size, img_size), interpolation=cv2.INTER_AREA)
+        img_np = img_resized.astype(np.float32) / 255.0
+
+        result['gradcam_overlay'] = generate_overlay_base64(img_np, cam)
+    except Exception as exc:
+        logger.warning('Grad-CAM generation failed: %s', exc)
+        result['gradcam_overlay'] = None
+
+    result.pop('_predicted_id', None)
+    return result
+
+
+def predict_from_file_bytes_with_gradcam(
+    file_bytes: bytes,
+    crop_type: str | None = 'tomato',
+) -> dict[str, Any]:
+    """Predict and include a base64 Grad-CAM overlay in the result."""
+    image = cv2.imdecode(np.frombuffer(file_bytes, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError('Could not decode image bytes')
+    return _predict_from_bgr_with_gradcam(image, crop_type)
+
+
+def predict_from_url_with_gradcam(
+    image_url: str,
+    crop_type: str | None = 'tomato',
+    timeout: int = 15,
+) -> dict[str, Any]:
+    """Fetch image from URL, predict, and include Grad-CAM overlay."""
+    response = requests.get(image_url, timeout=timeout)
+    response.raise_for_status()
+    return predict_from_file_bytes_with_gradcam(response.content, crop_type)

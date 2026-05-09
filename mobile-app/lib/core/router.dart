@@ -26,6 +26,12 @@ import 'package:agrilens/screens/reports_screen.dart';
 import 'package:agrilens/screens/scan_result_screen.dart';
 import 'package:agrilens/screens/settings_screen.dart';
 import 'package:agrilens/screens/splash_screen.dart';
+import 'package:agrilens/screens/ask_question_screen.dart';
+import 'package:agrilens/screens/community_screen.dart';
+import 'package:agrilens/screens/create_post_screen.dart';
+import 'package:agrilens/screens/disease_articles_screen.dart';
+import 'package:agrilens/screens/feed_screen.dart';
+import 'package:agrilens/screens/question_screen.dart';
 import 'package:agrilens/screens/terms_conditions_screen.dart';
 import 'package:agrilens/screens/user_registration_screen.dart';
 
@@ -107,6 +113,32 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(path: '/settings', builder: (ctx, state) => const SettingsScreen()),
     GoRoute(path: '/chatbot', builder: (ctx, state) => const ChatbotScreen()),
+    GoRoute(path: '/feed', builder: (ctx, state) => const FeedScreen()),
+    GoRoute(
+      path: '/create-post',
+      builder: (ctx, state) => const CreatePostScreen(),
+    ),
+    GoRoute(
+      path: '/question/:id',
+      builder: (ctx, state) =>
+          QuestionScreen(questionId: state.pathParameters['id'] ?? ''),
+    ),
+    GoRoute(
+      path: '/community/:slug',
+      builder: (ctx, state) =>
+          CommunityScreen(cropSlug: state.pathParameters['slug'] ?? ''),
+    ),
+    GoRoute(
+      path: '/ask-question',
+      builder: (ctx, state) => const AskQuestionScreen(),
+    ),
+    GoRoute(
+      path: '/disease-articles',
+      builder: (ctx, state) => DiseaseArticlesScreen(
+        disease: state.uri.queryParameters['disease'] ?? '',
+        crop: state.uri.queryParameters['crop'] ?? '',
+      ),
+    ),
     GoRoute(path: '/faq', builder: (ctx, state) => const FaqScreen()),
     GoRoute(
       path: '/terms-conditions',

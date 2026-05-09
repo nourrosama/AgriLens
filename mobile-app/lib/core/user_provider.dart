@@ -103,6 +103,7 @@ class UserProvider extends ChangeNotifier {
   String? _pendingPhone;
 
   UserData get user => _user;
+  String get userId => _user.id;
   bool get isLoggedIn => _user.isLoggedIn;
   bool get isLoading => _isLoading;
   bool get isHydrated => _isHydrated;

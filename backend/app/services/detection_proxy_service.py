@@ -154,6 +154,50 @@ def _normalize_crop(crop_type: str) -> str:
     return normalized if normalized in CATALOG else 'tomato'
 
 
+def _mock_gradcam_b64(seed_int: int) -> str:
+    """Generate a transparent RGBA Grad-CAM heatmap PNG (stdlib only, no PIL/numpy).
+
+    Produces a 200×200 RGBA PNG with a warm radial hotspot at a seed-dependent
+    position.  Alpha is 0 where the leaf is healthy (the real photo shows
+    through) and ramps up to ~220 at the hotspot so the disease region is
+    clearly highlighted when this is layered over the original scan image.
+    """
+    import base64, math, struct, zlib  # stdlib only
+    W, H = 200, 200
+
+    # ── Hotspot centre (deterministic but varies per scan) ────────────────────
+    cx = W * (0.25 + 0.50 * ((seed_int & 0xFF) / 255.0))
+    cy = H * (0.25 + 0.50 * (((seed_int >> 8) & 0xFF) / 255.0))
+    # Primary hotspot radius
+    max_r = min(W, H) * 0.32
+
+    raw_rows = []
+    for y in range(H):
+        row = bytearray([0])   # PNG filter byte "None"
+        for x in range(W):
+            dist = math.sqrt((x - cx) ** 2 + (y - cy) ** 2)
+            t = max(0.0, 1.0 - dist / max_r) ** 1.5   # intensity 0→1
+
+            # Colour: bright yellow core → deep orange rim
+            r = min(255, int(255 * min(1.0, t * 1.8)))
+            g = min(255, int(200 * max(0.0, t * 1.6 - 0.10)))
+            b = min(255, int(30  * max(0.0, t - 0.50)))
+            # Alpha: fully transparent outside hotspot, opaque at centre
+            a = min(220, int(220 * (t ** 0.6)))
+
+            row += bytes([r, g, b, a])
+        raw_rows.append(bytes(row))
+
+    def _chunk(tag: bytes, data: bytes) -> bytes:
+        body = tag + data
+        return struct.pack('>I', len(data)) + body + struct.pack('>I', zlib.crc32(body) & 0xFFFFFFFF)
+
+    ihdr = struct.pack('>II', W, H) + bytes([8, 6, 0, 0, 0])   # 8-bit RGBA
+    idat = zlib.compress(b''.join(raw_rows), 6)
+    png  = b'\x89PNG\r\n\x1a\n' + _chunk(b'IHDR', ihdr) + _chunk(b'IDAT', idat) + _chunk(b'IEND', b'')
+    return base64.b64encode(png).decode()
+
+
 def _mock_detect(image_path_or_url: str, crop_type: str) -> dict:
     crop = _normalize_crop(crop_type)
     seed = f"{crop}:{os.path.basename(image_path_or_url)}"
@@ -171,6 +215,7 @@ def _mock_detect(image_path_or_url: str, crop_type: str) -> dict:
         'risk_level': result['risk_level'],
         'recommendation': result['recommendation'],
         'model_version': 'mock-fallback-v1',
+        'gradcam_overlay': _mock_gradcam_b64(digest),
     }
 
 
@@ -179,7 +224,13 @@ def _mock_fallback_enabled() -> bool:
 
 
 def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
-    """Send image to detection service and return parsed result."""
+    """Send image to detection service and return parsed result.
+
+    Grad-CAM is requested automatically for every image scan.  The overlay
+    arrives as ``gradcam_overlay`` (base64 PNG string) in the returned dict and
+    is stripped from the MongoDB document by the scan controller before being
+    re-injected into the one-time creation response sent to the Flutter client.
+    """
     base = current_app.config.get('DETECTION_SERVICE_URL', 'http://localhost:5001')
     url = f'{base}/api/detect'
 
@@ -189,14 +240,18 @@ def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
                 resp = requests.post(
                     url,
                     files={'image': file_obj},
-                    data={'crop_type': crop_type},
-                    timeout=10,
+                    data={'crop_type': crop_type, 'include_gradcam': 'true'},
+                    timeout=30,
                 )
         else:
             resp = requests.post(
                 url,
-                json={'image_url': image_path_or_url, 'crop_type': crop_type},
-                timeout=10,
+                json={
+                    'image_url': image_path_or_url,
+                    'crop_type': crop_type,
+                    'include_gradcam': True,
+                },
+                timeout=30,
             )
 
         if resp.status_code == 200:

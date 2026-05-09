@@ -152,12 +152,16 @@ def upload_scan():
         image_reference = local_path
 
     detection = None
+    gradcam_overlay = None   # held in memory only — never written to MongoDB
     forecast_payload = None
 
     try:
         detection = detection_proxy_service.detect(image_reference, crop_type)
 
         if detection:
+            # Pop the Grad-CAM overlay before persisting to keep the document lean.
+            # It will be re-injected into the one-time 201 response below.
+            gradcam_overlay = detection.pop('gradcam_overlay', None)
             scan_model.update_detection_result(scan_id, detection)
             event_publisher.scan_completed(scan_id, detection)
 
@@ -226,10 +230,17 @@ def upload_scan():
     )
 
     stored = scan_model.get_scan_by_id(scan_id)
+    serialized_scan = scan_model.serialize(stored)
+
+    # Re-inject the Grad-CAM overlay into the creation response only.
+    # It is intentionally absent from subsequent GET /api/scans responses.
+    if gradcam_overlay and serialized_scan.get('detection_result'):
+        serialized_scan['detection_result']['gradcam_overlay'] = gradcam_overlay
+
     message = 'Scan processed successfully' if detection else 'Scan uploaded but detection failed'
     return success_response(
         {
-            'scan': scan_model.serialize(stored),
+            'scan': serialized_scan,
             'forecast': forecast_payload,
         },
         message,
