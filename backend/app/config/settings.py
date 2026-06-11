@@ -44,6 +44,7 @@ class Config:
     VIDEO_MAX_FRAMES = int(os.getenv('VIDEO_MAX_FRAMES', 20))
     VIDEO_BLUR_THRESHOLD = float(os.getenv('VIDEO_BLUR_THRESHOLD', 80.0))
     VIDEO_MIN_FRAMES_REQUIRED = int(os.getenv('VIDEO_MIN_FRAMES_REQUIRED', 1))
+    VIDEO_SAVE_DEBUG_FRAMES = os.getenv('VIDEO_SAVE_DEBUG_FRAMES', 'false').lower() == 'true'
 
     # Inter-service URLs
     DETECTION_SERVICE_URL = os.getenv('DETECTION_SERVICE_URL', 'http://localhost:5001')
