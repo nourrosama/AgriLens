@@ -2,6 +2,7 @@
 Scan controller -- image/video upload and synchronous detection flow.
 """
 import os
+import tempfile
 
 from flask import Blueprint, current_app, g, request
 
@@ -132,11 +133,31 @@ def upload_scan():
         scan_model.update_status(scan_id, 'processing')
 
         local_path = storage_service.resolve_local_path(media_url)
+        _tmp_video_path = None
+
         if not (local_path and os.path.exists(local_path)):
-            local_path = media_url
+            if media_url.startswith('http'):
+                # Video is on Cloudinary (or another remote URL). Download it to a
+                # temp file so cv2.VideoCapture gets a reliable local file descriptor.
+                try:
+                    import requests as _req
+                    ext = media_url.rsplit('.', 1)[-1].split('?')[0].lower() or 'mp4'
+                    with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
+                        resp = _req.get(media_url, timeout=120, stream=True)
+                        resp.raise_for_status()
+                        for chunk in resp.iter_content(chunk_size=8 * 1024 * 1024):
+                            tmp.write(chunk)
+                        _tmp_video_path = tmp.name
+                    local_path = _tmp_video_path
+                except Exception as dl_exc:
+                    current_app.logger.warning('Could not download video for analysis: %s', dl_exc)
+                    local_path = media_url
+            else:
+                local_path = media_url
 
         result = None
         forecast_payload = None
+        _video_error = None
 
         try:
             result = video_service.analyze_video(local_path, crop_type)
@@ -199,8 +220,15 @@ def upload_scan():
                 scan_model.update_scan(scan_id, {'status': 'failed'})
 
         except Exception as exc:
+            _video_error = str(exc)
             current_app.logger.exception('Video analysis failed for %s: %s', scan_id, exc)
             scan_model.update_scan(scan_id, {'status': 'failed'})
+        finally:
+            if _tmp_video_path:
+                try:
+                    os.unlink(_tmp_video_path)
+                except OSError:
+                    pass
 
         audit_model.log_action(
             user_id,
@@ -211,7 +239,7 @@ def upload_scan():
         )
 
         if result is None:
-            return error_response('Video analysis failed: no usable frames detected.', 422)
+            return error_response(_video_error or 'Video analysis failed.', 422)
 
         stored = scan_model.get_scan_by_id(scan_id)
         return success_response(

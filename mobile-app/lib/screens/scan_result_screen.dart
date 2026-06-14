@@ -384,12 +384,15 @@ class _AiReportCard extends StatelessWidget {
             children: [
               const Icon(Icons.analytics_outlined, color: Color(0xFF2E7D32), size: 22),
               const SizedBox(width: 8),
-              Text(
-                isAr ? 'تقرير مرض الذكاء الاصطناعي' : 'AI Disease Report',
-                style: const TextStyle(
-                  color: Color(0xFF2E7D32),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  isAr ? 'تقرير مرض الذكاء الاصطناعي' : 'AI Disease Report',
+                  style: const TextStyle(
+                    color: Color(0xFF2E7D32),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -585,12 +588,15 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: const Color(0xFF2E7D32)),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF2E7D32),
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF2E7D32),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
