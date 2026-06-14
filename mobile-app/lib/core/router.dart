@@ -34,6 +34,9 @@ import 'package:agrilens/screens/feed_screen.dart';
 import 'package:agrilens/screens/question_screen.dart';
 import 'package:agrilens/screens/terms_conditions_screen.dart';
 import 'package:agrilens/screens/user_registration_screen.dart';
+import 'package:agrilens/screens/auth_choice_screen.dart';
+import 'package:agrilens/screens/crop_select_screen.dart';
+import 'package:agrilens/screens/signup_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
@@ -48,10 +51,20 @@ final GoRouter appRouter = GoRouter(
       builder: (ctx, state) => const LanguageSelectionScreen(),
     ),
     GoRoute(
+      path: '/auth-choice',
+      builder: (ctx, state) => const AuthChoiceScreen(),
+    ),
+    GoRoute(
+      path: '/signup',
+      builder: (ctx, state) => const SignupScreen(),
+    ),
+    // /registration kept for backward compat: old users with profileCompleted=false
+    // are still sent here after login to fill in their name/country.
+    GoRoute(
       path: '/registration',
       builder: (ctx, state) => const UserRegistrationScreen(),
     ),
-    GoRoute(path: '/register', redirect: (ctx, state) => '/registration'),
+    GoRoute(path: '/register', redirect: (ctx, state) => '/signup'),
     GoRoute(path: '/login', builder: (ctx, state) => const LoginPhoneScreen()),
     GoRoute(
       path: '/login-otp',
@@ -62,6 +75,13 @@ final GoRouter appRouter = GoRouter(
       builder: (ctx, state) => const LoginSuccessScreen(),
     ),
     GoRoute(path: '/home', builder: (ctx, state) => const HomeScreen()),
+    GoRoute(
+      path: '/crop-select',
+      builder: (ctx, state) => CropSelectScreen(
+        farmId: state.uri.queryParameters['farmId'],
+        fieldId: state.uri.queryParameters['fieldId'],
+      ),
+    ),
     GoRoute(
       path: '/scan',
       builder: (ctx, state) => CameraScanScreen(

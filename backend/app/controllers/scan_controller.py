@@ -293,6 +293,12 @@ def upload_scan():
                 )
         else:
             scan_model.update_scan(scan_id, {'status': 'failed'})
+    except ValueError as exc:
+        # Detection service rejected the image (e.g. not a plant).
+        # Mark the scan record as invalid so it does not pollute history,
+        # then surface the reason to the caller immediately.
+        scan_model.update_scan(scan_id, {'status': 'invalid_image'})
+        return error_response(str(exc), 422)
     except Exception as exc:
         current_app.logger.exception('Scan processing failed for %s: %s', scan_id, exc)
         scan_model.update_scan(scan_id, {'status': 'failed'})

@@ -23,43 +23,53 @@ class BottomNav extends StatelessWidget {
         ],
       ),
       padding: EdgeInsets.only(
-        left: 24,
-        right: 24,
+        left: 8,
+        right: 8,
         top: 8,
         bottom: MediaQuery.of(context).padding.bottom + 8,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _NavItem(
-            icon: Icons.home_rounded,
-            label: lang.t('nav.home'),
-            isActive: active == 'home',
-            onTap: () => context.go('/home'),
+          Expanded(
+            child: _NavItem(
+              icon: Icons.home_rounded,
+              label: lang.t('nav.home'),
+              isActive: active == 'home',
+              onTap: () => context.go('/home'),
+            ),
           ),
-          _NavItem(
-            icon: Icons.eco_rounded,
-            label: lang.t('nav.fields'),
-            isActive: active == 'fields',
-            onTap: () => context.go('/fields'),
+          Expanded(
+            child: _NavItem(
+              icon: Icons.eco_rounded,
+              label: lang.t('nav.fields'),
+              isActive: active == 'fields',
+              onTap: () => context.go('/fields'),
+            ),
           ),
-          _NavItem(
-            icon: Icons.forum_rounded,
-            label: lang.t('nav.forum'),
-            isActive: active == 'forum',
-            onTap: () => context.go('/feed'),
+          Expanded(
+            child: _NavItem(
+              icon: Icons.forum_rounded,
+              label: lang.t('nav.forum'),
+              isActive: active == 'forum',
+              onTap: () => context.go('/feed'),
+            ),
           ),
-          _NavItem(
-            icon: Icons.bar_chart_rounded,
-            label: lang.t('nav.reports'),
-            isActive: active == 'reports',
-            onTap: () => context.go('/reports'),
+          Expanded(
+            child: _NavItem(
+              icon: Icons.bar_chart_rounded,
+              label: lang.t('nav.reports'),
+              isActive: active == 'reports',
+              onTap: () => context.go('/reports'),
+            ),
           ),
-          _NavItem(
-            icon: Icons.person_rounded,
-            label: lang.t('nav.profile'),
-            isActive: active == 'profile',
-            onTap: () => context.go('/profile'),
+          Expanded(
+            child: _NavItem(
+              icon: Icons.person_rounded,
+              label: lang.t('nav.profile'),
+              isActive: active == 'profile',
+              onTap: () => context.go('/profile'),
+            ),
           ),
         ],
       ),
@@ -86,20 +96,18 @@ class _NavItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 70,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 28, color: color),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(fontSize: 11, color: color),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 24, color: color),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(fontSize: 10, color: color),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

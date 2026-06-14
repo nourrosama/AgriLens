@@ -23,6 +23,12 @@ logger = logging.getLogger(__name__)
 
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+
+# When the top-class probability after softmax is below this value the image is
+# almost certainly not a plant leaf.  A real plant image reliably scores >0.60;
+# an out-of-distribution image (face, car, sky…) spreads probability evenly
+# across all classes so the max is roughly 1/num_classes (~0.10 for tomato).
+MIN_PLANT_CONFIDENCE = 0.40
 SUPPORTED_BACKBONES = [
     'efficientnet_b3',
     'tf_efficientnet_b3',
@@ -753,6 +759,13 @@ def _predict_from_bgr(image_bgr: np.ndarray, crop_type: str | None) -> dict[str,
         predicted_id = int(torch.argmax(probabilities).item())
         confidence = float(probabilities[predicted_id].item())
         top_k = torch.topk(probabilities, k=min(3, len(config.labels)))
+
+    if confidence < MIN_PLANT_CONFIDENCE:
+        raise ValueError(
+            f'NOT_A_PLANT: The image does not appear to contain a plant or leaf '
+            f'(best match confidence {confidence:.0%}). '
+            'Please upload a clear, close-up photo of a plant leaf.'
+        )
 
     predicted_label = config.labels[predicted_id]
     details = config.details[predicted_label]
