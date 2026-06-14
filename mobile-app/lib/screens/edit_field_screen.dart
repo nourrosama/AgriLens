@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:agrilens/core/fields_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/theme.dart';
 
 class EditFieldScreen extends StatefulWidget {
@@ -151,14 +152,12 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
                       _buildDropdown(
                         'Crop Type',
                         _cropType,
-                        ['tomato', 'potato', 'apple']
+                        CropProvider.crops
                             .map(
                               (crop) => DropdownMenuItem(
-                                value: crop,
+                                value: crop.value,
                                 child: Text(
-                                  crop == 'apple'
-                                      ? 'Apple'
-                                      : lang.t('crops.$crop'),
+                                  lang.isRTL ? crop.labelAr : crop.labelEn,
                                 ),
                               ),
                             )

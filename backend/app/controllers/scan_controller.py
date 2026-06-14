@@ -8,7 +8,7 @@ from flask import Blueprint, current_app, g, request
 from app.middleware.auth_middleware import require_auth
 from app.models import audit_model, farm_model, forecast_model, notification_model, scan_model
 from app.observers import event_publisher
-from app.services import detection_proxy_service, insights_service, storage_service
+from app.services import detection_proxy_service, insights_service, storage_service, video_service
 from app.utils.validators import is_valid_object_id
 from app.views.responses import error_response, success_response
 
@@ -129,7 +129,79 @@ def upload_scan():
     event_publisher.scan_created(scan_id, media_url)
 
     if media_type == 'video':
-        scan_model.update_scan(scan_id, {'status': 'completed'})
+        scan_model.update_status(scan_id, 'processing')
+
+        local_path = storage_service.resolve_local_path(media_url)
+        if not (local_path and os.path.exists(local_path)):
+            local_path = media_url
+
+        result = None
+        forecast_payload = None
+
+        try:
+            result = video_service.analyze_video(local_path, crop_type)
+
+            if result is not None:
+                scan_model.update_detection_result(scan_id, result)
+                event_publisher.scan_completed(scan_id, result)
+
+                location = {}
+                if farm_id:
+                    farm = farm_model.get_farm_by_id(farm_id)
+                    if farm:
+                        location = farm.get('location', {})
+                        if field_id:
+                            for field in farm.get('fields', []):
+                                if str(field.get('field_id')) == field_id:
+                                    location = field.get('location') or location
+                                    break
+
+                weather = insights_service.build_weather(location)
+                scans = scan_model.get_scans_by_user(user_id, 1, 50)
+                forecast_payload = insights_service.compute_forecast(scans, weather, 7)
+                forecast_model.upsert_snapshot(
+                    user_id,
+                    {'farm_id': farm_id, 'field_id': field_id},
+                    forecast_payload,
+                )
+
+                if not result.get('is_healthy', True):
+                    notification_model.create_notification(
+                        user_id,
+                        'Disease detected',
+                        f"{result.get('disease', 'Unknown disease')} detected with {result.get('severity', 'unknown')} severity.",
+                        category='disease',
+                        related_scan_id=scan_id,
+                        metadata={'scan_id': scan_id},
+                    )
+                    event_publisher.disease_detected(
+                        scan_id,
+                        result.get('disease', ''),
+                        result.get('severity', ''),
+                        user_id,
+                    )
+
+                if forecast_payload and forecast_payload.get('risk_level') in ('high', 'critical'):
+                    notification_model.create_notification(
+                        user_id,
+                        'High risk alert',
+                        f"Forecast risk is {forecast_payload.get('risk_level')} for the next few days.",
+                        category='forecast',
+                        related_scan_id=scan_id,
+                        metadata={'scan_id': scan_id},
+                    )
+                    event_publisher.risk_high(
+                        scan_id,
+                        forecast_payload.get('risk_level', 'high'),
+                        user_id,
+                    )
+            else:
+                scan_model.update_scan(scan_id, {'status': 'failed'})
+
+        except Exception as exc:
+            current_app.logger.exception('Video analysis failed for %s: %s', scan_id, exc)
+            scan_model.update_scan(scan_id, {'status': 'failed'})
+
         audit_model.log_action(
             user_id,
             'scan_created',
@@ -137,10 +209,14 @@ def upload_scan():
             ip_address=request.remote_addr,
             details={**device_info, 'media_type': media_type},
         )
+
+        if result is None:
+            return error_response('Video analysis failed: no usable frames detected.', 422)
+
         stored = scan_model.get_scan_by_id(scan_id)
         return success_response(
-            {'scan': scan_model.serialize(stored), 'forecast': None},
-            'Video uploaded successfully. Video analysis is not available in this demo yet.',
+            {'scan': scan_model.serialize(stored), 'forecast': forecast_payload},
+            'Video scan processed successfully',
             201,
         )
 
