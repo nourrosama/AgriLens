@@ -77,7 +77,11 @@ def analyze_video(video_path: str, crop_type: str = "tomato") -> dict | None:
         return None
 
     # --- Step 3: Run detection on each frame ---
-    frame_results = _run_detection_on_frames(sharp_frames, crop_type)
+    frame_results = _run_detection_on_frames(
+        sharp_frames, crop_type,
+        debug_frames=cfg["debug_frames"],
+        upload_folder=cfg["upload_folder"],
+    )
     if not frame_results:
         logger.warning("Detection returned no results for any frame.")
         return None
@@ -181,12 +185,25 @@ def _phash(gray: np.ndarray) -> np.ndarray:
 def _run_detection_on_frames(
     frames: list[np.ndarray],
     crop_type: str,
+    debug_frames: bool = False,
+    upload_folder: str = "uploads",
 ) -> list[dict]:
     """
     Save each frame to a temp file, send it to detection_proxy_service.detect(),
-    and collect the results. Temp files are deleted immediately after detection.
+    and collect the results.
+
+    If debug_frames is True, frames are saved to <upload_folder>/debug_frames/
+    and kept on disk for inspection instead of being deleted.
     """
     results: list[dict] = []
+
+    if debug_frames:
+        debug_dir = os.path.join(upload_folder, "debug_frames")
+        os.makedirs(debug_dir, exist_ok=True)
+        logger.info("Debug mode: frames will be saved to %s", debug_dir)
+    else:
+        debug_dir = None
+
     tmp_dir = tempfile.gettempdir()
 
     for i, frame in enumerate(frames):
@@ -196,6 +213,11 @@ def _run_detection_on_frames(
             if not success:
                 logger.warning("cv2.imwrite failed for frame %d — skipping", i)
                 continue
+
+            if debug_dir:
+                debug_path = os.path.join(debug_dir, f"frame_{i:03d}.jpg")
+                cv2.imwrite(debug_path, frame)
+                logger.info("Debug: saved frame %d → %s", i, debug_path)
 
             detection = detection_proxy_service.detect(tmp_path, crop_type)
             if detection:
@@ -321,8 +343,10 @@ def _load_config() -> dict:
         app_config = {}
 
     return {
-        "interval_sec":      float(app_config.get("VIDEO_FRAME_INTERVAL_SEC", 2)),
-        "max_frames":        int(app_config.get("VIDEO_MAX_FRAMES", 20)),
-        "blur_threshold":    float(app_config.get("VIDEO_BLUR_THRESHOLD", 80.0)),
+        "interval_sec":        float(app_config.get("VIDEO_FRAME_INTERVAL_SEC", 2)),
+        "max_frames":          int(app_config.get("VIDEO_MAX_FRAMES", 20)),
+        "blur_threshold":      float(app_config.get("VIDEO_BLUR_THRESHOLD", 80.0)),
         "min_frames_required": int(app_config.get("VIDEO_MIN_FRAMES_REQUIRED", 1)),
+        "debug_frames":        bool(app_config.get("VIDEO_SAVE_DEBUG_FRAMES", False)),
+        "upload_folder":       str(app_config.get("UPLOAD_FOLDER", "uploads")),
     }
