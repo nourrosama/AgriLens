@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'session_storage.dart';
+import 'fcm_service.dart';
 
 class UserData {
   const UserData({
@@ -215,6 +217,9 @@ class UserProvider extends ChangeNotifier {
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
 
+      // Fire-and-forget: register FCM device token so backend can send push notifications.
+      unawaited(_registerFcmToken());
+
       _errorMessage = null;
       return true;
     } catch (error) {
@@ -318,6 +323,21 @@ class UserProvider extends ChangeNotifier {
     }
     final file = File(photoPath);
     return file.existsSync() ? file : null;
+  }
+
+  Future<void> _registerFcmToken() async {
+    final token = await FcmService.getToken();
+    if (token == null) return;
+    try {
+      await _apiClient.post(
+        '/api/notifications/device-token',
+        body: {'token': token},
+        auth: true,
+      );
+      debugPrint('[FCM] Device token registered with backend');
+    } catch (e) {
+      debugPrint('[FCM] Token registration failed (non-critical): $e');
+    }
   }
 
   void _setLoading(bool value) {

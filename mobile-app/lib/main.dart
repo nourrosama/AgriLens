@@ -13,10 +13,11 @@ import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/router.dart';
+import 'package:agrilens/core/fcm_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await FcmService.init();
   runApp(const AgriLensApp());
 }
 
