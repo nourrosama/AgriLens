@@ -5,3 +5,4 @@ numpy==2.2.3
 pandas==2.2.3
 pytest==8.3.4
 # DSAI team will add: prophet, statsmodels (ARIMA), torch (LSTM), etc.
+gunicorn

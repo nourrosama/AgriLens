@@ -10,6 +10,5 @@ COPY . .
 EXPOSE 5002
 
 ENV FLASK_APP=app.main:create_app
-ENV FLASK_ENV=development
 
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5002"]
+CMD ["gunicorn", "--workers", "2", "--bind", "0.0.0.0:5002", "--timeout", "120", "app.main:create_app()"]
