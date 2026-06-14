@@ -171,6 +171,12 @@ def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, f
     if hasattr(stream, 'seek'):
         stream.seek(0)
 
+    default_timeout = 120 if resource_type == 'video' else 30
+    upload_timeout = current_app.config.get(
+        'CLOUDINARY_VIDEO_UPLOAD_TIMEOUT' if resource_type == 'video' else 'CLOUDINARY_UPLOAD_TIMEOUT',
+        default_timeout,
+    )
+
     try:
         result = cloudinary.uploader.upload(
             stream,
@@ -179,7 +185,7 @@ def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, f
             overwrite=False,
             format=ext,
             folder=None,
-            timeout=current_app.config.get('CLOUDINARY_UPLOAD_TIMEOUT', 30),
+            timeout=upload_timeout,
         )
     except Exception as exc:  # pragma: no cover - runtime safety
         logger.warning('Cloudinary %s upload failed: %s', resource_type, exc)
