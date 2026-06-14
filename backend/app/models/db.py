@@ -18,7 +18,7 @@ def _resolve_database(client):
         return client['agrilens']
 
 
-def _mongo_kwargs(uri: str) -> dict:
+def _mongo_kwargs(uri: str, allow_invalid_certs: bool = False) -> dict:
     kwargs = {
         'serverSelectionTimeoutMS': 15000,
         'connectTimeoutMS': 15000,
@@ -26,12 +26,21 @@ def _mongo_kwargs(uri: str) -> dict:
     normalized = uri.lower()
     use_tls = normalized.startswith('mongodb+srv://') or 'tls=true' in normalized or 'ssl=true' in normalized
     if use_tls:
-        kwargs['tlsCAFile'] = certifi.where()
+        if allow_invalid_certs:
+            kwargs['tlsAllowInvalidCertificates'] = True
+        else:
+            kwargs['tlsCAFile'] = certifi.where()
     return kwargs
 
 
 def init_db(app):
-    """Initialize MongoDB client from app config. Call once on startup."""
+    """Initialize MongoDB client from app config. Call once on startup.
+
+    Tries strict TLS verification (certifi) first.  If the connection fails
+    due to an SSL certificate error — common in university / corporate networks
+    that intercept TLS with a self-signed proxy cert — it retries with
+    certificate verification disabled and logs a warning.
+    """
     global _client, _db
     uri = (app.config.get('MONGO_URI', '') or '').strip()
     if not uri:
@@ -40,15 +49,32 @@ def init_db(app):
         _db = None
         return None
 
-    try:
-        _client = MongoClient(uri, **_mongo_kwargs(uri))
-        _client.admin.command('ping')
-        _db = _resolve_database(_client)
-        app.logger.info('MongoDB connected to database: %s', _db.name)
-    except Exception as exc:
-        app.logger.warning('MongoDB not reachable: %s', exc)
-        _client = None
-        _db = None
+    last_exc = None
+    for allow_invalid in (False, True):
+        try:
+            client = MongoClient(uri, **_mongo_kwargs(uri, allow_invalid_certs=allow_invalid))
+            client.admin.command('ping')
+            _client = client
+            _db = _resolve_database(_client)
+            if allow_invalid:
+                app.logger.warning(
+                    'MongoDB connected with TLS certificate verification DISABLED. '
+                    'A self-signed certificate was detected in the chain (likely a '
+                    'network proxy). This is acceptable for local development but '
+                    'must NOT be used in production.'
+                )
+            else:
+                app.logger.info('MongoDB connected to database: %s', _db.name)
+            return _db
+        except Exception as exc:
+            last_exc = exc
+            if allow_invalid:
+                # Both attempts failed — give up
+                app.logger.warning('MongoDB not reachable: %s', exc)
+                _client = None
+                _db = None
+            # First attempt failed — loop will retry with relaxed TLS
+
     return _db
 
 
@@ -61,9 +87,14 @@ def get_db_status() -> dict:
 
 
 def get_db():
-    """Return the MongoDB database instance."""
+    """Return the MongoDB database instance.
+
+    Raises a Flask 503 (not a raw RuntimeError) when MongoDB is unreachable so
+    the caller gets a clean JSON error instead of an unhandled 500 traceback.
+    """
     if _db is None:
-        raise RuntimeError('Database not initialised -- call init_db(app) first')
+        from flask import abort
+        abort(503, description='Database unavailable — MongoDB connection failed on startup.')
     return _db
 
 
@@ -89,3 +120,35 @@ def notifications_col():
 
 def forecasts_col():
     return get_db()['forecasts']
+
+
+# ── Forum collections ──────────────────────────────────────────────────────────
+
+def forum_posts_col():
+    return get_db()['forum_posts']
+
+
+def forum_comments_col():
+    return get_db()['forum_comments']
+
+
+def forum_questions_col():
+    return get_db()['forum_questions']
+
+
+def forum_answers_col():
+    return get_db()['forum_answers']
+
+
+def communities_col():
+    return get_db()['communities']
+
+
+# ── Chatbot collections ────────────────────────────────────────────────────────
+
+def chat_sessions_col():
+    return get_db()['chat_sessions']
+
+
+def chat_messages_col():
+    return get_db()['chat_messages']

@@ -6,6 +6,9 @@ import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/fields_provider.dart';
 import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/core/notifications_provider.dart';
+import 'package:agrilens/core/chat_history_provider.dart';
+import 'package:agrilens/core/community_provider.dart';
+import 'package:agrilens/core/forum_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/core/crop_provider.dart';
@@ -29,6 +32,9 @@ class AgriLensApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => NotificationsProvider()),
         ChangeNotifierProvider(create: (_) => ScanHistoryProvider()),
+        ChangeNotifierProvider(create: (_) => ChatHistoryProvider()),
+        ChangeNotifierProvider(create: (_) => ForumProvider()),
+        ChangeNotifierProvider(create: (_) => CommunityProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
         ChangeNotifierProvider(create: (_) => CropProvider()),
       ],

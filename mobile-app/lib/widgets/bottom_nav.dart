@@ -44,6 +44,12 @@ class BottomNav extends StatelessWidget {
             onTap: () => context.go('/fields'),
           ),
           _NavItem(
+            icon: Icons.forum_rounded,
+            label: lang.t('nav.forum'),
+            isActive: active == 'forum',
+            onTap: () => context.go('/feed'),
+          ),
+          _NavItem(
             icon: Icons.bar_chart_rounded,
             label: lang.t('nav.reports'),
             isActive: active == 'reports',

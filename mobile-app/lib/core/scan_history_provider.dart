@@ -53,6 +53,9 @@ class ScanResult {
     this.cropType = '',
     this.remoteMediaUrl,
     this.topPredictions = const [],
+    this.gradcamOverlay,
+    this.diseaseReport,
+    this.localImageBytes,
   });
 
   final String id;
@@ -77,9 +80,50 @@ class ScanResult {
   final bool hasDetection;
   final String storageBackend;
   final List<ScanPrediction> topPredictions;
+  /// Base64-encoded PNG of the Grad-CAM heatmap overlay.
+  /// Only present in the immediate scan creation response; null for history.
+  final String? gradcamOverlay;
+
+  /// Structured AI disease report fetched from /api/disease-report.
+  /// Populated lazily by ScanResultScreen; null until fetched.
+  final Map<String, dynamic>? diseaseReport;
+
+  /// Raw bytes of the uploaded image, cached at scan-creation time so the
+  /// GradCAM overlay can be rendered instantly without a second network trip.
+  /// Null for scans loaded from history.
+  final Uint8List? localImageBytes;
 
   bool get isVideo => mediaType == 'video';
   bool get isStoredRemotely => storageBackend != 'local';
+
+  /// Returns a copy of this scan with [bytes] attached as [localImageBytes].
+  ScanResult withLocalImageBytes(Uint8List bytes) => ScanResult(
+        id: id,
+        farmId: farmId,
+        fieldId: fieldId,
+        imagePath: imagePath,
+        diseaseNameEn: diseaseNameEn,
+        diseaseNameAr: diseaseNameAr,
+        scientificName: scientificName,
+        confidence: confidence,
+        severity: severity,
+        status: status,
+        scannedAt: scannedAt,
+        isHealthy: isHealthy,
+        riskLevel: riskLevel,
+        recommendation: recommendation,
+        modelVersion: modelVersion,
+        mediaType: mediaType,
+        hasDetection: hasDetection,
+        storageBackend: storageBackend,
+        fieldName: fieldName,
+        cropType: cropType,
+        remoteMediaUrl: remoteMediaUrl,
+        topPredictions: topPredictions,
+        gradcamOverlay: gradcamOverlay,
+        diseaseReport: diseaseReport,
+        localImageBytes: bytes,
+      );
 
   factory ScanResult.fromJson(Map<String, dynamic> json) {
     final detection =
@@ -125,6 +169,7 @@ class ScanResult {
           .whereType<Map<String, dynamic>>()
           .map(ScanPrediction.fromJson)
           .toList(),
+      gradcamOverlay: detection['gradcam_overlay']?.toString(),
     );
   }
 }
@@ -283,7 +328,17 @@ class ScanHistoryProvider extends ChangeNotifier {
       final scanJson =
           (response['data'] as Map<String, dynamic>)['scan']
               as Map<String, dynamic>;
-      final scan = ScanResult.fromJson(scanJson);
+      var scan = ScanResult.fromJson(scanJson);
+      // Cache image bytes so the GradCAM card can render instantly without
+      // a second network request (bytes are already in memory here).
+      if (mediaType == 'image' && !kIsWeb) {
+        try {
+          final bytes = await file.readAsBytes();
+          scan = scan.withLocalImageBytes(bytes);
+        } catch (_) {
+          // Reading bytes is best-effort; silently skip if it fails.
+        }
+      }
       _upsertScan(scan);
       _errorMessage = null;
       notifyListeners();
@@ -384,7 +439,9 @@ class ScanHistoryProvider extends ChangeNotifier {
       final scanJson =
           (response['data'] as Map<String, dynamic>)['scan']
               as Map<String, dynamic>;
-      final scan = ScanResult.fromJson(scanJson);
+      // On web the bytes are already in memory — attach them directly so the
+      // GradCAM card can display the photo with no additional network trip.
+      final scan = ScanResult.fromJson(scanJson).withLocalImageBytes(bytes);
       _upsertScan(scan);
       _errorMessage = null;
       notifyListeners();

@@ -73,6 +73,7 @@ def create_app():
             {'name': 'Dashboard', 'description': 'Mobile dashboard summaries'},
             {'name': 'Reports', 'description': 'Report export'},
             {'name': 'Chatbot', 'description': 'Farmer assistant'},
+            {'name': 'Forum', 'description': 'Community feed, posts, Q&A, communities'},
             {'name': 'Health', 'description': 'Service status'},
         ],
     }
@@ -88,6 +89,8 @@ def create_app():
     from app.controllers.dashboard_controller import dashboard_bp
     from app.controllers.report_controller import reports_bp
     from app.controllers.chatbot_controller import chatbot_bp
+    from app.controllers.forum_controller import forum_bp
+    from app.controllers.community_controller import community_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
@@ -99,6 +102,8 @@ def create_app():
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(reports_bp)
     app.register_blueprint(chatbot_bp)
+    app.register_blueprint(forum_bp)
+    app.register_blueprint(community_bp)
 
     from app.services import storage_service
 
@@ -123,6 +128,17 @@ def create_app():
     @app.errorhandler(429)
     def rate_limited(e):
         return jsonify({'status': 'error', 'message': 'Rate limit exceeded'}), 429
+
+    @app.errorhandler(503)
+    def service_unavailable(e):
+        return jsonify({'status': 'error', 'message': str(e.description)}), 503
+
+    @app.errorhandler(RuntimeError)
+    def db_not_ready(e):
+        msg = str(e)
+        if 'Database not initialised' in msg or 'call init_db' in msg:
+            return jsonify({'status': 'error', 'message': 'Database unavailable. Please try again shortly.'}), 503
+        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
     @app.errorhandler(500)
     def server_error(e):

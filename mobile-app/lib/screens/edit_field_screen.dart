@@ -224,7 +224,6 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
         ),
       ),
       bottomNavigationBar: Container(
-        color: Colors.white,
         padding: EdgeInsets.fromLTRB(
           24,
           16,
@@ -232,6 +231,7 @@ class _EditFieldScreenState extends State<EditFieldScreen> {
           MediaQuery.of(context).padding.bottom + 16,
         ),
         decoration: const BoxDecoration(
+          color: Colors.white,
           border: Border(top: BorderSide(color: AppColors.border)),
         ),
         child: SizedBox(
