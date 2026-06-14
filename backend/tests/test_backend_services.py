@@ -72,6 +72,24 @@ def test_detection_proxy_uses_deterministic_mock_when_enabled(flask_app, monkeyp
     assert 0.74 <= first["confidence"] <= 0.95
 
 
+def test_detection_proxy_mock_supports_new_crops(flask_app, monkeypatch):
+    monkeypatch.setattr(
+        detection_proxy_service.requests,
+        "post",
+        lambda *args, **kwargs: (_ for _ in ()).throw(requests.ConnectionError("down")),
+    )
+    flask_app.config["DETECTION_MOCK_FALLBACK"] = True
+
+    with flask_app.app_context():
+        grape = detection_proxy_service.detect("/tmp/grape.jpg", "grapes")
+        mushroom = detection_proxy_service.detect("/tmp/mushroom.jpg", "mushrooms")
+
+    assert grape["crop_type"] == "grape"
+    assert "Grape" in grape["disease"]
+    assert mushroom["crop_type"] == "mushroom"
+    assert "Mushroom species" in mushroom["disease"]
+
+
 def test_local_storage_upload_and_delete_round_trip(flask_app, tmp_path):
     flask_app.config["UPLOAD_FOLDER"] = str(tmp_path)
     with flask_app.app_context():

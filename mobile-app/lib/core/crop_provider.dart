@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class CropInfo {
@@ -6,20 +6,80 @@ class CropInfo {
   final String labelEn;
   final String labelAr;
   final String emoji;
+  final IconData icon;
+  final Color color;
+  final bool scanEnabled;
 
   const CropInfo({
     required this.value,
     required this.labelEn,
     required this.labelAr,
     required this.emoji,
+    required this.icon,
+    required this.color,
+    this.scanEnabled = true,
   });
 }
 
 class CropProvider extends ChangeNotifier {
   static const List<CropInfo> crops = [
-    CropInfo(value: 'tomato', labelEn: 'Tomato', labelAr: 'Tomato', emoji: 'T'),
-    CropInfo(value: 'potato', labelEn: 'Potato', labelAr: 'Potato', emoji: 'P'),
-    CropInfo(value: 'apple', labelEn: 'Apple', labelAr: 'Apple', emoji: 'A'),
+    CropInfo(
+      value: 'tomato',
+      labelEn: 'Tomato',
+      labelAr: 'طماطم',
+      emoji: '🍅',
+      icon: Icons.local_florist_rounded,
+      color: Color(0xFFE53935),
+    ),
+    CropInfo(
+      value: 'potato',
+      labelEn: 'Potato',
+      labelAr: 'بطاطس',
+      emoji: '🥔',
+      icon: Icons.eco_rounded,
+      color: Color(0xFF8D6E63),
+    ),
+    CropInfo(
+      value: 'apple',
+      labelEn: 'Apple',
+      labelAr: 'تفاح',
+      emoji: '🍎',
+      icon: Icons.apple_rounded,
+      color: Color(0xFFD81B60),
+    ),
+    CropInfo(
+      value: 'grape',
+      labelEn: 'Grape',
+      labelAr: 'عنب',
+      emoji: '🍇',
+      icon: Icons.bubble_chart_rounded,
+      color: Color(0xFF7B1FA2),
+    ),
+    CropInfo(
+      value: 'wheat',
+      labelEn: 'Wheat',
+      labelAr: 'قمح',
+      emoji: '🌾',
+      icon: Icons.grass_rounded,
+      color: Color(0xFFD4A017),
+    ),
+    CropInfo(
+      value: 'mushroom',
+      labelEn: 'Mushroom',
+      labelAr: 'فطر',
+      emoji: '🍄',
+      icon: Icons.spa_rounded,
+      color: Color(0xFF6D4C41),
+    ),
+    CropInfo(
+      value: 'sugarCane',
+      labelEn: 'Sugar Cane',
+      labelAr: 'قصب السكر',
+      emoji: '🎋',
+      icon: Icons.grass_rounded,
+      color: Color(0xFF43A047),
+      scanEnabled: false,
+    ),
   ];
 
   String _selectedCrop = '';

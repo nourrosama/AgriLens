@@ -563,84 +563,126 @@ class _CameraScanScreenState extends State<CameraScanScreen>
             Container(
               color: Colors.black.withValues(alpha: 0.9),
               child: Center(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 24),
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(24),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.82,
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        lang.t('scan.selectCrop'),
-                        style: const TextStyle(
-                          color: Color(0xFF2E7D32),
-                          fontSize: 24,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        lang.t('scan.selectCropDesc'),
-                        style: const TextStyle(
-                          color: Color(0xFF757575),
-                          fontSize: 16,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      GridView.count(
-                        shrinkWrap: true,
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: 1.1,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: CropProvider.crops.map((cropInfo) {
-                          return GestureDetector(
-                            onTap: () {
-                              crop.selectCrop(cropInfo.value);
-                              setState(() => _showCropSelection = false);
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF5F5F5),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: crop.selectedCrop == cropInfo.value
-                                      ? const Color(0xFF4CAF50)
-                                      : const Color(0xFFE0E0E0),
-                                  width: 3,
-                                ),
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    cropInfo.emoji,
-                                    style: const TextStyle(fontSize: 48),
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    lang.isRTL
-                                        ? cropInfo.labelAr
-                                        : cropInfo.labelEn,
-                                    style: const TextStyle(
-                                      color: Color(0xFF424242),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            lang.t('scan.selectCrop'),
+                            style: const TextStyle(
+                              color: Color(0xFF2E7D32),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            lang.t('scan.selectCropDesc'),
+                            style: const TextStyle(
+                              color: Color(0xFF757575),
+                              fontSize: 16,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 24),
+                          GridView.count(
+                            shrinkWrap: true,
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: 1.1,
+                            physics: const NeverScrollableScrollPhysics(),
+                            children: CropProvider.crops.map((cropInfo) {
+                              final selected =
+                                  crop.selectedCrop == cropInfo.value;
+                              final label = lang.isRTL
+                                  ? cropInfo.labelAr
+                                  : cropInfo.labelEn;
+                              return GestureDetector(
+                                onTap: () {
+                                  if (!cropInfo.scanEnabled) {
+                                    _showError(
+                                      lang
+                                          .t('scan.cropComingSoon')
+                                          .replaceAll('{crop}', label),
+                                    );
+                                    return;
+                                  }
+                                  crop.selectCrop(cropInfo.value);
+                                  setState(() => _showCropSelection = false);
+                                },
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 160),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: selected
+                                        ? const Color(0xFFE8F5E9)
+                                        : const Color(0xFFF5F5F5),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: selected
+                                          ? const Color(0xFF4CAF50)
+                                          : const Color(0xFFE0E0E0),
+                                      width: 3,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Opacity(
+                                        opacity: cropInfo.scanEnabled
+                                            ? 1
+                                            : 0.42,
+                                        child: Text(
+                                          cropInfo.emoji,
+                                          style: const TextStyle(fontSize: 44),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF424242),
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      if (!cropInfo.scanEnabled) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          lang.t('scan.comingSoon'),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Color(0xFF9E9E9E),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),

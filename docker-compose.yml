@@ -28,6 +28,12 @@ services:
       - "5001:5001"
     environment:
       MODEL_PATH: /models/tomato_model.pth
+      TOMATO_MODEL_PATH: /models/tomato_model.pth
+      POTATO_MODEL_PATH: /models/potato_model.pth
+      APPLE_MODEL_PATH: /models/apple_model.pth
+      GRAPE_MODEL_PATH: /models/grape_effb3_best.pth
+      WHEAT_MODEL_PATH: /models/wheat_disease_detector.pth
+      MUSHROOM_MODEL_PATH: /models/mushroom_disease_classifier.pth
       MODEL_FORCE_CPU: "true"
     volumes:
       - ./detection-service:/app

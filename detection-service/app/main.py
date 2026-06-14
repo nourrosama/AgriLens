@@ -18,6 +18,9 @@ def create_app():
     app.config["TOMATO_MODEL_PATH"] = os.getenv("TOMATO_MODEL_PATH", "")
     app.config["POTATO_MODEL_PATH"] = os.getenv("POTATO_MODEL_PATH", "")
     app.config["APPLE_MODEL_PATH"] = os.getenv("APPLE_MODEL_PATH", "")
+    app.config["GRAPE_MODEL_PATH"] = os.getenv("GRAPE_MODEL_PATH", "")
+    app.config["WHEAT_MODEL_PATH"] = os.getenv("WHEAT_MODEL_PATH", "")
+    app.config["MUSHROOM_MODEL_PATH"] = os.getenv("MUSHROOM_MODEL_PATH", "")
     app.config["MODEL_FORCE_CPU"] = os.getenv("MODEL_FORCE_CPU", "true").lower() == "true"
 
     from app.controllers.detection_controller import detection_bp

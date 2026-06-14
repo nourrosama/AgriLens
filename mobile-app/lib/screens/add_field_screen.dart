@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/fields_provider.dart';
+import 'package:agrilens/core/crop_provider.dart';
 
 class AddFieldScreen extends StatefulWidget {
   const AddFieldScreen({super.key});
@@ -200,22 +201,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _dropdown(
-                        lang.t('addField.cropType'),
-                        lang.t('addField.selectCrop'),
-                        _cropType,
-                        [
-                          for (final c in ['tomato', 'potato', 'apple'])
-                            DropdownMenuItem(
-                              value: c,
-                              child: Text(
-                                c == 'apple' ? 'Apple' : lang.t('crops.$c'),
-                              ),
-                            ),
-                        ],
-                        (v) => setState(() => _cropType = v),
-                        required: true,
-                      ),
+                      _cropGrid(lang),
                       const SizedBox(height: 24),
                       _dropdown(
                         lang.t('addField.soilType'),
@@ -343,6 +329,70 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _cropGrid(LanguageProvider lang) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${lang.t('addField.cropType')} *',
+          style: const TextStyle(color: AppColors.primaryDark, fontSize: 18),
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          shrinkWrap: true,
+          crossAxisCount: 2,
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 14,
+          childAspectRatio: 1.25,
+          physics: const NeverScrollableScrollPhysics(),
+          children: CropProvider.crops.map((crop) {
+            final selected = _cropType == crop.value;
+            final label = lang.isRTL ? crop.labelAr : crop.labelEn;
+            return GestureDetector(
+              onTap: () => setState(() => _cropType = crop.value),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 160),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: selected ? const Color(0xFFE8F5E9) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: selected ? AppColors.primary : AppColors.border,
+                    width: selected ? 3 : 2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Text(crop.emoji, style: const TextStyle(fontSize: 30)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (selected)
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
