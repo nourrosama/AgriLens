@@ -44,6 +44,9 @@ class LanguageProvider extends ChangeNotifier {
     await _sessionStorage.saveLanguage(code);
   }
 
+  String t(String key) => _strings[key] ?? key;
+}
+
 const Map<String, Map<String, String>> _translations = {
   'en': {
     'common.cancel': 'Cancel',
@@ -879,7 +882,3 @@ const Map<String, Map<String, String>> _translations = {
     'terms.section6': 'يحق لنا تحديث هذه الشروط أو تعليق الحسابات المخالفة في أي وقت. استمرارك في استخدام التطبيق بعد أي تحديث يُعدّ قبولاً للشروط الجديدة.',
   },
 };
-=======
-  String t(String key) => _strings[key] ?? key;
-}
->>>>>>> origin/feat/push-notifications
