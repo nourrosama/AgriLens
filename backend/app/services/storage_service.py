@@ -5,6 +5,7 @@ Supports Cloudinary or explicit local-disk storage.
 import logging
 import os
 import re
+import tempfile
 import uuid
 from urllib.parse import urlparse
 
@@ -171,16 +172,42 @@ def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, f
     if hasattr(stream, 'seek'):
         stream.seek(0)
 
+    upload_timeout = current_app.config.get('CLOUDINARY_UPLOAD_TIMEOUT', 30)
+
     try:
-        result = cloudinary.uploader.upload(
-            stream,
-            public_id=public_id,
-            resource_type=resource_type,
-            overwrite=False,
-            format=ext,
-            folder=None,
-            timeout=current_app.config.get('CLOUDINARY_UPLOAD_TIMEOUT', 30),
-        )
+        if resource_type == 'video':
+            # upload_large needs a real file path for reliable chunked transfer
+            with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
+                tmp_path = tmp.name
+                if hasattr(stream, 'read'):
+                    tmp.write(stream.read())
+                else:
+                    tmp.write(stream)
+            try:
+                result = cloudinary.uploader.upload_large(
+                    tmp_path,
+                    public_id=public_id,
+                    resource_type='video',
+                    overwrite=False,
+                    format=ext,
+                    chunk_size=6 * 1024 * 1024,  # 6 MB chunks
+                    timeout=60,
+                )
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except OSError:
+                    pass
+        else:
+            result = cloudinary.uploader.upload(
+                stream,
+                public_id=public_id,
+                resource_type=resource_type,
+                overwrite=False,
+                format=ext,
+                folder=None,
+                timeout=upload_timeout,
+            )
     except Exception as exc:  # pragma: no cover - runtime safety
         logger.warning('Cloudinary %s upload failed: %s', resource_type, exc)
         raise

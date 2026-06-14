@@ -12,7 +12,7 @@ import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 
-import 'package:agrilens/core/web_file_picker.dart'
+import 'package:agrilens/core/web_file_picker_stub.dart'
     if (dart.library.html) 'package:agrilens/core/web_file_picker.dart'
     as web_picker;
 
@@ -41,7 +41,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   int _selectedCameraIndex = 0;
 
   bool _scanning = false;
-  bool _showCropSelection = true;
   bool _isCameraLoading = true;
   bool _isRecording = false;
   String _captureMode = 'photo';
@@ -59,9 +58,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     final crop = context.read<CropProvider>();
     if ((widget.initialCropType ?? '').isNotEmpty) {
       unawaited(crop.selectCrop(widget.initialCropType!));
-      _showCropSelection = false;
-    } else if (crop.hasCropSelected) {
-      _showCropSelection = false;
     }
     unawaited(_initializeCamera());
   }
@@ -69,9 +65,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final controller = _cameraController;
-    if (controller == null) {
-      return;
-    }
+    if (controller == null) return;
 
     if (state == AppLifecycleState.inactive) {
       unawaited(controller.dispose());
@@ -123,17 +117,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       _cameraController = nextController;
       await previousController?.dispose();
 
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _isCameraLoading = false;
-      });
+      if (!mounted) return;
+      setState(() => _isCameraLoading = false);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _cameraError = error.toString();
         _isCameraLoading = false;
@@ -143,7 +130,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
   int _findBackCameraIndex(List<CameraDescription> cameras) {
     final backIndex = cameras.indexWhere(
-      (camera) => camera.lensDirection == CameraLensDirection.back,
+      (c) => c.lensDirection == CameraLensDirection.back,
     );
     return backIndex >= 0 ? backIndex : 0;
   }
@@ -155,13 +142,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   }
 
   Future<void> _handleCapture() async {
-    if (_scanning) {
-      return;
-    }
+    if (_scanning) return;
 
     final crop = context.read<CropProvider>();
     if (!crop.hasCropSelected) {
-      setState(() => _showCropSelection = true);
+      _goToCropSelect();
       return;
     }
 
@@ -182,11 +167,18 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
   }
 
+  void _goToCropSelect() {
+    final params = <String, String>{};
+    if ((widget.farmId ?? '').isNotEmpty) params['farmId'] = widget.farmId!;
+    if ((widget.fieldId ?? '').isNotEmpty) params['fieldId'] = widget.fieldId!;
+    context.push(
+      Uri(path: '/crop-select', queryParameters: params).toString(),
+    );
+  }
+
   Future<void> _capturePhoto() async {
     final controller = _cameraController;
-    if (controller == null || !controller.value.isInitialized) {
-      return;
-    }
+    if (controller == null || !controller.value.isInitialized) return;
 
     try {
       final photo = await controller.takePicture();
@@ -201,7 +193,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     final crop = context.read<CropProvider>();
     if (!crop.hasCropSelected) {
-      setState(() => _showCropSelection = true);
+      _goToCropSelect();
       return;
     }
 
@@ -228,7 +220,6 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
   Future<void> _pickFromGalleryWeb() async {
     try {
-      // ignore: avoid_web_libraries_in_flutter
       final result = await web_picker.pickImageFromWeb();
       if (result == null) return;
       final (bytes, name) = result;
@@ -260,9 +251,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
   Future<void> _startVideoRecording() async {
     final controller = _cameraController;
-    if (controller == null || !controller.value.isInitialized) {
-      return;
-    }
+    if (controller == null || !controller.value.isInitialized) return;
 
     try {
       await controller.startVideoRecording();
@@ -290,9 +279,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
   Future<void> _stopVideoRecording() async {
     final controller = _cameraController;
-    if (controller == null || !controller.value.isRecordingVideo) {
-      return;
-    }
+    if (controller == null || !controller.value.isRecordingVideo) return;
 
     try {
       final video = await controller.stopVideoRecording();
@@ -313,9 +300,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   }
 
   Future<void> _switchCamera() async {
-    if (_cameras.length < 2 || _scanning || _isRecording) {
-      return;
-    }
+    if (_cameras.length < 2 || _scanning || _isRecording) return;
     final nextIndex = (_selectedCameraIndex + 1) % _cameras.length;
     await _initializeCamera(cameraIndex: nextIndex);
   }
@@ -330,9 +315,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       farmId: widget.farmId,
       fieldId: widget.fieldId,
     );
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() => _scanning = false);
     if (result != null) {
       context.push('/scan-result', extra: result);
@@ -351,9 +334,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       farmId: widget.farmId,
       fieldId: widget.fieldId,
     );
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     setState(() => _scanning = false);
     if (result != null) {
       context.push('/scan-result', extra: result);
@@ -363,9 +344,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   }
 
   void _showError(String message) {
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -417,9 +396,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
 
     final controller = _cameraController!;
     final previewSize = controller.value.previewSize;
-    if (previewSize == null) {
-      return const SizedBox.shrink();
-    }
+    if (previewSize == null) return const SizedBox.shrink();
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
@@ -440,11 +417,13 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
     final crop = context.watch<CropProvider>();
+    final bottomPad = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
+          // ── Camera preview ──────────────────────────────────────────
           Center(
             child: Container(
               width: MediaQuery.of(context).size.width * 0.88,
@@ -543,167 +522,38 @@ class _CameraScanScreenState extends State<CameraScanScreen>
               ),
             ),
           ),
+
+          // ── Close button ─────────────────────────────────────────────
           Positioned(
             top: MediaQuery.of(context).padding.top + 16,
             left: 24,
             child: GestureDetector(
               onTap: () => context.go('/home'),
               child: Container(
-                width: 56,
-                height: 56,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
                   color: Colors.black.withValues(alpha: 0.5),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.close, color: Colors.white, size: 28),
+                child: const Icon(Icons.close, color: Colors.white, size: 24),
               ),
             ),
           ),
-          if (_showCropSelection)
-            Container(
-              color: Colors.black.withValues(alpha: 0.9),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.82,
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 24),
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            lang.t('scan.selectCrop'),
-                            style: const TextStyle(
-                              color: Color(0xFF2E7D32),
-                              fontSize: 24,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            lang.t('scan.selectCropDesc'),
-                            style: const TextStyle(
-                              color: Color(0xFF757575),
-                              fontSize: 16,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-                          GridView.count(
-                            shrinkWrap: true,
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                            childAspectRatio: 1.1,
-                            physics: const NeverScrollableScrollPhysics(),
-                            children: CropProvider.crops.map((cropInfo) {
-                              final selected =
-                                  crop.selectedCrop == cropInfo.value;
-                              final label = lang.isRTL
-                                  ? cropInfo.labelAr
-                                  : cropInfo.labelEn;
-                              return GestureDetector(
-                                onTap: () {
-                                  if (!cropInfo.scanEnabled) {
-                                    _showError(
-                                      lang
-                                          .t('scan.cropComingSoon')
-                                          .replaceAll('{crop}', label),
-                                    );
-                                    return;
-                                  }
-                                  crop.selectCrop(cropInfo.value);
-                                  setState(() => _showCropSelection = false);
-                                },
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 160),
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: selected
-                                        ? const Color(0xFFE8F5E9)
-                                        : const Color(0xFFF5F5F5),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: selected
-                                          ? const Color(0xFF4CAF50)
-                                          : const Color(0xFFE0E0E0),
-                                      width: 3,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Opacity(
-                                        opacity: cropInfo.scanEnabled
-                                            ? 1
-                                            : 0.42,
-                                        child: Text(
-                                          cropInfo.emoji,
-                                          style: const TextStyle(fontSize: 44),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Text(
-                                        label,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Color(0xFF424242),
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      if (!cropInfo.scanEnabled) ...[
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          lang.t('scan.comingSoon'),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Color(0xFF9E9E9E),
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+
+          // ── Bottom controls ──────────────────────────────────────────
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              padding: EdgeInsets.fromLTRB(
-                24,
-                24,
-                24,
-                MediaQuery.of(context).padding.bottom + 24,
-              ),
+              padding: EdgeInsets.fromLTRB(24, 16, 24, bottomPad + 16),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.82),
+                    Colors.black.withValues(alpha: 0.85),
                     Colors.transparent,
                   ],
                 ),
@@ -711,47 +561,73 @@ class _CameraScanScreenState extends State<CameraScanScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (crop.hasCropSelected && !_showCropSelection)
-                    GestureDetector(
-                      onTap: () => setState(() => _showCropSelection = true),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 16),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
+                  // Crop indicator chip — tap to change
+                  GestureDetector(
+                    onTap: _goToCropSelect,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: crop.hasCropSelected
+                            ? const Color(0xFF4CAF50)
+                            : Colors.white.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: crop.hasCropSelected
+                              ? Colors.transparent
+                              : Colors.white38,
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF4CAF50),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (crop.hasCropSelected) ...[
                             Text(
                               crop.selectedCropInfo?.emoji ?? '',
-                              style: const TextStyle(fontSize: 24),
+                              style: const TextStyle(fontSize: 18),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             Text(
                               lang.isRTL
                                   ? (crop.selectedCropInfo?.labelAr ?? '')
                                   : (crop.selectedCropInfo?.labelEn ?? ''),
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 16,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 6),
                             const Icon(
-                              Icons.check_circle,
+                              Icons.edit_rounded,
+                              color: Colors.white70,
+                              size: 14,
+                            ),
+                          ] else ...[
+                            const Icon(
+                              Icons.add_circle_outline,
                               color: Colors.white,
-                              size: 20,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              lang.t('scan.selectCrop'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
-                        ),
+                        ],
                       ),
                     ),
+                  ),
+
+                  // Photo / Video mode chips
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -759,51 +635,31 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                         label: lang.t('scan.photoMode'),
                         icon: Icons.photo_camera_rounded,
                         selected: _captureMode == 'photo',
-                        onTap: () {
-                          setState(() {
-                            _captureMode = 'photo';
-                            _isRecording = false;
-                            _recordingTime = 0;
-                            _timer?.cancel();
-                          });
-                        },
+                        onTap: () => setState(() {
+                          _captureMode = 'photo';
+                          _isRecording = false;
+                          _recordingTime = 0;
+                          _timer?.cancel();
+                        }),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       _ModeChip(
                         label: lang.t('scan.videoMode'),
                         icon: Icons.videocam_rounded,
                         selected: _captureMode == 'video',
-                        onTap: () {
-                          setState(() {
-                            _captureMode = 'video';
-                            _isRecording = false;
-                            _recordingTime = 0;
-                            _timer?.cancel();
-                          });
-                        },
+                        onTap: () => setState(() {
+                          _captureMode = 'video';
+                          _isRecording = false;
+                          _recordingTime = 0;
+                          _timer?.cancel();
+                        }),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _captureMode == 'photo'
-                        ? lang.t('scan.instruction')
-                        : lang.t('scan.videoInstruction'),
-                    style: const TextStyle(color: Colors.white, fontSize: 18),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _captureMode == 'photo'
-                        ? lang.t('scan.tip1')
-                        : lang.t('scan.videoTip'),
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 16,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
+
+                  const SizedBox(height: 14),
+
+                  // Action row: gallery | shutter | flip
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -812,12 +668,12 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                         label: lang.t('scan.gallery'),
                         onTap: () => unawaited(_pickFromGallery()),
                       ),
-                      const SizedBox(width: 24),
+                      const SizedBox(width: 28),
                       GestureDetector(
                         onTap: () => unawaited(_handleCapture()),
                         child: Container(
-                          width: 84,
-                          height: 84,
+                          width: 76,
+                          height: 76,
                           decoration: BoxDecoration(
                             color: _isRecording
                                 ? Colors.red[600]
@@ -830,11 +686,10 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                             border: Border.all(color: Colors.white, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color:
-                                    (_isRecording
-                                            ? Colors.red
-                                            : const Color(0xFF4CAF50))
-                                        .withValues(alpha: 0.4),
+                                color: (_isRecording
+                                        ? Colors.red
+                                        : const Color(0xFF4CAF50))
+                                    .withValues(alpha: 0.4),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -847,11 +702,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                                       ? Icons.stop_circle_rounded
                                       : Icons.videocam_rounded),
                             color: Colors.white,
-                            size: 40,
+                            size: 36,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 24),
+                      const SizedBox(width: 28),
                       _RoundActionButton(
                         icon: Icons.cameraswitch_rounded,
                         label: '',
@@ -888,7 +743,7 @@ class _ModeChip extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: selected
               ? const Color(0xFF4CAF50)
@@ -899,13 +754,14 @@ class _ModeChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 6),
             Text(
               label,
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
+                fontSize: 13,
               ),
             ),
           ],
@@ -934,23 +790,23 @@ class _RoundActionButton extends StatelessWidget {
         GestureDetector(
           onTap: onTap,
           child: Container(
-            width: 58,
-            height: 58,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.18),
               shape: BoxShape.circle,
               border: Border.all(color: Colors.white24),
             ),
-            child: Icon(icon, color: Colors.white, size: 28),
+            child: Icon(icon, color: Colors.white, size: 24),
           ),
         ),
         if (label.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             label,
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.78),
-              fontSize: 12,
+              fontSize: 11,
             ),
           ),
         ],

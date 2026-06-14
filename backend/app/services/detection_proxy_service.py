@@ -309,9 +309,16 @@ def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
         if resp.status_code == 200:
             return resp.json()
 
+        if resp.status_code == 422:
+            body = resp.json()
+            if body.get('error_code') == 'NOT_A_PLANT':
+                raise ValueError(body.get('error', 'Image does not appear to contain a plant.'))
+
         logger.warning('Detection service returned %s: %s', resp.status_code, resp.text)
     except requests.ConnectionError:
         logger.warning('Detection service unreachable')
+    except ValueError:
+        raise  # NOT_A_PLANT errors must reach the scan controller — do not swallow
     except Exception as exc:
         logger.warning('Detection proxy error: %s', exc)
 
