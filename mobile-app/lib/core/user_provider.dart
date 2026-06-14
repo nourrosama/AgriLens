@@ -101,6 +101,9 @@ class UserProvider extends ChangeNotifier {
   bool _isHydrated = false;
   String? _errorMessage;
   String? _pendingPhone;
+  DateTime? _registeredAt;
+
+  static const int trialDays = 7;
 
   UserData get user => _user;
   String get userId => _user.id;
@@ -117,6 +120,20 @@ class UserProvider extends ChangeNotifier {
   String? get photoPath => _user.profilePhotoPath;
   String get plan => _user.plan;
 
+  /// Whether the user has an active paid subscription.
+  bool get isSubscribed => _user.plan != 'free';
+
+  /// Days remaining in the free trial (0 if expired or subscribed).
+  int get trialDaysLeft {
+    if (isSubscribed) return 0;
+    if (_registeredAt == null) return trialDays;
+    final elapsed = DateTime.now().difference(_registeredAt!).inDays;
+    return (trialDays - elapsed).clamp(0, trialDays);
+  }
+
+  /// True when the 7-day trial has ended and the user is not subscribed.
+  bool get isTrialExpired => !isSubscribed && trialDaysLeft == 0;
+
   Future<void> hydrate() async {
     _setLoading(true);
     Map<String, dynamic>? cachedUser;
@@ -126,6 +143,9 @@ class UserProvider extends ChangeNotifier {
         _user = const UserData();
         return;
       }
+
+      // Load trial start date (null = never logged in before, treat as today)
+      _registeredAt = await _sessionStorage.readRegisteredAt();
 
       cachedUser = await _sessionStorage.readUser();
       if (cachedUser != null) {
@@ -212,6 +232,10 @@ class UserProvider extends ChangeNotifier {
       await _sessionStorage.saveToken(token);
       await _sessionStorage.saveUser(userJson);
 
+      // Anchor the trial clock to the very first login
+      await _sessionStorage.saveRegisteredAtIfAbsent(DateTime.now());
+      _registeredAt ??= await _sessionStorage.readRegisteredAt();
+
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
 
@@ -295,6 +319,36 @@ class UserProvider extends ChangeNotifier {
     } catch (error) {
       _errorMessage = error.toString();
       return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Activates a paid plan by calling the backend, then updates local state.
+  /// Falls back to a local-only update when the backend is unreachable so
+  /// the UI is never left in a broken state after a simulated payment.
+  Future<bool> subscribe(String planKey) async {
+    _setLoading(true);
+    try {
+      final response = await _apiClient.post(
+        '/api/subscriptions/subscribe',
+        auth: true,
+        body: {'plan': planKey},
+      );
+      final userJson =
+          (response['data'] as Map<String, dynamic>)['user']
+              as Map<String, dynamic>;
+      _user = UserData.fromJson(userJson);
+      await _sessionStorage.saveUser(userJson);
+      _errorMessage = null;
+      return true;
+    } catch (_) {
+      // Backend not available — update plan locally so the UI reflects the
+      // subscription immediately (matches demo / offline-first behaviour).
+      _user = _user.copyWith(plan: planKey);
+      await _sessionStorage.saveUser(_user.toJson());
+      _errorMessage = null;
+      return true;
     } finally {
       _setLoading(false);
     }

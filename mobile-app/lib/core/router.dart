@@ -32,6 +32,10 @@ import 'package:agrilens/screens/create_post_screen.dart';
 import 'package:agrilens/screens/disease_articles_screen.dart';
 import 'package:agrilens/screens/feed_screen.dart';
 import 'package:agrilens/screens/question_screen.dart';
+import 'package:agrilens/screens/favourites_screen.dart';
+import 'package:agrilens/screens/subscription_plans_screen.dart';
+import 'package:agrilens/screens/subscription_payment_screen.dart';
+import 'package:agrilens/screens/subscription_confirmation_screen.dart';
 import 'package:agrilens/screens/terms_conditions_screen.dart';
 import 'package:agrilens/screens/user_registration_screen.dart';
 
@@ -156,8 +160,37 @@ final GoRouter appRouter = GoRouter(
       path: '/app-tutorial',
       builder: (ctx, state) => const AppTutorialScreen(),
     ),
-    GoRoute(path: '/subscription', redirect: (ctx, state) => '/profile'),
-    GoRoute(path: '/subscription-plans', redirect: (ctx, state) => '/profile'),
+    GoRoute(
+      path: '/favourites',
+      builder: (ctx, state) => const FavouritesScreen(),
+    ),
+    GoRoute(path: '/subscription', redirect: (ctx, state) => '/subscription-plans'),
+    GoRoute(
+      path: '/subscription-plans',
+      builder: (ctx, state) => const SubscriptionPlansScreen(),
+    ),
+    GoRoute(
+      path: '/subscription-payment',
+      builder: (ctx, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return SubscriptionPaymentScreen(
+          planKey: extra['planKey'] as String? ?? 'pro',
+          planName: extra['planName'] as String? ?? 'Pro Plan',
+          priceEgp: extra['priceEgp'] as int? ?? 499,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/subscription-confirmation',
+      builder: (ctx, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return SubscriptionConfirmationScreen(
+          planKey: extra['planKey'] as String? ?? 'pro',
+          planName: extra['planName'] as String? ?? 'Pro Plan',
+          priceEgp: extra['priceEgp'] as int? ?? 499,
+        );
+      },
+    ),
     GoRoute(
       path: '/subscription-payment',
       redirect: (ctx, state) => '/profile',
