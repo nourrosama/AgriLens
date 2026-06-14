@@ -13,9 +13,9 @@ MODELS = [
     "tomato_model.pth",
     "apple_model.pth",
     "potato_model.pth",
-    "grape_model.pth",
-    "wheat_model.pth",
-    "mushroom_model.pth",
+    "grape_effb3_best.pth",
+    "wheat_disease_detector.pth",
+    "mushroom_disease_classifier.pth",
 ]
 
 MODELS_DIR = "/app/models"
