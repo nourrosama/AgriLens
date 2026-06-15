@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'session_storage.dart';
+import 'fcm_service.dart';
 
 class UserData {
   const UserData({
@@ -101,6 +103,13 @@ class UserProvider extends ChangeNotifier {
   bool _isHydrated = false;
   String? _errorMessage;
   String? _pendingPhone;
+  DateTime? _registeredAt;
+
+  static const int trialDays = 7;
+
+  // Signup flow: stored here so verifyOtp can include them in the request body
+  String? _pendingSignupName;
+  String? _pendingSignupCountry;
 
   UserData get user => _user;
   String get userId => _user.id;
@@ -117,6 +126,20 @@ class UserProvider extends ChangeNotifier {
   String? get photoPath => _user.profilePhotoPath;
   String get plan => _user.plan;
 
+  /// Whether the user has an active paid subscription.
+  bool get isSubscribed => _user.plan != 'free';
+
+  /// Days remaining in the free trial (0 if expired or subscribed).
+  int get trialDaysLeft {
+    if (isSubscribed) return 0;
+    if (_registeredAt == null) return trialDays;
+    final elapsed = DateTime.now().difference(_registeredAt!).inDays;
+    return (trialDays - elapsed).clamp(0, trialDays);
+  }
+
+  /// True when the 7-day trial has ended and the user is not subscribed.
+  bool get isTrialExpired => !isSubscribed && trialDaysLeft == 0;
+
   Future<void> hydrate() async {
     _setLoading(true);
     Map<String, dynamic>? cachedUser;
@@ -126,6 +149,9 @@ class UserProvider extends ChangeNotifier {
         _user = const UserData();
         return;
       }
+
+      // Load trial start date (null = never logged in before, treat as today)
+      _registeredAt = await _sessionStorage.readRegisteredAt();
 
       cachedUser = await _sessionStorage.readUser();
       if (cachedUser != null) {
@@ -156,6 +182,35 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  /// Registration flow — collect profile first, then send OTP.
+  /// Calls POST /api/auth/register (phone must be new).
+  Future<bool> signup({
+    required String fullName,
+    required String country,
+    required String phone,
+    String email = '',
+  }) async {
+    _setLoading(true);
+    try {
+      await _apiClient.post('/api/auth/register', body: {
+        'name': fullName,
+        'country': country,
+        'phone': phone,
+        if (email.isNotEmpty) 'email': email,
+      });
+      _pendingPhone = phone;
+      _pendingSignupName = fullName;
+      _pendingSignupCountry = country;
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<bool> sendOtp(String phone) async {
     _setLoading(true);
     try {
@@ -168,7 +223,7 @@ class UserProvider extends ChangeNotifier {
         final data = response['data'] as Map<String, dynamic>;
         final token = data['token']?.toString() ?? '';
         final userId = data['user_id']?.toString() ?? '';
-        
+
         await _sessionStorage.saveToken(token);
         _user = UserData(
           id: userId,
@@ -178,11 +233,11 @@ class UserProvider extends ChangeNotifier {
         );
         _pendingPhone = phone;
         _errorMessage = null;
-        
+
         // Skip push notifications on web
         return true;
       }
-      
+
       // On mobile platforms, use actual OTP
       await _apiClient.post('/api/auth/send-otp', body: {'phone': phone});
       _pendingPhone = phone;
@@ -199,21 +254,34 @@ class UserProvider extends ChangeNotifier {
   Future<bool> verifyOtp(String otp, {String? phone}) async {
     _setLoading(true);
     try {
-      // On web, use test verification endpoint
-      final endpoint = '/api/auth/verify-otp';
+      final resolvedPhone = phone ?? _pendingPhone ?? _user.phone;
+      final body = <String, dynamic>{
+        'phone': resolvedPhone,
+        'code': otp,
+        // Include signup profile if this is the registration flow.
+        // The backend uses their presence to decide signup vs login.
+        ...?(_pendingSignupName == null ? null : {'name': _pendingSignupName!}),
+        ...?(_pendingSignupCountry == null ? null : {'country': _pendingSignupCountry!}),
+      };
 
-      final response = await _apiClient.post(
-        endpoint,
-        body: {'phone': phone ?? _pendingPhone ?? _user.phone, 'code': otp},
-      );
+      final response = await _apiClient.post('/api/auth/verify-otp', body: body);
       final data = response['data'] as Map<String, dynamic>;
       final token = data['token']?.toString() ?? '';
       final userJson = data['user'] as Map<String, dynamic>;
       await _sessionStorage.saveToken(token);
       await _sessionStorage.saveUser(userJson);
 
+      // Anchor the trial clock to the very first login
+      await _sessionStorage.saveRegisteredAtIfAbsent(DateTime.now());
+      _registeredAt ??= await _sessionStorage.readRegisteredAt();
+
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
+      // Clear signup state after successful verification
+      _pendingSignupName = null;
+      _pendingSignupCountry = null;
+
+      unawaited(_registerFcmToken());
 
       _errorMessage = null;
       return true;
@@ -300,6 +368,36 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  /// Activates a paid plan by calling the backend, then updates local state.
+  /// Falls back to a local-only update when the backend is unreachable so
+  /// the UI is never left in a broken state after a simulated payment.
+  Future<bool> subscribe(String planKey) async {
+    _setLoading(true);
+    try {
+      final response = await _apiClient.post(
+        '/api/subscriptions/subscribe',
+        auth: true,
+        body: {'plan': planKey},
+      );
+      final userJson =
+          (response['data'] as Map<String, dynamic>)['user']
+              as Map<String, dynamic>;
+      _user = UserData.fromJson(userJson);
+      await _sessionStorage.saveUser(userJson);
+      _errorMessage = null;
+      return true;
+    } catch (_) {
+      // Backend not available — update plan locally so the UI reflects the
+      // subscription immediately (matches demo / offline-first behaviour).
+      _user = _user.copyWith(plan: planKey);
+      await _sessionStorage.saveUser(_user.toJson());
+      _errorMessage = null;
+      return true;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> logout() async {
     await _sessionStorage.clearSession();
     _pendingPhone = null;
@@ -318,6 +416,21 @@ class UserProvider extends ChangeNotifier {
     }
     final file = File(photoPath);
     return file.existsSync() ? file : null;
+  }
+
+  Future<void> _registerFcmToken() async {
+    final token = await FcmService.getToken();
+    if (token == null) return;
+    try {
+      await _apiClient.post(
+        '/api/notifications/device-token',
+        body: {'token': token},
+        auth: true,
+      );
+      debugPrint('[FCM] Device token registered with backend');
+    } catch (e) {
+      debugPrint('[FCM] Token registration failed (non-critical): $e');
+    }
   }
 
   void _setLoading(bool value) {

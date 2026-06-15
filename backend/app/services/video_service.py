@@ -57,8 +57,10 @@ def analyze_video(video_path: str, crop_type: str = "tomato") -> dict | None:
     # --- Step 1: Extract candidate frames ---
     frames = _extract_frames(video_path, cfg["interval_sec"], cfg["max_frames"])
     if not frames:
-        logger.warning("No frames could be extracted from video: %s", video_path)
-        return None
+        raise RuntimeError(
+            f"No frames could be extracted from the video (path={video_path}). "
+            "Check the file is a valid video and the codec is supported by opencv-python-headless."
+        )
 
     logger.info("Extracted %d candidate frames", len(frames))
 
@@ -70,11 +72,11 @@ def analyze_video(video_path: str, crop_type: str = "tomato") -> dict | None:
     )
 
     if len(sharp_frames) < cfg["min_frames_required"]:
-        logger.warning(
-            "Too few usable frames (%d < %d). Aborting video analysis.",
-            len(sharp_frames), cfg["min_frames_required"],
+        raise RuntimeError(
+            f"All {len(frames)} extracted frames were too blurry or duplicate "
+            f"(blur_threshold={cfg['blur_threshold']:.0f}, frames_kept={len(sharp_frames)}). "
+            "Lower VIDEO_BLUR_THRESHOLD in .env to accept more frames."
         )
-        return None
 
     # --- Step 3: Run detection on each frame ---
     frame_results = _run_detection_on_frames(
@@ -83,8 +85,11 @@ def analyze_video(video_path: str, crop_type: str = "tomato") -> dict | None:
         upload_folder=cfg["upload_folder"],
     )
     if not frame_results:
-        logger.warning("Detection returned no results for any frame.")
-        return None
+        service_url = current_app.config.get('DETECTION_SERVICE_URL', 'http://localhost:5001')
+        raise RuntimeError(
+            f"Detection service returned no result for any of the {len(sharp_frames)} frame(s). "
+            f"Verify the service is running and reachable at {service_url}."
+        )
 
     logger.info("Detection completed on %d / %d frames", len(frame_results), len(sharp_frames))
 
@@ -224,7 +229,7 @@ def _run_detection_on_frames(
                 detection["_frame_index"] = i   # internal metadata, stripped on aggregation
                 results.append(detection)
             else:
-                logger.debug("Frame %d: detection returned None", i)
+                logger.warning("Frame %d: detection service returned no result", i)
 
         except Exception as exc:
             logger.warning("Frame %d detection error: %s", i, exc)

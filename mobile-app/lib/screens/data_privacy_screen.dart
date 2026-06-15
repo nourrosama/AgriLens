@@ -125,7 +125,7 @@ class DataPrivacyScreen extends StatelessWidget {
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text(
-                              lang.t('privacy.section2'),
+                              lang.t('privacy.intro'),
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFF6B7280),

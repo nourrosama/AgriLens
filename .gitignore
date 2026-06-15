@@ -45,6 +45,9 @@ logs/
 *.tflite
 datasets/
 
+# ==== Firebase credentials (never commit private keys) ====
+notification-service/secrets/firebase-service-account.json
+
 # ==== Uploaded scan media (local storage) ====
 backend/uploads/*
 !backend/uploads/.gitkeep

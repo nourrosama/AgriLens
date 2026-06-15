@@ -76,7 +76,7 @@ class LanguageSelectionScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () => context.go('/login'),
+                  onPressed: () => context.go('/auth-choice'),
                   child: Text(lang.t('language.continue')),
                 ),
               ),

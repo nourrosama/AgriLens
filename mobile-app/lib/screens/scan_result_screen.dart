@@ -134,11 +134,10 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                   ? _EmptyState(lang: lang)
                   : Column(
                       children: [
-                        // 1. Image / Grad-CAM
-                        _MediaPreview(result: result),
+                        // 1. Grad-CAM
                         if (result.gradcamOverlay != null) ...[
-                          const SizedBox(height: 16),
                           _GradCamCard(result: result, lang: lang),
+                          const SizedBox(height: 16),
                         ],
 
                         // 2. Summary (disease name, badges, bars)
@@ -196,7 +195,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                         // 7. Scan Again button
                         const SizedBox(height: 20),
                         GestureDetector(
-                          onTap: () => context.go('/scan'),
+                          onTap: () => context.go('/crop-select'),
                           child: _PrimaryButton(
                             label: lang.t('scan.scanAnother'),
                             icon: Icons.camera_alt_outlined,
@@ -384,12 +383,15 @@ class _AiReportCard extends StatelessWidget {
             children: [
               const Icon(Icons.analytics_outlined, color: Color(0xFF2E7D32), size: 22),
               const SizedBox(width: 8),
-              Text(
-                isAr ? 'تقرير مرض الذكاء الاصطناعي' : 'AI Disease Report',
-                style: const TextStyle(
-                  color: Color(0xFF2E7D32),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  isAr ? 'تقرير مرض الذكاء الاصطناعي' : 'AI Disease Report',
+                  style: const TextStyle(
+                    color: Color(0xFF2E7D32),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -435,7 +437,40 @@ class _AiReportCard extends StatelessWidget {
           // ── What is it ─────────────────────────────────────────────────────
           if (r['what_is_it'] != null) ...[
             const SizedBox(height: 16),
-            _SectionTitle(icon: Icons.info_outline, label: isAr ? 'ما هذا المرض؟' : 'What is this disease?'),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(Icons.info_outline, size: 18, color: const Color(0xFF2E7D32)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    isAr ? 'ما هذا المرض؟' : 'What is this disease?',
+                    style: const TextStyle(
+                      color: Color(0xFF2E7D32),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                if (r['pathogen_type'] != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF4CAF50)),
+                    ),
+                    child: Text(
+                      r['pathogen_type'].toString(),
+                      style: const TextStyle(
+                        color: Color(0xFF2E7D32),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
             Text(
               r['what_is_it'].toString(),
@@ -455,6 +490,46 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
+          // ── Favorable conditions ────────────────────────────────────────────
+          if (r['favorable_conditions'] != null) ...[
+            const SizedBox(height: 16),
+            _SectionTitle(icon: Icons.thermostat_outlined, label: isAr ? 'الظروف المناسبة للانتشار' : 'Conditions that favour spread'),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3E5F5),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFCE93D8)),
+              ),
+              child: Text(
+                r['favorable_conditions'].toString(),
+                style: const TextStyle(color: Color(0xFF4A148C), fontSize: 13, height: 1.5),
+              ),
+            ),
+          ],
+
+          // ── Economic threshold ──────────────────────────────────────────────
+          if (r['economic_threshold'] != null) ...[
+            const SizedBox(height: 16),
+            _SectionTitle(icon: Icons.monetization_on_outlined, label: isAr ? 'العتبة الاقتصادية للتدخل' : 'Economic treatment threshold'),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF8E1),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFFFCC02)),
+              ),
+              child: Text(
+                r['economic_threshold'].toString(),
+                style: const TextStyle(color: Color(0xFF5D4037), fontSize: 13, height: 1.5),
+              ),
+            ),
+          ],
+
           // ── Symptoms ────────────────────────────────────────────────────────
           if (_asList(r['symptoms']).isNotEmpty) ...[
             const SizedBox(height: 16),
@@ -462,6 +537,16 @@ class _AiReportCard extends StatelessWidget {
             const SizedBox(height: 8),
             ..._asList(r['symptoms']).map(
               (s) => _BulletRow(text: s, icon: Icons.circle, iconColor: const Color(0xFF9E9E9E)),
+            ),
+          ],
+
+          // ── Look-alike diseases ─────────────────────────────────────────────
+          if (_asList(r['look_alike_diseases']).isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _SectionTitle(icon: Icons.compare_arrows_outlined, label: isAr ? 'أمراض مشابهة — كيف تميّز؟' : 'Similar diseases — how to tell apart'),
+            const SizedBox(height: 8),
+            ..._asList(r['look_alike_diseases']).map(
+              (s) => _BulletRow(text: s, icon: Icons.help_outline, iconColor: const Color(0xFF7B1FA2)),
             ),
           ],
 
@@ -503,6 +588,33 @@ class _AiReportCard extends StatelessWidget {
             const SizedBox(height: 4),
             ..._asList(r['treatment_organic']).map(
               (s) => _BulletRow(text: s, icon: Icons.circle, iconColor: const Color(0xFF388E3C)),
+            ),
+          ],
+
+          // ── When to apply ───────────────────────────────────────────────────
+          if (r['when_to_apply'] != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE3F2FD),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFF90CAF9)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.schedule, color: Color(0xFF1565C0), size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      (isAr ? 'توقيت التطبيق: ' : 'When to apply: ') + r['when_to_apply'].toString(),
+                      style: const TextStyle(color: Color(0xFF0D47A1), fontSize: 13, height: 1.5),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
 
@@ -585,12 +697,15 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: const Color(0xFF2E7D32)),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF2E7D32),
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF2E7D32),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -712,6 +827,64 @@ class _HighlightBox extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Existing widgets (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _NoDetectionBanner extends StatelessWidget {
+  const _NoDetectionBanner({required this.result});
+  final ScanResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = context.read<LanguageProvider>();
+    final isAr = lang.isRTL;
+    final isInvalid = result.status == 'invalid_image';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isInvalid ? const Color(0xFFFFEBEE) : const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: isInvalid
+          ? Column(
+              children: [
+                const Icon(Icons.no_photography_outlined, size: 40, color: Color(0xFFE53935)),
+                const SizedBox(height: 10),
+                Text(
+                  isAr
+                      ? 'لا تبدو هذه الصورة أنها تحتوي على نبات أو ورقة.'
+                      : 'This image does not appear to contain a plant or leaf.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFB71C1C),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isAr
+                      ? 'يرجى التقاط صورة واضحة ومقربة لورقة نبات أو منطقة مصابة.'
+                      : 'Please upload a clear, close-up photo of a plant leaf or affected area.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF616161), fontSize: 14, height: 1.4),
+                ),
+              ],
+            )
+          : Text(
+              result.isVideo
+                  ? (result.isStoredRemotely
+                      ? 'The video file has been stored in cloud storage. Video analysis is not available in this demo.'
+                      : 'The video file was stored locally. Cloud storage is not enabled right now.')
+                  : (isAr
+                      ? 'تم رفع الصورة، لكن لم تتوفر نتيجة بعد.'
+                      : 'This scan was uploaded, but no model result is available yet.'),
+              style: const TextStyle(color: Color(0xFF1E3A5F), fontSize: 15, height: 1.4),
+            ),
+    );
+  }
+}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.lang});
@@ -1062,22 +1235,7 @@ class _SummaryCard extends StatelessWidget {
             _InfoRow(label: 'Risk Level', value: result.riskLevel),
           ] else ...[
             const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                result.isVideo
-                    ? (result.isStoredRemotely
-                        ? 'The video file has been stored in cloud storage. Video analysis is not available in this demo.'
-                        : 'The video file was stored locally. Cloud storage is not enabled right now.')
-                    : 'This scan was uploaded, but no model result is available yet.',
-                style: const TextStyle(color: Color(0xFF1E3A5F), fontSize: 15, height: 1.4),
-              ),
-            ),
+            _NoDetectionBanner(result: result),
           ],
         ],
       ),
@@ -1274,3 +1432,4 @@ class _SecondaryButton extends StatelessWidget {
     );
   }
 }
+

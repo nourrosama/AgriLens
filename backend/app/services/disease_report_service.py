@@ -71,7 +71,7 @@ def generate_disease_report(
                 },
                 {'role': 'user', 'content': prompt},
             ],
-            max_tokens=1000,
+            max_tokens=2000,
             temperature=0.3,
         )
         raw = completion.choices[0].message.content.strip()
@@ -100,19 +100,24 @@ def _build_prompt(
 تم اكتشاف مرض "{disease}"{sci} في محصول {crop_type}.
 نسبة الثقة: {confidence_pct}٪   |   درجة الخطورة: {severity}
 
-أنشئ تقريراً زراعياً منظماً للمزارع. أعد JSON صحيحاً فقط بهذه المفاتيح بالضبط:
+أنشئ تقريراً زراعياً تفصيلياً ومخصصاً لهذا المرض تحديداً. أعد JSON صحيحاً فقط بهذه المفاتيح بالضبط:
 {{
-  "what_is_it": "شرح واضح للمرض في جملتين أو ثلاث",
-  "confidence_note": "تقييم صادق لنسبة الثقة {confidence_pct}٪ — هل هي كافية للتصرف؟",
+  "what_is_it": "شرح واضح ومفصّل للمرض في 3-4 جمل يشمل طبيعة العامل الممرض وكيف يُلحق الضرر بالمحصول",
+  "pathogen_type": "نوع العامل الممرض: فطري أو بكتيري أو فيروسي أو أومايسيت",
+  "confidence_note": "تقييم صادق لنسبة الثقة {confidence_pct}٪ — هل هي كافية للتصرف أم يجب التحقق؟",
   "urgency_label": "تصرف فوراً (24-48 ساعة)" أو "تصرف هذا الأسبوع" أو "راقب الوضع",
   "urgency_level": "high" أو "medium" أو "low",
-  "estimated_impact": "تقدير نسبة الخسائر إذا لم يُعالج",
-  "how_spreads": "كيف ينتشر المرض (الرياح والماء والأدوات...)",
-  "symptoms": ["3-4 أعراض مرئية يستطيع المزارع التحقق منها"],
-  "immediate_actions": ["2-3 إجراءات فورية اليوم"],
-  "treatment_chemical": ["1-2 مبيدات فطرية أو بكتيرية آمنة وشائعة"],
-  "treatment_organic": ["1-2 بدائل عضوية طبيعية"],
-  "prevention": ["2-3 نصائح عملية للوقاية"],
+  "estimated_impact": "تقدير دقيق لنسبة الخسائر في المحصول إذا لم يُعالج مع ذكر المرحلة الأكثر خطورة",
+  "favorable_conditions": "الظروف المناخية والبيئية التي تساعد على انتشار هذا المرض تحديداً (درجة حرارة، رطوبة، إلخ)",
+  "economic_threshold": "الحد الاقتصادي للإصابة الذي يستوجب التدخل بالمبيدات",
+  "how_spreads": "كيف ينتشر هذا المرض تحديداً مع ذكر المسافة والسرعة",
+  "symptoms": ["5-6 أعراض مرئية دقيقة ومخصصة لهذا المرض يستطيع المزارع التحقق منها على النباتات"],
+  "look_alike_diseases": ["1-2 أمراض تشبه هذا المرض في الأعراض مع ذكر الفارق التشخيصي الأساسي"],
+  "immediate_actions": ["4-5 إجراءات فورية مرتبة بالأولوية يجب تنفيذها اليوم أو خلال 48 ساعة"],
+  "treatment_chemical": ["2-3 مبيدات محددة بأسمائها التجارية وجرعة الاستخدام وطريقة التطبيق"],
+  "treatment_organic": ["2-3 بدائل عضوية طبيعية مع طريقة التحضير والتطبيق"],
+  "when_to_apply": "أفضل وقت وظروف لتطبيق العلاج (صباحاً/مساءً، درجة الحرارة، عدد مرات التطبيق)",
+  "prevention": ["4-5 نصائح وقائية عملية ومحددة لمنع عودة هذا المرض"],
   "scan_again_recommended": true أو false
 }}
 """
@@ -120,19 +125,25 @@ def _build_prompt(
 A crop disease AI identified "{disease}"{sci} in a {crop_type} crop.
 Confidence: {confidence_pct}%  |  Severity: {severity}
 
-Generate a structured farmer-decision report. Return ONLY valid JSON with exactly these keys:
+Generate a detailed, disease-specific farmer decision report for THIS exact disease — not a generic template.
+Return ONLY valid JSON with exactly these keys:
 {{
-  "what_is_it": "2-3 sentence plain-English explanation of the disease",
-  "confidence_note": "honest assessment — is {confidence_pct}% enough to act or should they verify?",
+  "what_is_it": "3-4 sentence explanation covering what the pathogen is, how it infects the plant, and the damage mechanism specific to {disease}",
+  "pathogen_type": "Fungal / Bacterial / Viral / Oomycete / Nematode",
+  "confidence_note": "honest assessment — is {confidence_pct}% confidence sufficient to act on, or should the farmer verify first?",
   "urgency_label": "Immediate action (24-48h)" or "Act this week" or "Monitor closely",
   "urgency_level": "high" or "medium" or "low",
-  "estimated_impact": "% crop loss estimate if untreated",
-  "how_spreads": "brief explanation of spread vectors (wind, water, tools…)",
-  "symptoms": ["3-4 visible symptoms the farmer can verify on their plants"],
-  "immediate_actions": ["2-3 concrete actions to take today"],
-  "treatment_chemical": ["1-2 safe and common fungicide/bactericide examples"],
-  "treatment_organic": ["1-2 organic/natural alternatives"],
-  "prevention": ["2-3 practical prevention tips"],
+  "estimated_impact": "specific % crop loss range for {disease} if untreated, mentioning which growth stage is most vulnerable",
+  "favorable_conditions": "the specific temperature range, humidity, and environmental conditions that favour {disease} spread and development",
+  "economic_threshold": "the infestation level at which chemical treatment becomes economically justified for {disease}",
+  "how_spreads": "exactly how {disease} spreads — specific vectors (wind, rain splash, insects, tools, soil), speed, and distance",
+  "symptoms": ["5-6 precise, disease-specific visible symptoms the farmer can verify — be specific to {disease}, not generic"],
+  "look_alike_diseases": ["1-2 diseases that look similar to {disease} with the key distinguishing diagnostic difference"],
+  "immediate_actions": ["4-5 prioritised concrete actions to take within 24-48h — specific to {disease}, not generic advice"],
+  "treatment_chemical": ["2-3 specific fungicide/bactericide product names with dosage (e.g. Mancozeb 80WP at 2g/L) and application method"],
+  "treatment_organic": ["2-3 organic alternatives with preparation method and application frequency"],
+  "when_to_apply": "best time of day, weather conditions, and number of applications for treating {disease} effectively",
+  "prevention": ["4-5 specific, practical prevention tips to stop {disease} from recurring"],
   "scan_again_recommended": true or false
 }}
 """
@@ -146,36 +157,104 @@ def _fallback(disease: str, severity: str, confidence_pct: int, is_arabic: bool)
     if is_arabic:
         urgency_labels = {'high': 'تصرف فوراً (24-48 ساعة)', 'medium': 'تصرف هذا الأسبوع', 'low': 'راقب الوضع'}
         return {
-            'what_is_it': f'{disease} مرض نباتي يصيب المحاصيل ويحتاج إلى متابعة دقيقة.',
-            'confidence_note': f'نسبة الثقة {confidence_pct}٪. يُنصح بمراجعة خبير زراعي للتأكيد.',
+            'what_is_it': f'{disease} مرض نباتي يُلحق الضرر بالمحصول ويحتاج إلى متابعة وعلاج دقيقَين للحدّ من الخسائر.',
+            'pathogen_type': 'فطري',
+            'confidence_note': f'نسبة الثقة {confidence_pct}٪. يُنصح بمراجعة خبير زراعي للتأكيد قبل اتخاذ إجراءات مكلفة.',
             'urgency_label': urgency_labels.get(severity, 'راقب الوضع'),
             'urgency_level': level,
-            'estimated_impact': 'خسائر محتملة إذا لم يُعالج في الوقت المناسب.',
-            'how_spreads': 'ينتشر عبر الرياح والماء والأدوات الملوثة.',
-            'symptoms': ['بقع داكنة على الأوراق', 'اصفرار الأوراق', 'ذبول الأفرع', 'نمو فطري على السطح'],
-            'immediate_actions': ['أزل الأوراق المصابة فوراً', 'تجنب الري من الأعلى', 'اعزل النباتات المصابة'],
-            'treatment_chemical': ['مبيدات فطرية نحاسية', 'مانكوزيب'],
-            'treatment_organic': ['رش زيت النيم', 'محلول بيكربونات الصوديوم'],
-            'prevention': ['تحسين التهوية بين النباتات', 'تباعد النباتات', 'تجنب الري المفرط'],
+            'estimated_impact': 'خسائر محتملة تتراوح بين 20-40٪ في المحصول إذا لم يُعالج في الوقت المناسب.',
+            'favorable_conditions': 'درجات حرارة معتدلة مع رطوبة عالية تزيد عن 80٪ تُشجّع على انتشار المرض.',
+            'economic_threshold': 'عند إصابة 10٪ أو أكثر من النباتات يصبح التدخل الكيميائي مبرراً اقتصادياً.',
+            'how_spreads': 'ينتشر عبر الرياح وبرذاذ الماء والأدوات الملوثة والتلامس بين النباتات المتجاورة.',
+            'symptoms': [
+                'بقع داكنة أو فاتحة على الأوراق بشكل غير منتظم',
+                'اصفرار الأوراق يبدأ من الحواف ثم ينتشر',
+                'ذبول الأفرع والبراعم الطرفية',
+                'نمو فطري أو طبقة مسحوقية على سطح الأوراق',
+                'تساقط مبكر للأوراق المصابة',
+                'تلون الثمار أو تشوّهها في حالات الإصابة الشديدة',
+            ],
+            'look_alike_diseases': [
+                'الندوة المتأخرة — تختلف بوجود هالة صفراء واضحة حول البقع وانتشار أسرع',
+            ],
+            'immediate_actions': [
+                'أزل وتخلص من جميع الأوراق والأجزاء المصابة بعيداً عن الحقل فوراً',
+                'أوقف الري من الأعلى وانتقل إلى الري بالتنقيط لتقليل الرطوبة',
+                'اعزل النباتات المصابة بشدة لمنع انتقال المرض',
+                'عقّم أدوات الزراعة بمحلول مطهر قبل وبعد الاستخدام',
+                'ابدأ برنامج رش وقائي على النباتات المجاورة السليمة',
+            ],
+            'treatment_chemical': [
+                'مانكوزيب 80% WP بمعدل 2.5 جم/لتر — رش كل 7 أيام',
+                'مبيدات نحاسية (أوكسي كلوريد النحاس) بمعدل 3 جم/لتر — آمن وفعّال',
+                'كلوروثالونيل بمعدل 2 مل/لتر للإصابات الشديدة',
+            ],
+            'treatment_organic': [
+                'زيت النيم 2٪ — رش كل 5-7 أيام صباحاً أو مساءً',
+                'محلول بيكربونات الصوديوم (5 جم/لتر + قطرات صابون سائل) — رش أسبوعي',
+                'مستخلص الثوم المخفف — يمنع تطور الجراثيم الفطرية',
+            ],
+            'when_to_apply': 'الرش صباحاً باكراً أو بعد الغروب عند درجة حرارة أقل من 30°م وبدون رياح. تُكرَّر الجرعة كل 7-10 أيام.',
+            'prevention': [
+                'حافظ على مسافات كافية بين النباتات لضمان التهوية الجيدة',
+                'اختر أصناف مقاومة للمرض عند الزراعة الجديدة',
+                'دوّر المحاصيل ولا تزرع نفس العائلة النباتية في نفس المكان أكثر من موسمَين',
+                'تخلص من بقايا المحصول السابق بعمق في التربة أو أحرقها',
+                'راقب الحقل أسبوعياً لاكتشاف الإصابة مبكراً قبل انتشارها',
+            ],
             'scan_again_recommended': confidence_pct < 80,
         }
 
     urgency_labels = {'high': 'Immediate action (24-48h)', 'medium': 'Act this week', 'low': 'Monitor closely'}
     return {
-        'what_is_it': f'{disease} is a plant disease that requires prompt attention and monitoring.',
+        'what_is_it': f'{disease} is a plant disease that damages crop tissue and reduces yield. Prompt identification and treatment are key to limiting losses.',
+        'pathogen_type': 'Fungal',
         'confidence_note': (
-            f'{confidence_pct}% confidence is moderately high — still worth confirming with an agronomist.'
+            f'{confidence_pct}% confidence is moderately high — still worth confirming with an agronomist before costly treatment.'
             if confidence_pct >= 75 else
-            f'{confidence_pct}% confidence is relatively low. Strongly consider retaking the image or consulting an expert.'
+            f'{confidence_pct}% confidence is relatively low. Strongly consider retaking the scan in better light or consulting an expert.'
         ),
         'urgency_label': urgency_labels.get(severity, 'Monitor closely'),
         'urgency_level': level,
-        'estimated_impact': 'Potential significant crop losses if left untreated.',
-        'how_spreads': 'Spreads via wind, water splashing, infected tools, and close plant contact.',
-        'symptoms': ['Dark spots or lesions on leaves', 'Yellowing foliage', 'Wilting stems', 'Mold or powdery coating'],
-        'immediate_actions': ['Remove and dispose of infected leaves', 'Avoid overhead watering', 'Isolate affected plants'],
-        'treatment_chemical': ['Copper-based fungicide', 'Mancozeb or Chlorothalonil'],
-        'treatment_organic': ['Neem oil spray (every 7 days)', 'Baking soda + water solution'],
-        'prevention': ['Improve airflow between plants', 'Space plants properly', 'Avoid excessive irrigation'],
+        'estimated_impact': 'Potential 20–40% crop losses if left untreated — higher in humid, warm conditions.',
+        'favorable_conditions': 'Warm temperatures (20–30°C) combined with high humidity above 80% favour rapid disease spread.',
+        'economic_threshold': 'Chemical treatment is justified when 10% or more of plants show visible infection symptoms.',
+        'how_spreads': 'Spreads via wind-borne spores, rain splash, infected tools, and direct contact between neighbouring plants.',
+        'symptoms': [
+            'Dark or pale irregular spots or lesions on leaf surfaces',
+            'Yellowing (chlorosis) starting at leaf edges and spreading inward',
+            'Wilting of shoots and terminal buds',
+            'Powdery, fuzzy, or water-soaked coating on leaf undersides',
+            'Early and excessive leaf drop on affected plants',
+            'Discolouration or deformation of fruit in severe cases',
+        ],
+        'look_alike_diseases': [
+            'Late Blight — distinguished by rapid spread and a clear yellow halo around dark lesions',
+        ],
+        'immediate_actions': [
+            'Remove and destroy all visibly infected leaves and plant parts — bag them away from the field',
+            'Switch from overhead irrigation to drip irrigation immediately to reduce leaf wetness',
+            'Isolate the most severely affected plants to prevent spread to healthy neighbours',
+            'Disinfect all tools with bleach solution (1:10) before and after use in the field',
+            'Begin a protective spray programme on surrounding healthy plants as a precaution',
+        ],
+        'treatment_chemical': [
+            'Mancozeb 80WP at 2.5 g/L water — spray every 7 days, 3–4 applications',
+            'Copper oxychloride at 3 g/L — broad-spectrum, safe residue profile',
+            'Chlorothalonil at 2 mL/L — for severe infections, rotate with copper to prevent resistance',
+        ],
+        'treatment_organic': [
+            'Neem oil 2% solution — spray every 5–7 days in early morning or evening',
+            'Baking soda (5 g/L) + a few drops of liquid soap — weekly spray, disrupts spore germination',
+            'Diluted garlic extract spray — apply every 5 days as a preventive and curative option',
+        ],
+        'when_to_apply': 'Spray early morning or after sunset when temperature is below 30°C and wind is calm. Repeat every 7–10 days. Avoid spraying before rain.',
+        'prevention': [
+            'Maintain proper plant spacing to ensure good air circulation through the canopy',
+            'Choose disease-resistant varieties when replanting',
+            'Rotate crops — avoid planting the same plant family in the same field two seasons in a row',
+            'Remove and bury or burn all crop residues after harvest to eliminate overwintering inoculum',
+            'Scout the field weekly so early infections are caught before they spread',
+        ],
         'scan_again_recommended': confidence_pct < 80,
     }

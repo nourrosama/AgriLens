@@ -81,7 +81,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${lang.t('home.goodMorning')}, ${user.fullName ?? lang.t('home.farmer')}',
+                            '${_greeting(lang)}, ${user.fullName ?? lang.t('home.farmer')}',
                             style: const TextStyle(
                               color: Color(0xFF424242),
                               fontSize: 14,
@@ -123,6 +123,30 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
               Container(height: 1, color: const Color(0xFFE0E0E0)),
+
+              // ── Trial Banner ───────────────────────────────
+              if (!user.isSubscribed && user.trialDaysLeft > 0)
+                GestureDetector(
+                  onTap: () => context.push('/subscription-plans'),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+                    color: const Color(0xFFE8F5E9),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.card_giftcard, color: Color(0xFF2E7D32), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${lang.t('subscription.trialActive')} · ${user.trialDaysLeft} ${lang.t('subscription.trialDaysLeft')}',
+                            style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 13),
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right, color: Color(0xFF2E7D32), size: 18),
+                      ],
+                    ),
+                  ),
+                ),
 
               // ── Body ──────────────────────────────────────
               Expanded(
@@ -197,7 +221,7 @@ class HomeScreen extends StatelessWidget {
 
                       // Quick Scan Button
                       GestureDetector(
-                        onTap: () => context.push('/scan'),
+                        onTap: () => context.push('/crop-select'),
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
@@ -411,10 +435,16 @@ class HomeScreen extends StatelessWidget {
                                   return Column(
                                     mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
+                                      const Icon(
+                                        Icons.eco_rounded,
+                                        size: 16,
+                                        color: Color(0xFF4CAF50),
+                                      ),
+                                      const SizedBox(height: 4),
                                       Container(
                                         width: 8,
-                                        height: ((day.temp / 40) * 64)
-                                            .clamp(12.0, 64.0)
+                                        height: ((day.temp / 45) * 56)
+                                            .clamp(8.0, 56.0)
                                             .toDouble(),
                                         decoration: BoxDecoration(
                                           color: const Color(0xFF4CAF50),
@@ -423,7 +453,7 @@ class HomeScreen extends StatelessWidget {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(height: 8),
+                                      const SizedBox(height: 6),
                                       Text(
                                         '${day.temp}°',
                                         style: const TextStyle(
@@ -526,6 +556,14 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  String _greeting(LanguageProvider lang) {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) return lang.t('home.goodMorning');
+    if (hour >= 12 && hour < 17) return lang.t('home.goodAfternoon');
+    if (hour >= 17 && hour < 21) return lang.t('home.goodEvening');
+    return lang.t('home.goodNight');
   }
 
   Widget _buildCard({required Widget child}) {

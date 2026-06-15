@@ -33,6 +33,22 @@ def _mongo_kwargs(uri: str, allow_invalid_certs: bool = False) -> dict:
     return kwargs
 
 
+def _ensure_indexes(app):
+    """Create indexes that the application depends on for correctness and performance."""
+    try:
+        from pymongo import ASCENDING, DESCENDING
+        _db['users'].create_index('phone', unique=True, sparse=True)
+        _db['scans'].create_index([('user_id', ASCENDING), ('created_at', DESCENDING)])
+        _db['notifications'].create_index([('user_id', ASCENDING), ('is_read', ASCENDING)])
+        _db['farms'].create_index('user_id')
+        _db['forum_posts'].create_index([('created_at', DESCENDING)])
+        _db['forecasts'].create_index([('farm_id', ASCENDING), ('created_at', DESCENDING)])
+        _db['audit_logs'].create_index('timestamp', expireAfterSeconds=7776000)
+        app.logger.info('MongoDB indexes created/verified')
+    except Exception as exc:
+        app.logger.warning('Index creation warning (non-fatal): %s', exc)
+
+
 def init_db(app):
     """Initialize MongoDB client from app config. Call once on startup.
 
@@ -65,6 +81,7 @@ def init_db(app):
                 )
             else:
                 app.logger.info('MongoDB connected to database: %s', _db.name)
+            _ensure_indexes(app)
             return _db
         except Exception as exc:
             last_exc = exc

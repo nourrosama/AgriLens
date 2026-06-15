@@ -191,6 +191,16 @@ class ScanHistoryProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   int get totalScans => _scans.length;
+
+  // Number of scans waiting to be synced while offline.
+  int _queuedCount = 0;
+  int get queuedCount => _queuedCount;
+
+  Future<void> _refreshQueuedCount() async {
+    final queued = await _queueStore.listQueuedScans();
+    _queuedCount = queued.length;
+    notifyListeners();
+  }
   int get activeDiseasesCount => _scans
       .where(
         (scan) =>
@@ -316,7 +326,9 @@ class ScanHistoryProvider extends ChangeNotifier {
         auth: true,
         fieldName: mediaType == 'video' ? 'video' : 'image',
         file: file,
-        timeout: const Duration(seconds: 90),
+        timeout: mediaType == 'video'
+            ? const Duration(seconds: 300)
+            : const Duration(seconds: 90),
         fields: {
           'crop_type': cropType,
           ...?(farmId == null ? null : {'farm_id': farmId}),
@@ -351,6 +363,7 @@ class ScanHistoryProvider extends ChangeNotifier {
           farmId: farmId,
           fieldId: fieldId,
         );
+        await _refreshQueuedCount();
       }
       _errorMessage = error.toString();
       notifyListeners();
@@ -378,6 +391,7 @@ class ScanHistoryProvider extends ChangeNotifier {
         await _queueStore.removeQueuedScan(item.id);
       }
     }
+    await _refreshQueuedCount();
   }
 
   Future<ScanResult?> getScan(String id) async {

@@ -6,6 +6,7 @@ class SessionStorage {
   static const _tokenKey = 'auth_token';
   static const _userKey = 'auth_user';
   static const _languageKey = 'language_code';
+  static const _registeredAtKey = 'registered_at';
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
@@ -51,5 +52,21 @@ class SessionStorage {
   Future<String?> readLanguage() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_languageKey);
+  }
+
+  /// Saves the timestamp of first login (trial start). Never overwrites an
+  /// existing value so the trial clock is anchored to the very first login.
+  Future<void> saveRegisteredAtIfAbsent(DateTime dt) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_registeredAtKey) == null) {
+      await prefs.setString(_registeredAtKey, dt.toIso8601String());
+    }
+  }
+
+  Future<DateTime?> readRegisteredAt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_registeredAtKey);
+    if (raw == null) return null;
+    return DateTime.tryParse(raw);
   }
 }
