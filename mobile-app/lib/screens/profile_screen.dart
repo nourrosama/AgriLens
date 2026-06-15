@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -13,8 +14,33 @@ import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Reload data every time the profile screen is opened.
+    // The providers already loaded at startup, but the call may have failed
+    // (backend not running, token expired, CORS on web, etc.).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<ScanHistoryProvider>().loadScans();
+      context.read<FieldsProvider>().loadFields();
+    });
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([
+      context.read<ScanHistoryProvider>().loadScans(),
+      context.read<FieldsProvider>().loadFields(),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +50,11 @@ class ProfileScreen extends StatelessWidget {
     final scanProvider = context.watch<ScanHistoryProvider>();
     final user = userProvider.user;
 
+    final hasError =
+        (scanProvider.errorMessage != null || fieldsProvider.errorMessage != null) &&
+        scanProvider.totalScans == 0 &&
+        fieldsProvider.fields.isEmpty;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -31,6 +62,7 @@ class ProfileScreen extends StatelessWidget {
           children: [
             Column(
               children: [
+                // Header
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.symmetric(
@@ -65,20 +97,61 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
+
+                // Error banner (shown when backend unreachable)
+                if (hasError)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    color: const Color(0xFFFFF3E0),
+                    child: Row(
                       children: [
-                        _userInfo(lang, user, fieldsProvider, scanProvider),
-                        const SizedBox(height: 24),
-                        _accountSummary(lang, user),
-                        const SizedBox(height: 24),
-                        _menuOptions(context, lang),
-                        const SizedBox(height: 24),
-                        _logoutBtn(context, lang, userProvider),
-                        const SizedBox(height: 80),
+                        const Icon(Icons.cloud_off,
+                            color: Color(0xFFE65100), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            lang.isRTL
+                                ? 'تعذر الاتصال بالخادم. تأكد أن تطبيق الخادم يعمل.'
+                                : 'Could not reach server. Make sure your backend is running.',
+                            style: const TextStyle(
+                              color: Color(0xFFE65100),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _refresh,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.refresh,
+                                color: Color(0xFFE65100), size: 20),
+                          ),
+                        ),
                       ],
+                    ),
+                  ),
+
+                Expanded(
+                  child: RefreshIndicator(
+                    color: AppColors.primary,
+                    onRefresh: _refresh,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          _userInfo(lang, user, fieldsProvider, scanProvider),
+                          const SizedBox(height: 24),
+                          _accountSummary(lang, user),
+                          const SizedBox(height: 24),
+                          _menuOptions(context, lang),
+                          const SizedBox(height: 24),
+                          _logoutBtn(context, lang, userProvider),
+                          const SizedBox(height: 80),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -159,25 +232,40 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
-              ),
-              Expanded(
-                child: _stat(
-                  '${fieldsProvider.fields.length}',
-                  lang.t('nav.fields'),
+          scanProvider.isLoading
+              ? const SizedBox(
+                  height: 40,
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _stat(
+                          '${scanProvider.totalScans}', lang.t('nav.scan')),
+                    ),
+                    Expanded(
+                      child: _stat(
+                        '${fieldsProvider.fields.length}',
+                        lang.t('nav.fields'),
+                      ),
+                    ),
+                    Expanded(
+                      child: _stat(
+                        '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
+                        lang.t('fields.healthScore'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-              Expanded(
-                child: _stat(
-                  '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
-                  lang.t('fields.healthScore'),
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -205,7 +293,7 @@ class ProfileScreen extends StatelessWidget {
             const Icon(Icons.person, size: 40, color: AppColors.primary),
       );
     }
-    if (File(path).existsSync()) {
+    if (!kIsWeb && File(path).existsSync()) {
       return Image.file(File(path), fit: BoxFit.cover);
     }
     return const Icon(Icons.person, size: 40, color: AppColors.primary);
@@ -225,7 +313,8 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          style:
+              const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
       ],
     );
@@ -297,7 +386,16 @@ class ProfileScreen extends StatelessWidget {
   Widget _menuOptions(BuildContext context, LanguageProvider lang) {
     final items = [
       (Icons.edit_outlined, lang.t('profile.editProfile'), '/edit-profile'),
-      (Icons.settings_outlined, lang.t('profile.accountSettings'), '/settings'),
+      (
+        Icons.settings_outlined,
+        lang.t('profile.accountSettings'),
+        '/settings',
+      ),
+      (
+        Icons.star_rounded,
+        lang.isRTL ? 'المفضلة' : 'Favourites',
+        '/favourites',
+      ),
       (
         Icons.support_agent_outlined,
         lang.t('profile.helpSupport'),
@@ -323,7 +421,8 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: Row(
                     children: [
-                      Icon(item.$1, size: 24, color: AppColors.textSecondary),
+                      Icon(item.$1,
+                          size: 24, color: AppColors.textSecondary),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -381,7 +480,8 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               lang.t('profile.logout'),
-              style: const TextStyle(color: Color(0xFFF44336), fontSize: 18),
+              style:
+                  const TextStyle(color: Color(0xFFF44336), fontSize: 18),
             ),
           ],
         ),

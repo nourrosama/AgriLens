@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agrilens/core/export_helper.dart';
+
 import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
@@ -21,6 +23,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   final ApiClient _apiClient = ApiClient();
   String _selectedPeriod = 'weekly';
   bool _loading = true;
+  bool _exporting = false;
   String? _error;
   Map<String, dynamic>? _report;
 
@@ -183,7 +186,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
 
   List<ScanResult> _filteredScans(ScanHistoryProvider history) {
     final now = DateTime.now();
-    final real = history.scans.where((s) {
+    return history.scans.where((s) {
       if (_selectedPeriod == 'weekly') {
         return now.difference(s.scannedAt).inDays < 7;
       } else if (_selectedPeriod == 'monthly') {
@@ -192,75 +195,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return s.scannedAt.year == now.year;
       }
     }).toList();
-
-    if (real.isNotEmpty) return real;
-
-    final now2 = DateTime.now();
-    return [
-      ScanResult(
-        id: '1', farmId: 'f1', fieldId: 'fi1',
-        imagePath: '', diseaseNameEn: 'Late Blight',
-        diseaseNameAr: 'اللفحة المتأخرة', scientificName: '',
-        confidence: 0.91, severity: 'high', status: 'completed',
-        scannedAt: now2.subtract(const Duration(days: 1)),
-        isHealthy: false, riskLevel: 'high', recommendation: '',
-        modelVersion: '', mediaType: 'image', hasDetection: true,
-      ),
-      ScanResult(
-        id: '2', farmId: 'f1', fieldId: 'fi1',
-        imagePath: '', diseaseNameEn: 'Early Blight',
-        diseaseNameAr: 'اللفحة المبكرة', scientificName: '',
-        confidence: 0.85, severity: 'medium', status: 'completed',
-        scannedAt: now2.subtract(const Duration(days: 2)),
-        isHealthy: false, riskLevel: 'medium', recommendation: '',
-        modelVersion: '', mediaType: 'image', hasDetection: true,
-      ),
-      ScanResult(
-        id: '3', farmId: 'f1', fieldId: 'fi1',
-        imagePath: '', diseaseNameEn: 'Healthy',
-        diseaseNameAr: 'سليم', scientificName: '',
-        confidence: 0.98, severity: 'none', status: 'completed',
-        scannedAt: now2.subtract(const Duration(days: 2)),
-        isHealthy: true, riskLevel: 'low', recommendation: '',
-        modelVersion: '', mediaType: 'image', hasDetection: true,
-      ),
-      ScanResult(
-        id: '4', farmId: 'f1', fieldId: 'fi1',
-        imagePath: '', diseaseNameEn: 'Leaf Spot',
-        diseaseNameAr: 'تبقع الأوراق', scientificName: '',
-        confidence: 0.78, severity: 'medium', status: 'completed',
-        scannedAt: now2.subtract(const Duration(days: 3)),
-        isHealthy: false, riskLevel: 'medium', recommendation: '',
-        modelVersion: '', mediaType: 'image', hasDetection: true,
-      ),
-      ScanResult(
-        id: '5', farmId: 'f1', fieldId: 'fi1',
-        imagePath: '', diseaseNameEn: 'Healthy',
-        diseaseNameAr: 'سليم', scientificName: '',
-        confidence: 0.95, severity: 'none', status: 'completed',
-        scannedAt: now2.subtract(const Duration(days: 4)),
-        isHealthy: true, riskLevel: 'low', recommendation: '',
-        modelVersion: '', mediaType: 'image', hasDetection: true,
-      ),
-      ScanResult(
-        id: '6', farmId: 'f1', fieldId: 'fi1',
-        imagePath: '', diseaseNameEn: 'Late Blight',
-        diseaseNameAr: 'اللفحة المتأخرة', scientificName: '',
-        confidence: 0.88, severity: 'high', status: 'completed',
-        scannedAt: now2.subtract(const Duration(days: 5)),
-        isHealthy: false, riskLevel: 'high', recommendation: '',
-        modelVersion: '', mediaType: 'image', hasDetection: true,
-      ),
-      ScanResult(
-        id: '7', farmId: 'f1', fieldId: 'fi1',
-        imagePath: '', diseaseNameEn: 'Healthy',
-        diseaseNameAr: 'سليم', scientificName: '',
-        confidence: 0.97, severity: 'none', status: 'completed',
-        scannedAt: now2.subtract(const Duration(days: 6)),
-        isHealthy: true, riskLevel: 'low', recommendation: '',
-        modelVersion: '', mediaType: 'image', hasDetection: true,
-      ),
-    ];
   }
 
   Widget _summaryCards(LanguageProvider lang, ScanHistoryProvider history) {
@@ -635,14 +569,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
           _exportButton(
             icon: Icons.picture_as_pdf_rounded,
             label: lang.isRTL ? 'تصدير PDF' : 'Export as PDF',
-            onTap: () => _exportReport('pdf'),
+            onTap: _exporting ? null : () => _exportReport('pdf', lang),
           ),
           const SizedBox(height: 12),
           _exportButton(
             icon: Icons.table_chart_rounded,
             label: lang.isRTL ? 'تصدير CSV' : 'Export as CSV',
-            onTap: () => _exportReport('csv'),
+            onTap: _exporting ? null : () => _exportReport('csv', lang),
           ),
+          if (_exporting) ...[
+            const SizedBox(height: 12),
+            const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          ],
         ],
       ),
     );
@@ -651,26 +589,27 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Widget _exportButton({
     required IconData icon,
     required String label,
-    required VoidCallback onTap,
+    required VoidCallback? onTap,
   }) {
+    final enabled = onTap != null;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: AppColors.background,
+          color: enabled ? AppColors.background : AppColors.background.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.border),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: AppColors.textSecondary, size: 20),
+            Icon(icon, color: enabled ? AppColors.primary : AppColors.textSecondary, size: 20),
             const SizedBox(width: 8),
             Text(label,
-                style: const TextStyle(
-                    color: AppColors.textSecondary,
+                style: TextStyle(
+                    color: enabled ? AppColors.primaryDark : AppColors.textSecondary,
                     fontWeight: FontWeight.w500)),
           ],
         ),
@@ -678,25 +617,99 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Future<void> _exportReport(String format) async {
+  Future<void> _exportReport(String format, LanguageProvider lang) async {
+    final history = context.read<ScanHistoryProvider>();
+    final scans = _filteredScans(history);
+    setState(() => _exporting = true);
     try {
-      await _apiClient.get(
-        '/api/reports/export',
-        auth: true,
-        query: {'period': _selectedPeriod, 'format': format},
-      );
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      String content;
+      String filename;
+
+      if (format == 'csv') {
+        final csv = StringBuffer('Date,Disease (EN),Disease (AR),Severity,Healthy,Confidence,Risk Level\n');
+        for (final s in scans) {
+          csv.writeln([
+            s.scannedAt.toIso8601String().substring(0, 10),
+            '"${s.diseaseNameEn}"',
+            '"${s.diseaseNameAr}"',
+            s.severity,
+            s.isHealthy ? 'Yes' : 'No',
+            '${(s.confidence * 100).toStringAsFixed(1)}%',
+            s.riskLevel,
+          ].join(','));
+        }
+        content = csv.toString();
+        filename = 'agrilens_${_selectedPeriod}_$timestamp.csv';
+      } else {
+        final totalScans = scans.length;
+        final diseased = scans.where((s) => !s.isHealthy).length;
+        final avgHealth = totalScans == 0
+            ? 0
+            : (scans.where((s) => s.isHealthy).length / totalScans * 100).round();
+        final report = StringBuffer();
+        report.writeln('========================================');
+        report.writeln('          AgriLens Report');
+        report.writeln('========================================');
+        report.writeln('Period   : $_selectedPeriod');
+        report.writeln('Generated: ${DateTime.now().toLocal().toString().substring(0, 16)}');
+        report.writeln('----------------------------------------');
+        report.writeln('Total Scans    : $totalScans');
+        report.writeln('Diseases Found : $diseased');
+        report.writeln('Avg Health     : $avgHealth%');
+        report.writeln('----------------------------------------');
+        if (scans.isNotEmpty) {
+          report.writeln('Scan Details:');
+          for (final s in scans) {
+            report.writeln(
+              '  ${s.scannedAt.toIso8601String().substring(0, 10)}'
+              '  ${s.diseaseNameEn.padRight(20)}'
+              '  ${s.severity.padRight(8)}'
+              '  ${s.riskLevel} risk'
+              '  ${s.isHealthy ? "Healthy" : "Diseased"}',
+            );
+          }
+        } else {
+          report.writeln('  No scans recorded for this period.');
+        }
+        report.writeln('========================================');
+        content = report.toString();
+        filename = 'agrilens_${_selectedPeriod}_$timestamp.pdf';
+      }
+
+      final savedPath = await saveExportFile(filename, content);
+
       if (mounted) {
+        final displayName = savedPath.split('/').last.split(r'\').last;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Report exported as ${format.toUpperCase()}')),
+            backgroundColor: AppColors.primaryDark,
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  lang.isRTL ? 'تم الحفظ بنجاح' : 'Saved successfully',
+                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                Text(
+                  displayName,
+                  style: const TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e')),
+          SnackBar(content: Text(lang.isRTL ? 'فشل التصدير: $e' : 'Export failed: $e')),
         );
       }
+    } finally {
+      if (mounted) setState(() => _exporting = false);
     }
   }
 

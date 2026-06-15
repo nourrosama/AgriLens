@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import 'package:agrilens/core/disease_articles_service.dart';
 import 'package:agrilens/core/forum_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -27,7 +29,11 @@ class _DiseaseArticlesScreenState extends State<DiseaseArticlesScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabs;
 
-  // Articles tab
+  // Curated static articles
+  List<DiseaseArticle> _curated = [];
+  bool _curatedLoading = true;
+
+  // Community posts tab
   List<ForumPost> _articles = [];
   bool _articlesLoading = true;
   int _articlesPage = 1;
@@ -46,10 +52,19 @@ class _DiseaseArticlesScreenState extends State<DiseaseArticlesScreen>
   void initState() {
     super.initState();
     _tabs = TabController(length: 2, vsync: this);
+    _loadCurated();
     _loadArticles(refresh: true);
     _loadPosts(refresh: true);
     _articlesScrollCtrl.addListener(_onArticlesScroll);
     _postsScrollCtrl.addListener(_onPostsScroll);
+  }
+
+  Future<void> _loadCurated() async {
+    final results = await DiseaseArticlesService.getArticles(
+      crop: widget.crop,
+      disease: widget.disease,
+    );
+    if (mounted) setState(() { _curated = results; _curatedLoading = false; });
   }
 
   @override
@@ -176,20 +191,95 @@ class _DiseaseArticlesScreenState extends State<DiseaseArticlesScreen>
       body: TabBarView(
         controller: _tabs,
         children: [
-          // Articles tab
-          _PostListView(
-            posts: _articles,
-            loading: _articlesLoading,
-            hasMore: _articlesHasMore,
-            scrollController: _articlesScrollCtrl,
-            emptyIcon: Icons.article_outlined,
-            emptyMessage: isRTL
-                ? 'لا توجد مقالات لهذا المرض بعد'
-                : 'No articles about this disease yet',
-            emptySubtitle: isRTL
-                ? 'كن أول من يشارك مقالاً!'
-                : 'Be the first to share one!',
-            onRefresh: () => _loadArticles(refresh: true),
+          // Articles tab — curated resources + community articles
+          RefreshIndicator(
+            color: AppColors.primary,
+            onRefresh: () async {
+              await _loadCurated();
+              await _loadArticles(refresh: true);
+            },
+            child: ListView(
+              controller: _articlesScrollCtrl,
+              padding: const EdgeInsets.only(bottom: 100),
+              children: [
+                // ── Curated articles ──────────────────────────────────────
+                if (_curatedLoading)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  )
+                else if (_curated.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.menu_book_rounded, color: AppColors.primary, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          isRTL ? 'مقالات علمية موصى بها' : 'Curated Scientific Resources',
+                          style: const TextStyle(
+                            color: AppColors.primaryDark,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ..._curated.map((a) => _CuratedArticleCard(article: a, isRTL: isRTL)),
+                  const Divider(height: 32, indent: 16, endIndent: 16),
+                ],
+
+                // ── Community posts ───────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.people_alt_outlined, color: AppColors.primary, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        isRTL ? 'من المجتمع' : 'From the Community',
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_articlesLoading && _articles.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  )
+                else if (_articles.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.article_outlined, size: 48, color: AppColors.border),
+                        const SizedBox(height: 10),
+                        Text(
+                          isRTL ? 'لا توجد مقالات مجتمعية بعد' : 'No community articles yet',
+                          style: const TextStyle(color: AppColors.textSecondary),
+                        ),
+                        Text(
+                          isRTL ? 'كن أول من يشارك!' : 'Be the first to share!',
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ..._articles.map((p) => FeedCard(post: p)),
+                if (_articlesHasMore && _articles.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2)),
+                  ),
+              ],
+            ),
           ),
 
           // All posts tab
@@ -217,6 +307,107 @@ class _DiseaseArticlesScreenState extends State<DiseaseArticlesScreen>
         ),
         icon: const Icon(Icons.edit_rounded, size: 18),
         label: Text(isRTL ? 'شارك خبرتك' : 'Share your experience'),
+      ),
+    );
+  }
+}
+
+// ── Curated article card ──────────────────────────────────────────────────────
+
+class _CuratedArticleCard extends StatelessWidget {
+  const _CuratedArticleCard({required this.article, required this.isRTL});
+  final DiseaseArticle article;
+  final bool isRTL;
+
+  Future<void> _open() async {
+    final uri = Uri.tryParse(article.url);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = isRTL && article.titleAr.isNotEmpty ? article.titleAr : article.title;
+    return InkWell(
+      onTap: _open,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE8F5E9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.article_rounded, color: AppColors.primary, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.primaryDark,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      article.summary,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(Icons.link, size: 12, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            article.source,
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const Icon(Icons.open_in_new, size: 13, color: AppColors.textSecondary),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

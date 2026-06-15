@@ -262,6 +262,12 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
                                 OutlinedButton(
                                   onPressed: () =>
                                       setState(() => _activeStep--),
+                                  // Override global theme: buttons in a Row must
+                                  // not have minimumSize=double.infinity (full-width),
+                                  // or they crash when the Row has unbounded width.
+                                  style: OutlinedButton.styleFrom(
+                                    minimumSize: const Size(88, 48),
+                                  ),
                                   child: Text(lang.t('common.back')),
                                 ),
                                 const SizedBox(width: 12),
@@ -273,6 +279,8 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.primary,
                                   foregroundColor: Colors.white,
+                                  // Same override: content-sized, not full-width.
+                                  minimumSize: const Size(88, 48),
                                 ),
                                 child: Text(
                                   _activeStep < steps.length - 1

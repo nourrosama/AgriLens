@@ -101,7 +101,7 @@ class TermsConditionsScreen extends StatelessWidget {
                           const SizedBox(width: 16),
                           Expanded(
                             child: Text(
-                              lang.t('terms.section1'),
+                              lang.t('terms.intro'),
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: Color(0xFF6B7280),
