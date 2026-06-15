@@ -64,7 +64,11 @@ def detect_disease():
             )
         return jsonify(prediction), 200
     except ValueError as exc:
-        return jsonify({'error': str(exc)}), 400
+        message = str(exc)
+        if message.startswith('NOT_A_PLANT:'):
+            clean = message[len('NOT_A_PLANT:'):].strip()
+            return jsonify({'error': clean, 'error_code': 'NOT_A_PLANT'}), 422
+        return jsonify({'error': message}), 400
     except RuntimeError as exc:
         return (
             jsonify(

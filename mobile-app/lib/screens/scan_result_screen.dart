@@ -196,7 +196,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                         // 7. Scan Again button
                         const SizedBox(height: 20),
                         GestureDetector(
-                          onTap: () => context.go('/scan'),
+                          onTap: () => context.go('/crop-select'),
                           child: _PrimaryButton(
                             label: lang.t('scan.scanAnother'),
                             icon: Icons.camera_alt_outlined,
@@ -384,12 +384,15 @@ class _AiReportCard extends StatelessWidget {
             children: [
               const Icon(Icons.analytics_outlined, color: Color(0xFF2E7D32), size: 22),
               const SizedBox(width: 8),
-              Text(
-                isAr ? 'تقرير مرض الذكاء الاصطناعي' : 'AI Disease Report',
-                style: const TextStyle(
-                  color: Color(0xFF2E7D32),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  isAr ? 'تقرير مرض الذكاء الاصطناعي' : 'AI Disease Report',
+                  style: const TextStyle(
+                    color: Color(0xFF2E7D32),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -585,12 +588,15 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 18, color: const Color(0xFF2E7D32)),
         const SizedBox(width: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF2E7D32),
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF2E7D32),
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -712,6 +718,64 @@ class _HighlightBox extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Existing widgets (unchanged)
 // ─────────────────────────────────────────────────────────────────────────────
+
+class _NoDetectionBanner extends StatelessWidget {
+  const _NoDetectionBanner({required this.result});
+  final ScanResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final lang = context.read<LanguageProvider>();
+    final isAr = lang.isRTL;
+    final isInvalid = result.status == 'invalid_image';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isInvalid ? const Color(0xFFFFEBEE) : const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: isInvalid
+          ? Column(
+              children: [
+                const Icon(Icons.no_photography_outlined, size: 40, color: Color(0xFFE53935)),
+                const SizedBox(height: 10),
+                Text(
+                  isAr
+                      ? 'لا تبدو هذه الصورة أنها تحتوي على نبات أو ورقة.'
+                      : 'This image does not appear to contain a plant or leaf.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Color(0xFFB71C1C),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isAr
+                      ? 'يرجى التقاط صورة واضحة ومقربة لورقة نبات أو منطقة مصابة.'
+                      : 'Please upload a clear, close-up photo of a plant leaf or affected area.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF616161), fontSize: 14, height: 1.4),
+                ),
+              ],
+            )
+          : Text(
+              result.isVideo
+                  ? (result.isStoredRemotely
+                      ? 'The video file has been stored in cloud storage. Video analysis is not available in this demo.'
+                      : 'The video file was stored locally. Cloud storage is not enabled right now.')
+                  : (isAr
+                      ? 'تم رفع الصورة، لكن لم تتوفر نتيجة بعد.'
+                      : 'This scan was uploaded, but no model result is available yet.'),
+              style: const TextStyle(color: Color(0xFF1E3A5F), fontSize: 15, height: 1.4),
+            ),
+    );
+  }
+}
 
 class _EmptyState extends StatelessWidget {
   const _EmptyState({required this.lang});
@@ -1062,22 +1126,7 @@ class _SummaryCard extends StatelessWidget {
             _InfoRow(label: 'Risk Level', value: result.riskLevel),
           ] else ...[
             const SizedBox(height: 18),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                result.isVideo
-                    ? (result.isStoredRemotely
-                        ? 'The video file has been stored in cloud storage. Video analysis is not available in this demo.'
-                        : 'The video file was stored locally. Cloud storage is not enabled right now.')
-                    : 'This scan was uploaded, but no model result is available yet.',
-                style: const TextStyle(color: Color(0xFF1E3A5F), fontSize: 15, height: 1.4),
-              ),
-            ),
+            _NoDetectionBanner(result: result),
           ],
         ],
       ),

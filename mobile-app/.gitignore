@@ -46,4 +46,5 @@ app.*.map.json
 
 .env
 
-lib/firebase_options.dart
+# firebase_options.dart is tracked so teammates can build without running flutterfire configure
+# !lib/firebase_options.dart

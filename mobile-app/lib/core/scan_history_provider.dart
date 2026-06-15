@@ -316,7 +316,9 @@ class ScanHistoryProvider extends ChangeNotifier {
         auth: true,
         fieldName: mediaType == 'video' ? 'video' : 'image',
         file: file,
-        timeout: const Duration(seconds: 90),
+        timeout: mediaType == 'video'
+            ? const Duration(seconds: 300)
+            : const Duration(seconds: 90),
         fields: {
           'crop_type': cropType,
           ...?(farmId == null ? null : {'farm_id': farmId}),

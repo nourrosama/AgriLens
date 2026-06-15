@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'session_storage.dart';
+import 'fcm_service.dart';
 
 class UserData {
   const UserData({
@@ -101,6 +103,9 @@ class UserProvider extends ChangeNotifier {
   bool _isHydrated = false;
   String? _errorMessage;
   String? _pendingPhone;
+  // Signup flow: stored here so verifyOtp can include them in the request body
+  String? _pendingSignupName;
+  String? _pendingSignupCountry;
 
   UserData get user => _user;
   String get userId => _user.id;
@@ -156,6 +161,35 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  /// Registration flow — collect profile first, then send OTP.
+  /// Calls POST /api/auth/register (phone must be new).
+  Future<bool> signup({
+    required String fullName,
+    required String country,
+    required String phone,
+    String email = '',
+  }) async {
+    _setLoading(true);
+    try {
+      await _apiClient.post('/api/auth/register', body: {
+        'name': fullName,
+        'country': country,
+        'phone': phone,
+        if (email.isNotEmpty) 'email': email,
+      });
+      _pendingPhone = phone;
+      _pendingSignupName = fullName;
+      _pendingSignupCountry = country;
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<bool> sendOtp(String phone) async {
     _setLoading(true);
     try {
@@ -199,13 +233,17 @@ class UserProvider extends ChangeNotifier {
   Future<bool> verifyOtp(String otp, {String? phone}) async {
     _setLoading(true);
     try {
-      // On web, use test verification endpoint
-      final endpoint = '/api/auth/verify-otp';
+      final resolvedPhone = phone ?? _pendingPhone ?? _user.phone;
+      final body = <String, dynamic>{
+        'phone': resolvedPhone,
+        'code': otp,
+        // Include signup profile if this is the registration flow.
+        // The backend uses their presence to decide signup vs login.
+        ...?(_pendingSignupName == null ? null : {'name': _pendingSignupName!}),
+        ...?(_pendingSignupCountry == null ? null : {'country': _pendingSignupCountry!}),
+      };
 
-      final response = await _apiClient.post(
-        endpoint,
-        body: {'phone': phone ?? _pendingPhone ?? _user.phone, 'code': otp},
-      );
+      final response = await _apiClient.post('/api/auth/verify-otp', body: body);
       final data = response['data'] as Map<String, dynamic>;
       final token = data['token']?.toString() ?? '';
       final userJson = data['user'] as Map<String, dynamic>;
@@ -214,6 +252,11 @@ class UserProvider extends ChangeNotifier {
 
       _user = UserData.fromJson(userJson);
       _pendingPhone = _user.phone;
+      // Clear signup state after successful verification
+      _pendingSignupName = null;
+      _pendingSignupCountry = null;
+
+      unawaited(_registerFcmToken());
 
       _errorMessage = null;
       return true;
@@ -318,6 +361,21 @@ class UserProvider extends ChangeNotifier {
     }
     final file = File(photoPath);
     return file.existsSync() ? file : null;
+  }
+
+  Future<void> _registerFcmToken() async {
+    final token = await FcmService.getToken();
+    if (token == null) return;
+    try {
+      await _apiClient.post(
+        '/api/notifications/device-token',
+        body: {'token': token},
+        auth: true,
+      );
+      debugPrint('[FCM] Device token registered with backend');
+    } catch (e) {
+      debugPrint('[FCM] Token registration failed (non-critical): $e');
+    }
   }
 
   void _setLoading(bool value) {

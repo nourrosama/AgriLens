@@ -63,9 +63,80 @@ def send_otp():
                             'OTP sent successfully')
 
 
+@auth_bp.route('/api/auth/register', methods=['POST'])
+def register():
+    """Start new-user registration: validate profile data, confirm phone is free, send OTP.
+    ---
+    tags:
+      - Auth
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          required:
+            - name
+            - country
+            - phone
+          properties:
+            name:
+              type: string
+              example: "Ahmed Ali"
+            country:
+              type: string
+              example: "egypt"
+            phone:
+              type: string
+              example: "+201234567890"
+            email:
+              type: string
+              example: "ahmed@example.com"
+    responses:
+      200:
+        description: OTP sent — proceed to verify
+      400:
+        description: Validation error
+      409:
+        description: Phone already registered
+      429:
+        description: Rate limit exceeded
+    """
+    data = request.get_json(silent=True) or {}
+    phone = sanitize_phone(data.get('phone', ''))
+    name = str(data.get('name', '')).strip()
+    country = str(data.get('country', '')).strip()
+    email = str(data.get('email', '')).strip()
+
+    if not name:
+        return error_response('Full name is required', 400)
+    if not country:
+        return error_response('Country is required', 400)
+    if not is_valid_phone(phone):
+        return error_response('Invalid Egyptian phone number. Use format: +20XXXXXXXXXX', 400)
+
+    # Reject if phone already has an account
+    if user_model.find_by_phone(phone):
+        return error_response(
+            'An account with this phone number already exists. Please log in instead.', 409
+        )
+
+    if not auth_service.check_otp_rate_limit(phone):
+        return error_response('Too many OTP requests. Try again in 10 minutes.', 429)
+
+    result = auth_service.send_otp(phone)
+    return success_response(
+        {'verification_status': result.get('status', 'pending')},
+        'OTP sent. Enter the code to complete your registration.',
+    )
+
+
 @auth_bp.route('/api/auth/verify-otp', methods=['POST'])
 def verify_otp():
-    """Verify OTP and return JWT token.
+    """Verify OTP — handles both login and new-user signup.
+
+    Signup flow: include ``name`` and ``country`` in the body.
+    Login flow: omit ``name``/``country`` — the account must already exist.
     ---
     tags:
       - Auth
@@ -85,19 +156,34 @@ def verify_otp():
             code:
               type: string
               example: "123456"
+            name:
+              type: string
+              example: "Ahmed Ali"
+            country:
+              type: string
+              example: "egypt"
+            email:
+              type: string
     responses:
       200:
-        description: JWT token + user object
+        description: JWT token + user object + is_new_user flag
       400:
         description: Invalid input
       401:
         description: Invalid OTP
+      404:
+        description: No account found (login flow, phone not registered)
+      409:
+        description: Phone already registered (signup flow, race condition)
       429:
         description: Rate limit exceeded
     """
     data = request.get_json(silent=True) or {}
     phone = sanitize_phone(data.get('phone', ''))
     code = data.get('code', '')
+    signup_name = str(data.get('name', '')).strip()
+    signup_country = str(data.get('country', '')).strip()
+    signup_email = str(data.get('email', '')).strip()
 
     if not is_valid_phone(phone):
         return error_response('Invalid phone number', 400)
@@ -111,23 +197,43 @@ def verify_otp():
     if not auth_service.verify_otp(phone, code):
         return error_response('Invalid or expired OTP', 401)
 
-    # Find or create user
-    user = user_model.find_by_phone(phone)
-    if user is None:
-        user = user_model.create_user(phone)
+    is_new_user = False
+    is_signup = bool(signup_name and signup_country)
+
+    if is_signup:
+        # Signup flow: create a brand-new account
+        if user_model.find_by_phone(phone):
+            return error_response(
+                'An account with this phone number already exists. Please log in instead.', 409
+            )
+        user = user_model.create_user(
+            phone=phone,
+            name=signup_name,
+            country=signup_country,
+            email=signup_email,
+        )
+        is_new_user = True
+    else:
+        # Login flow: the account must already exist
+        user = user_model.find_by_phone(phone)
+        if user is None:
+            return error_response(
+                'No account found for this number. Please register first.', 404
+            )
 
     token = auth_service.generate_token(str(user['_id']))
 
-    # Audit log
     audit_model.log_action(
-        str(user['_id']), 'login_success',
+        str(user['_id']),
+        'register_success' if is_new_user else 'login_success',
         ip_address=request.remote_addr,
     )
 
     return success_response({
         'token': token,
         'user': user_model.serialize(user),
-    }, 'Login successful')
+        'is_new_user': is_new_user,
+    }, 'Registration successful' if is_new_user else 'Login successful')
 
 
 @auth_bp.route('/api/auth/me', methods=['GET'])

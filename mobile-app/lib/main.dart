@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -13,10 +14,11 @@ import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/router.dart';
+import 'package:agrilens/core/fcm_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  await FcmService.init();
   runApp(const AgriLensApp());
 }
 
@@ -43,6 +45,13 @@ class AgriLensApp extends StatelessWidget {
           return MaterialApp.router(
             title: 'AgriLens',
             debugShowCheckedModeBanner: false,
+            locale: lang.locale,
+            supportedLocales: const [Locale('en'), Locale('ar')],
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
             theme: AppTheme.lightTheme.copyWith(
               textTheme: lang.isRTL
                   ? GoogleFonts.notoSansArabicTextTheme(
@@ -52,6 +61,10 @@ class AgriLensApp extends StatelessWidget {
             ),
             routerConfig: appRouter,
             builder: (context, child) {
+              // Hold rendering until the ARB file is loaded (~10ms).
+              if (!lang.isReady) {
+                return const ColoredBox(color: Colors.white);
+              }
               return Directionality(
                 textDirection: lang.isRTL
                     ? TextDirection.rtl

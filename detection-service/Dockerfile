@@ -10,6 +10,5 @@ COPY . .
 EXPOSE 5001
 
 ENV FLASK_APP=app.main:create_app
-ENV FLASK_ENV=development
 
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5001"]
+CMD ["sh", "-c", "python download_models.py && gunicorn --workers 2 --bind 0.0.0.0:5001 --timeout 120 'app.main:create_app()'"]
