@@ -223,7 +223,7 @@ class UserProvider extends ChangeNotifier {
         final data = response['data'] as Map<String, dynamic>;
         final token = data['token']?.toString() ?? '';
         final userId = data['user_id']?.toString() ?? '';
-        
+
         await _sessionStorage.saveToken(token);
         _user = UserData(
           id: userId,
@@ -233,11 +233,11 @@ class UserProvider extends ChangeNotifier {
         );
         _pendingPhone = phone;
         _errorMessage = null;
-        
+
         // Skip push notifications on web
         return true;
       }
-      
+
       // On mobile platforms, use actual OTP
       await _apiClient.post('/api/auth/send-otp', body: {'phone': phone});
       _pendingPhone = phone;
