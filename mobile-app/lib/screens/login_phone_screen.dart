@@ -65,6 +65,33 @@ class _LoginPhoneScreenState extends State<LoginPhoneScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Back button
+                  GestureDetector(
+                    onTap: () => context.go('/auth-choice'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Transform.flip(
+                          flipX: lang.isRTL,
+                          child: const Icon(
+                            Icons.arrow_back,
+                            size: 20,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          lang.t('common.back'),
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
                   // Phone icon circle
                   Container(
                     width: 80,

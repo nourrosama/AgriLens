@@ -1,6 +1,8 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'api_client.dart';
+import 'fcm_service.dart';
 
 class NotificationData {
   NotificationData({
@@ -104,6 +106,7 @@ class NotificationsProvider extends ChangeNotifier {
   NotificationsProvider({ApiClient? apiClient})
     : _apiClient = apiClient ?? ApiClient() {
     loadNotifications();
+    FcmService.onForegroundMessage = _handlePushMessage;
   }
 
   final ApiClient _apiClient;
@@ -167,6 +170,28 @@ class NotificationsProvider extends ChangeNotifier {
       _errorMessage = error.toString();
       notifyListeners();
     }
+  }
+
+  void _handlePushMessage(RemoteMessage message) {
+    final notification = message.notification;
+    if (notification == null) return;
+    final data = message.data;
+    final category = data['category'] as String? ?? 'info';
+    final item = NotificationData(
+      id: message.messageId ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
+      titleEn: notification.title ?? 'Notification',
+      titleAr: notification.title ?? 'إشعار',
+      messageEn: notification.body ?? '',
+      messageAr: notification.body ?? '',
+      timeEn: 'Just now',
+      timeAr: 'الآن',
+      icon: NotificationData._iconFor(category),
+      color: NotificationData._colorFor(category),
+      bgColor: NotificationData._bgColorFor(category),
+    );
+    _notifications.insert(0, item);
+    notifyListeners();
   }
 
   void _setLoading(bool value) {

@@ -221,7 +221,7 @@ class HomeScreen extends StatelessWidget {
 
                       // Quick Scan Button
                       GestureDetector(
-                        onTap: () => context.push('/scan'),
+                        onTap: () => context.push('/crop-select'),
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(24),
