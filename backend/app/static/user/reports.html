@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriLens — Reports</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/static/_layout.css">
+  <style>
+    .report-type-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:24px; }
+    .report-type-card { background:var(--white); border:1px solid var(--grey-200); border-radius:var(--radius); padding:24px; text-align:center; cursor:pointer; transition:all .2s; }
+    .report-type-card:hover { border-color:var(--green-600); box-shadow:var(--shadow-md); }
+    .report-type-card.selected { border-color:var(--green-600); background:var(--green-50); }
+    .report-type-card .rt-icon { font-size:36px; margin-bottom:10px; }
+    .report-type-card h3 { font-size:15px; font-weight:700; color:var(--grey-900); margin-bottom:4px; }
+    .report-type-card p  { font-size:12px; color:var(--grey-500); }
+    .report-preview-card { background:var(--grey-50); border:1px solid var(--grey-200); border-radius:var(--radius); padding:24px; }
+    .report-preview-card h2 { font-size:20px; font-weight:800; color:var(--green-800); margin-bottom:16px; }
+    .rp-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--grey-200); font-size:14px; }
+    .rp-row:last-child { border-bottom:none; }
+    .rp-label { color:var(--grey-600); font-weight:500; }
+    .rp-value { font-weight:700; color:var(--grey-900); }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🌿 Agri<span>Lens</span></div>
+      <span class="plan-badge" id="sb-plan-badge">Free</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <a class="nav-item" data-page="dashboard" href="/app/dashboard"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a class="nav-item" data-page="scan"      href="/app/scan">     <span class="nav-icon">🔬</span> Scan Plant</a>
+      <a class="nav-item" data-page="articles"  href="/app/articles"> <span class="nav-icon">📰</span> Articles</a>
+      <div class="nav-section-title" style="margin-top:8px;">Premium</div>
+      <a class="nav-item" data-page="chatbot" href="/app/chatbot"><span class="nav-icon">🤖</span> AI Chatbot <span class="lock-icon" id="lock-chatbot">🔒</span></a>
+      <div class="nav-section-title" style="margin-top:8px;">Professional</div>
+      <a class="nav-item" data-page="farm"    href="/app/farm">   <span class="nav-icon">🌾</span> Farm Dashboard <span class="lock-icon" id="lock-farm">🔒</span></a>
+      <a class="nav-item" data-page="reports" href="/app/reports"><span class="nav-icon">📄</span> Reports <span class="lock-icon" id="lock-reports">🔒</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="upgrade-cta" id="sb-upgrade-cta">
+        <p>PDF reports require Professional</p>
+        <button class="btn-upgrade" onclick="openUpgradeModal('professional')">⬆ Upgrade Plan</button>
+      </div>
+      <div class="sidebar-user">
+        <div class="avatar" id="sb-avatar">F</div>
+        <div class="sidebar-user-info">
+          <div class="name" id="sb-name">Farmer</div>
+          <div class="email" id="sb-email"></div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Sign out">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div>
+        <div class="topbar-title">📄 Reports</div>
+        <div class="topbar-sub">Generate and download professional farm reports</div>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-purple">Professional</span>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div id="gate-area"></div>
+      <div id="pro-content" style="display:none;">
+
+        <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;align-items:start;">
+
+          <!-- Left: report builder -->
+          <div>
+            <div class="card" style="margin-bottom:20px;">
+              <div class="card-header"><div class="card-title">Report Type</div></div>
+              <div class="card-body">
+                <div class="report-type-grid">
+                  <div class="report-type-card selected" onclick="selectType('monthly',this)">
+                    <div class="rt-icon">📆</div>
+                    <h3>Monthly Report</h3>
+                    <p>Full month summary with disease history and trends</p>
+                  </div>
+                  <div class="report-type-card" onclick="selectType('weekly',this)">
+                    <div class="rt-icon">📋</div>
+                    <h3>Weekly Summary</h3>
+                    <p>7-day scan activity and quick insights</p>
+                  </div>
+                  <div class="report-type-card" onclick="selectType('full',this)">
+                    <div class="rt-icon">📊</div>
+                    <h3>Full History</h3>
+                    <p>All-time disease records and farm analytics</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header"><div class="card-title">Preview</div></div>
+              <div class="card-body" id="preview-body">
+                <div class="loading-center"><div class="spinner"></div>Loading report data…</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: export panel -->
+          <div>
+            <div class="card" style="position:sticky;top:80px;">
+              <div class="card-header"><div class="card-title">Export</div></div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label class="form-label">Period</label>
+                  <select id="period-select" class="form-control">
+                    <option value="monthly">Monthly</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="all">All Time</option>
+                  </select>
+                </div>
+                <button class="btn btn-primary" style="width:100%;justify-content:center;margin-bottom:10px;" id="btn-pdf">
+                  ⬇ Download PDF Report
+                </button>
+                <button class="btn btn-secondary" style="width:100%;justify-content:center;" id="btn-json">
+                  📋 Export JSON Data
+                </button>
+                <p style="font-size:12px;color:var(--grey-500);margin-top:12px;text-align:center;">
+                  PDF includes farm summary, disease breakdown, scan history, and recommendations.
+                </p>
+                <div id="export-msg" style="margin-top:10px;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app/static/_base.js"></script>
+<script>
+Auth.requireLogin();
+const plan = Auth.plan();
+if (planMeets('premium'))      { document.getElementById('lock-chatbot')?.remove(); }
+if (planMeets('professional')) { document.getElementById('lock-farm')?.remove(); document.getElementById('lock-reports')?.remove(); }
+initSidebar('reports');
+
+if (!planMeets('professional')) {
+  document.getElementById('gate-area').innerHTML = gateHtml('professional', 'PDF Report Generation');
+} else {
+  document.getElementById('pro-content').style.display = '';
+  let selectedPeriod = 'monthly';
+
+  function selectType(period, el) {
+    document.querySelectorAll('.report-type-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedPeriod = period;
+    document.getElementById('period-select').value = period === 'full' ? 'all' : period;
+    loadPreview(period === 'full' ? 'all' : period);
+  }
+
+  async function loadPreview(period = 'monthly') {
+    const previewEl = document.getElementById('preview-body');
+    previewEl.innerHTML = '<div class="loading-center"><div class="spinner"></div>Loading…</div>';
+
+    const res = await apiFetch(`/api/reports/export?period=${period}`);
+    if (!res?.ok) { previewEl.innerHTML = '<div class="alert alert-error">Failed to load report data.</div>'; return; }
+
+    const rpt = res.data.data?.report || {};
+    const summary = rpt.summary || {};
+    const scans = rpt.scans || [];
+    const farms = rpt.farms || [];
+    const diseased = scans.filter(s => s.detection_result && !s.detection_result.is_healthy);
+    const healthRate = scans.length ? Math.round(((scans.length - diseased.length)/scans.length)*100) : 100;
+
+    const diseaseCounts = {};
+    diseased.forEach(s => { const d = s.detection_result?.disease || 'Unknown'; diseaseCounts[d] = (diseaseCounts[d]||0)+1; });
+    const topDisease = Object.entries(diseaseCounts).sort((a,b)=>b[1]-a[1])[0];
+
+    previewEl.innerHTML = `
+      <div class="report-preview-card">
+        <h2>🌿 AgriLens Agricultural Report</h2>
+        <div style="color:var(--grey-500);font-size:12px;margin-bottom:16px;">Generated: ${new Date().toLocaleDateString(undefined,{year:'numeric',month:'long',day:'numeric'})}</div>
+        <div style="margin-bottom:16px;">
+          <div class="rp-row"><span class="rp-label">Period</span><span class="rp-value">${period.charAt(0).toUpperCase()+period.slice(1)}</span></div>
+          <div class="rp-row"><span class="rp-label">Total Scans</span><span class="rp-value">${scans.length}</span></div>
+          <div class="rp-row"><span class="rp-label">Disease Detections</span><span class="rp-value" style="color:var(--red-600)">${diseased.length}</span></div>
+          <div class="rp-row"><span class="rp-label">Plant Health Rate</span><span class="rp-value" style="color:var(--green-700)">${healthRate}%</span></div>
+          <div class="rp-row"><span class="rp-label">Farms Monitored</span><span class="rp-value">${farms.length}</span></div>
+          ${topDisease ? `<div class="rp-row"><span class="rp-label">Most Common Disease</span><span class="rp-value" style="color:var(--red-600)">${topDisease[0]} (${topDisease[1]}×)</span></div>` : ''}
+        </div>
+
+        ${Object.keys(diseaseCounts).length ? `
+        <div style="margin-top:16px;">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--grey-500);margin-bottom:8px;">Disease Breakdown</div>
+          ${Object.entries(diseaseCounts).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([d,c]) => `
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--grey-100);">
+              <span>${d}</span><span class="badge badge-red">${c} detection${c>1?'s':''}</span>
+            </div>`).join('')}
+        </div>` : `<div class="alert alert-success" style="margin-top:12px;">✅ No diseases detected in this period.</div>`}
+
+        <div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--grey-200);">
+          <div style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--grey-500);margin-bottom:8px;">Included Sections</div>
+          ${['Executive Summary','Disease Breakdown Table','Scan History (last 10)','Farm Overview','General Recommendations'].map(s=>`<div style="font-size:13px;color:var(--grey-700);padding:3px 0;">✓ ${s}</div>`).join('')}
+        </div>
+      </div>`;
+  }
+
+  // PDF download
+  document.getElementById('btn-pdf').addEventListener('click', async () => {
+    const period  = document.getElementById('period-select').value;
+    const msgEl   = document.getElementById('export-msg');
+    const btn     = document.getElementById('btn-pdf');
+    btn.disabled  = true; btn.textContent = '⏳ Generating PDF…';
+
+    // Direct browser download via anchor
+    const token = Auth.token();
+    const url   = `/api/reports/pdf?period=${period}`;
+    try {
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const blob = await res.blob();
+        const a    = document.createElement('a');
+        a.href     = URL.createObjectURL(blob);
+        a.download = `agrilens-${period}-report-${new Date().toISOString().slice(0,10)}.pdf`;
+        a.click();
+        msgEl.innerHTML = '<div class="alert alert-success">✅ PDF downloaded successfully.</div>';
+      } else {
+        const data = await res.json().catch(() => ({}));
+        msgEl.innerHTML = `<div class="alert alert-error">❌ ${data.message || 'PDF generation failed.'}</div>`;
+      }
+    } catch(e) {
+      msgEl.innerHTML = `<div class="alert alert-error">❌ Network error. Is the backend running?</div>`;
+    }
+
+    btn.disabled = false; btn.textContent = '⬇ Download PDF Report';
+  });
+
+  // JSON download
+  document.getElementById('btn-json').addEventListener('click', async () => {
+    const period = document.getElementById('period-select').value;
+    const msgEl  = document.getElementById('export-msg');
+    const res    = await apiFetch(`/api/reports/export?period=${period}`);
+    if (res?.ok) {
+      const blob = new Blob([JSON.stringify(res.data.data?.report, null, 2)], { type: 'application/json' });
+      const a    = document.createElement('a');
+      a.href     = URL.createObjectURL(blob);
+      a.download = `agrilens-${period}-report.json`;
+      a.click();
+      msgEl.innerHTML = '<div class="alert alert-success">✅ JSON exported.</div>';
+    } else {
+      msgEl.innerHTML = '<div class="alert alert-error">❌ Export failed.</div>';
+    }
+  });
+
+  document.getElementById('period-select').addEventListener('change', e => loadPreview(e.target.value));
+
+  loadPreview('monthly');
+}
+</script>
+</body>
+</html>

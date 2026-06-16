@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriLens — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/static/_layout.css">
+  <style>
+    .plan-hero { border-radius:var(--radius); padding:20px 24px; margin-bottom:24px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+    .plan-hero.free         { background:linear-gradient(135deg,#e8f5e9,#f1f8e9); border:1.5px solid #a5d6a7; }
+    .plan-hero.premium      { background:linear-gradient(135deg,#fff8e1,#fff3cd); border:1.5px solid #ffd54f; }
+    .plan-hero.professional { background:linear-gradient(135deg,#ede7f6,#e8eaf6); border:1.5px solid #b39ddb; }
+    .plan-hero-left { display:flex; align-items:center; gap:14px; }
+    .plan-hero-icon { font-size:36px; }
+    .plan-hero-title { font-size:18px; font-weight:800; color:var(--grey-900); }
+    .plan-hero-sub   { font-size:13px; color:var(--grey-600); margin-top:2px; }
+    .feature-chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    .feature-chip  { font-size:11px; font-weight:600; padding:3px 8px; border-radius:999px; }
+    .chip-green  { background:#c8e6c9; color:#1b5e20; }
+    .chip-amber  { background:#fff9c4; color:#795548; }
+    .chip-grey   { background:#f5f5f5; color:#9e9e9e; text-decoration:line-through; }
+    .chip-purple { background:#ede7f6; color:#4527a0; }
+    .blurred-section { position:relative; }
+    .blurred-section .blur-content { filter:blur(4px); pointer-events:none; user-select:none; opacity:.6; }
+    .blur-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; z-index:10; }
+    .blur-overlay-inner { background:rgba(255,255,255,.92); border:1.5px solid var(--grey-200); border-radius:12px; padding:20px 28px; text-align:center; box-shadow:var(--shadow-md); }
+    .blur-overlay-inner .lock-big { font-size:28px; margin-bottom:6px; }
+    .blur-overlay-inner p { font-size:13px; color:var(--grey-600); margin:4px 0 12px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🌿 Agri<span>Lens</span></div>
+      <span class="plan-badge" id="sb-plan-badge">Free</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <a class="nav-item" data-page="dashboard" href="/app/dashboard"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a class="nav-item" data-page="scan"      href="/app/scan">     <span class="nav-icon">🔬</span> Scan Plant</a>
+      <a class="nav-item" data-page="articles"  href="/app/articles"> <span class="nav-icon">📰</span> Articles</a>
+      <div class="nav-section-title" style="margin-top:8px;">Premium</div>
+      <a class="nav-item" id="nav-chatbot" data-page="chatbot" href="/app/chatbot"><span class="nav-icon">🤖</span> AI Chatbot <span class="lock-icon" id="lock-chatbot">🔒</span></a>
+      <div class="nav-section-title" style="margin-top:8px;">Professional</div>
+      <a class="nav-item" id="nav-farm"    data-page="farm"    href="/app/farm">   <span class="nav-icon">🌾</span> Farm Dashboard <span class="lock-icon" id="lock-farm">🔒</span></a>
+      <a class="nav-item" id="nav-reports" data-page="reports" href="/app/reports"><span class="nav-icon">📄</span> Reports <span class="lock-icon" id="lock-reports">🔒</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="upgrade-cta" id="sb-upgrade-cta">
+        <p>Unlock AI reports &amp; more</p>
+        <button class="btn-upgrade" onclick="openUpgradeModal('premium')">⬆ Upgrade Plan</button>
+      </div>
+      <div class="sidebar-user">
+        <div class="avatar" id="sb-avatar">F</div>
+        <div class="sidebar-user-info">
+          <div class="name" id="sb-name">Farmer</div>
+          <div class="email" id="sb-email"></div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Sign out">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div>
+        <div class="topbar-title" id="greeting">Good morning 👋</div>
+        <div class="topbar-sub"  id="topbar-date"></div>
+      </div>
+      <div class="topbar-actions">
+        <div id="quota-topbar"></div>
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- Plan hero banner -->
+      <div class="plan-hero" id="plan-hero">
+        <div class="plan-hero-left">
+          <div class="plan-hero-icon" id="hero-icon">🌱</div>
+          <div>
+            <div class="plan-hero-title" id="hero-title">Free Plan</div>
+            <div class="plan-hero-sub"  id="hero-sub">5 scans/month · Basic disease detection</div>
+            <div class="feature-chips"  id="hero-chips"></div>
+          </div>
+        </div>
+        <div id="hero-action"></div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stat-grid" style="margin-bottom:24px;">
+        <div class="stat-card green">
+          <div class="stat-label">Scans This Month</div>
+          <div class="stat-value" id="stat-scans">—</div>
+          <div class="stat-sub"   id="stat-scans-sub"></div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Diseases Detected</div>
+          <div class="stat-value" id="stat-diseases">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Healthy Plants</div>
+          <div class="stat-value" id="stat-healthy">—</div>
+        </div>
+        <!-- Premium weather card -->
+        <div class="stat-card amber" id="stat-weather-card" style="display:none;">
+          <div class="stat-label">Weather Risk</div>
+          <div class="stat-value" id="stat-risk">—</div>
+          <div class="stat-sub"   id="stat-risk-sub"></div>
+        </div>
+      </div>
+
+      <!-- Recent scans -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header">
+          <div class="card-title">🔬 Recent Scans</div>
+          <a href="/app/scan" class="btn btn-sm btn-primary">+ New Scan</a>
+        </div>
+        <div class="card-body" id="recent-scans-body">
+          <div class="loading-center"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- Articles (all plans see this, depth differs) -->
+      <div class="card" style="margin-bottom:24px;">
+        <div class="card-header">
+          <div class="card-title">📰 Latest Articles</div>
+          <a href="/app/articles" class="btn btn-sm btn-secondary">View All</a>
+        </div>
+        <div class="card-body">
+          <div id="articles-notice" style="display:none;margin-bottom:12px;"></div>
+          <div id="articles-preview" class="article-grid">
+            <div class="loading-center"><div class="spinner"></div>Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PREMIUM: Weather — shown to all, blurred for Free -->
+      <div class="card blurred-section" id="weather-section" style="margin-bottom:24px;">
+        <div class="card-header"><div class="card-title">🌦 Weather Disease Risk <span class="badge badge-amber" style="margin-left:8px;">Premium</span></div></div>
+        <div class="card-body" id="weather-body" style="min-height:80px;">
+          <div class="loading-center"><div class="spinner"></div></div>
+        </div>
+        <div class="blur-overlay" id="weather-lock" style="display:none;">
+          <div class="blur-overlay-inner">
+            <div class="lock-big">🌦</div>
+            <strong>Weather Disease Risk</strong>
+            <p>Get real-time weather-based disease risk alerts for your farm.</p>
+            <button class="btn btn-amber" onclick="openUpgradeModal('premium')">⭐ Upgrade to Premium</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFESSIONAL: Farm overview — shown to all, blurred for Free/Premium -->
+      <div class="card blurred-section" id="farm-section" style="margin-bottom:24px;">
+        <div class="card-header">
+          <div class="card-title">🌾 Farm Overview <span class="badge badge-purple" style="margin-left:8px;">Professional</span></div>
+          <a href="/app/farm" class="btn btn-sm btn-secondary" id="farm-link">Farm Dashboard →</a>
+        </div>
+        <div class="card-body" id="farm-overview-body" style="min-height:100px;">
+          <div class="loading-center"><div class="spinner"></div></div>
+        </div>
+        <div class="blur-overlay" id="farm-lock" style="display:none;">
+          <div class="blur-overlay-inner">
+            <div class="lock-big">🌾</div>
+            <strong>Farm Dashboard</strong>
+            <p>Track disease history, trends, and farm-wide health insights.</p>
+            <button class="btn btn-purple" onclick="openUpgradeModal('professional')">👑 Upgrade to Professional</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade modal -->
+<div id="upgrade-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;display:none;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:32px;max-width:440px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);">
+    <h2 style="font-size:20px;font-weight:800;margin-bottom:4px;">Upgrade Your Plan</h2>
+    <p style="color:var(--grey-500);font-size:14px;margin-bottom:20px;">Select the plan that fits your farm's needs.</p>
+    <div id="upgrade-plans" style="display:flex;flex-direction:column;gap:12px;"></div>
+    <button onclick="document.getElementById('upgrade-modal').style.display='none'" style="margin-top:16px;width:100%;background:none;border:none;color:var(--grey-500);cursor:pointer;font-size:14px;">Cancel</button>
+  </div>
+</div>
+
+<script src="/app/static/_base.js"></script>
+<script>
+Auth.requireLogin();
+
+// ── Initialise everything AFTER the server confirms the real plan ───────────
+(async () => {
+  const plan = await syncPlanFromServer();   // fixes stale localStorage plan
+
+  // Sidebar locks
+  if (PLAN_RANK[plan] >= PLAN_RANK['premium'])      { document.getElementById('lock-chatbot')?.remove(); }
+  if (PLAN_RANK[plan] >= PLAN_RANK['professional']) { document.getElementById('lock-farm')?.remove(); document.getElementById('lock-reports')?.remove(); }
+  initSidebar('dashboard');
+
+  // Greeting
+  const hour = new Date().getHours();
+  document.getElementById('greeting').textContent =
+    (hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening') + ' 👋';
+  document.getElementById('topbar-date').textContent =
+    new Date().toLocaleDateString(undefined, { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+
+  // Plan hero banner
+  const heroConfigs = {
+    free: {
+      icon:'🌱', title:'Free Plan', cls:'free',
+      sub:'5 scans/month · Basic disease detection only',
+      chips:[['Detection','chip-green'],['Confidence score','chip-green'],['AI Report','chip-grey'],['Chatbot','chip-grey'],['Farm Dashboard','chip-grey']],
+      action:`<button class="btn btn-primary" onclick="openUpgradeModal('premium')">⭐ Upgrade to Premium</button>`
+    },
+    premium: {
+      icon:'⭐', title:'Premium Plan', cls:'premium',
+      sub:'Unlimited scans · Full AI reports · Chatbot · Weather risk',
+      chips:[['Unlimited Scans','chip-amber'],['AI Report','chip-amber'],['Chatbot','chip-amber'],['Weather Risk','chip-amber'],['Farm Dashboard','chip-grey']],
+      action:`<button class="btn btn-purple" onclick="openUpgradeModal('professional')">👑 Upgrade to Professional</button>`
+    },
+    professional: {
+      icon:'👑', title:'Professional Plan', cls:'professional',
+      sub:'Full access · PDF reports · Farm dashboard · Analytics',
+      chips:[['Unlimited Scans','chip-purple'],['AI Report','chip-purple'],['Chatbot','chip-purple'],['Farm Dashboard','chip-purple'],['PDF Reports','chip-purple']],
+      action:`<span class="badge badge-purple" style="font-size:13px;padding:8px 14px;">✓ Full Access Active</span>`
+    },
+  };
+  const cfg = heroConfigs[plan] || heroConfigs.free;
+  const heroEl = document.getElementById('plan-hero');
+  heroEl.classList.add(cfg.cls);
+  document.getElementById('hero-icon').textContent   = cfg.icon;
+  document.getElementById('hero-title').textContent  = cfg.title;
+  document.getElementById('hero-sub').textContent    = cfg.sub;
+  document.getElementById('hero-action').innerHTML   = cfg.action;
+  document.getElementById('hero-chips').innerHTML    = cfg.chips.map(([label, cls]) =>
+    `<span class="feature-chip ${cls}">${cls === 'chip-grey' ? '🔒 ' : '✓ '}${label}</span>`).join('');
+
+  // Blur lower-plan sections so free/premium users see what they're missing
+  if (PLAN_RANK[plan] < PLAN_RANK['premium']) {
+    document.getElementById('weather-body').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+        ${['Condition','Temperature','Humidity','Disease Risk'].map(l =>
+          `<div><div style="font-size:12px;color:var(--grey-300);font-weight:600;text-transform:uppercase;margin-bottom:6px;">${l}</div>
+           <div style="font-size:20px;font-weight:800;color:var(--grey-200);">██</div></div>`).join('')}
+      </div>`;
+    document.getElementById('weather-lock').style.display = 'flex';
+  }
+  if (PLAN_RANK[plan] < PLAN_RANK['professional']) {
+    document.getElementById('farm-overview-body').innerHTML = `
+      <div class="farm-grid">${[1,2].map(() =>
+        `<div class="farm-card">
+           <div class="farm-name" style="color:var(--grey-200);">████████████</div>
+           <div class="farm-meta" style="color:var(--grey-200);">██ fields · ██ ha · ███</div>
+         </div>`).join('')}</div>`;
+    document.getElementById('farm-lock').style.display = 'flex';
+    document.getElementById('farm-link').style.display = 'none';
+  }
+
+  // ── Load data ──────────────────────────────────────────────────────────────
+  // Quota (already fetched by syncPlanFromServer, re-fetch for display)
+  const subRes = await apiFetch('/api/subscription/status');
+  if (subRes?.ok) {
+    const { quota } = subRes.data.data;
+    document.getElementById('quota-topbar').innerHTML   = renderQuotaBar(quota);
+    document.getElementById('stat-scans').textContent   = quota.used;
+    document.getElementById('stat-scans-sub').textContent = quota.unlimited ? 'Unlimited plan ✓' : `${quota.remaining} remaining`;
+  }
+
+  // Dashboard summary
+  const dashRes = await apiFetch('/api/dashboard/summary');
+  if (dashRes?.ok) {
+    const s = dashRes.data.data?.summary || {};
+    document.getElementById('stat-diseases').textContent = s.diseased_scans ?? '—';
+    document.getElementById('stat-healthy').textContent  = s.healthy_scans  ?? '—';
+    if (s.risk_level && PLAN_RANK[plan] >= PLAN_RANK['premium']) {
+      document.getElementById('stat-weather-card').style.display = '';
+      document.getElementById('stat-risk').textContent     = s.risk_level.toUpperCase();
+      document.getElementById('stat-risk-sub').textContent = s.risk_reason || 'weather-based';
+    }
+  }
+
+  // Recent scans
+  const scansRes  = await apiFetch('/api/scans?per_page=5');
+  const scansBody = document.getElementById('recent-scans-body');
+  if (scansRes?.ok) {
+    const scans = scansRes.data.data?.scans || [];
+    scansBody.innerHTML = scans.length ? `
+      <div class="table-wrap"><table>
+        <thead><tr><th>Date</th><th>Crop</th><th>Disease</th><th>Confidence</th><th>Severity</th></tr></thead>
+        <tbody>${scans.map(s => {
+          const dr = s.detection_result || {};
+          return `<tr>
+            <td>${fmtDate(s.created_at)}</td>
+            <td>${s.crop_type || '—'}</td>
+            <td style="font-weight:600;">${dr.disease || 'Pending'}</td>
+            <td>${dr.confidence ? Math.round(dr.confidence*100)+'%' : '—'}</td>
+            <td>${severityBadge(dr.severity || 'none')}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>` :
+      `<div class="empty-state"><div class="icon">🌿</div><h3>No scans yet</h3>
+       <p>Upload a plant photo to detect diseases instantly.</p>
+       <a href="/app/scan" class="btn btn-primary" style="margin-top:16px;">🔬 Start First Scan</a></div>`;
+  }
+
+  // Articles preview
+  const artRes = await apiFetch('/api/articles?per_page=3');
+  const artEl  = document.getElementById('articles-preview');
+  const noticeEl = document.getElementById('articles-notice');
+  const depthMsg = {
+    basic:    `<div class="alert alert-warning" style="font-size:13px;">🔒 <b>Free plan:</b> Showing article previews only. <a href="#" onclick="openUpgradeModal('premium')">Upgrade to Premium</a> for full access.</div>`,
+    detailed: `<div class="alert alert-success" style="font-size:13px;">⭐ <b>Premium:</b> Full article access enabled.</div>`,
+    full:     `<div class="alert" style="background:var(--green-50);border:1px solid var(--green-200);font-size:13px;">👑 <b>Professional:</b> Full articles + PDF download enabled.</div>`,
+  };
+  if (artRes?.ok) {
+    const depth    = artRes.data.data?.reader_depth || 'basic';
+    noticeEl.innerHTML  = depthMsg[depth] || '';
+    noticeEl.style.display = '';
+    const articles = artRes.data.data?.articles || [];
+    artEl.innerHTML = articles.length ? articles.map(art => `
+      <div class="article-card" onclick="window.location.href='/app/articles'">
+        <div class="article-card-img">${art.image_url ? `<img src="${art.image_url}" alt="">` : '🌿'}</div>
+        <div class="article-card-body">
+          <div class="article-category">${art.category || 'general'}</div>
+          <div class="article-title">${art.title}</div>
+          <div class="article-excerpt">${(art.body || '').substring(0,100)}…</div>
+          ${art.body_truncated ? '<div class="article-locked">🔒 Upgrade to Premium for full article</div>' : ''}
+        </div>
+      </div>`).join('') : '<p style="color:var(--grey-500);font-size:14px;">No articles published yet.</p>';
+  }
+
+  // Weather widget (Premium+)
+  if (PLAN_RANK[plan] >= PLAN_RANK['premium']) {
+    const wxRes = await apiFetch('/api/weather');
+    const wxEl  = document.getElementById('weather-body');
+    if (wxRes?.ok) {
+      const wx = wxRes.data.data?.weather || {};
+      wxEl.innerHTML = `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:16px;">
+          <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Condition</div><div style="font-size:15px;font-weight:700;">${wx.condition || '—'}</div></div>
+          <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Temperature</div><div style="font-size:15px;font-weight:700;">${wx.temp_c != null ? wx.temp_c+'°C' : '—'}</div></div>
+          <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Humidity</div><div style="font-size:15px;font-weight:700;">${wx.humidity != null ? wx.humidity+'%' : '—'}</div></div>
+          <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Disease Risk</div><div style="font-size:15px;font-weight:700;">${severityBadge(wx.risk_level || 'low')}</div></div>
+        </div>
+        ${wx.risk_message ? `<div class="alert alert-warning" style="margin-top:12px;">⚠ ${wx.risk_message}</div>` : ''}`;
+    } else {
+      wxEl.innerHTML = '<p style="color:var(--grey-500);font-size:14px;">Weather unavailable — set OPENWEATHER_API_KEY in your .env to enable this.</p>';
+    }
+  }
+
+  // Farm overview (Professional)
+  if (PLAN_RANK[plan] >= PLAN_RANK['professional']) {
+    const farmRes = await apiFetch('/api/farms');
+    const farmEl  = document.getElementById('farm-overview-body');
+    if (farmRes?.ok) {
+      const farms = farmRes.data.data?.farms || [];
+      farmEl.innerHTML = !farms.length
+        ? `<div class="empty-state" style="padding:20px;"><div class="icon">🌾</div><h3>No farms yet</h3>
+           <a href="/app/farm" class="btn btn-primary btn-sm" style="margin-top:10px;">Go to Farm Dashboard</a></div>`
+        : `<div class="farm-grid">${farms.slice(0,3).map(f =>
+            `<div class="farm-card">
+               <div class="farm-name">${f.name || 'Unnamed Farm'}</div>
+               <div class="farm-meta">${f.fields?.length||0} fields · ${f.area_hectares||'—'} ha · ${f.crop_type||'mixed'}</div>
+             </div>`).join('')}</div>`;
+    }
+  }
+})();
+</script>
+</body>
+</html>

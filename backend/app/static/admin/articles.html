@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriLens Admin — Articles</title>
+<link rel="stylesheet" href="_layout.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h1>🌿 AgriLens</h1><p>Admin Panel</p></div>
+  <div class="nav">
+    <a class="nav-link" href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+    <a class="nav-link" href="users.html"><span class="icon">👥</span> Users</a>
+    <a class="nav-link" href="scans.html"><span class="icon">🔬</span> Scans</a>
+    <a class="nav-link" href="articles.html"><span class="icon">📰</span> Articles</a>
+    <a class="nav-link" href="notifications.html"><span class="icon">🔔</span> Broadcast</a>
+    <a class="nav-link" href="audit.html"><span class="icon">📋</span> Audit Logs</a>
+  </div>
+  <div class="sidebar-footer">
+    <span id="admin-name"></span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">Articles</div>
+  <div class="content">
+    <div class="table-card">
+      <div class="table-header">
+        <h2 id="total-label">Articles</h2>
+        <button class="btn-primary" onclick="openCreate()">+ New Article</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Title</th><th>Category</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="articles-body"></tbody>
+      </table>
+      <div class="pagination">
+        <button class="page-btn" id="prev-btn" onclick="load(page-1)">← Prev</button>
+        <button class="page-btn" id="next-btn" onclick="load(page+1)">Next →</button>
+        <span class="page-info" id="page-info"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create / Edit modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modal-title">New Article</h3>
+    <div class="form-field">
+      <label>Title</label>
+      <input type="text" id="f-title" placeholder="Article title">
+    </div>
+    <div class="form-field">
+      <label>Category</label>
+      <select id="f-category">
+        <option value="general">General</option>
+        <option value="disease">Disease</option>
+        <option value="tips">Tips</option>
+        <option value="weather">Weather</option>
+      </select>
+    </div>
+    <div class="form-field">
+      <label>Image URL (optional)</label>
+      <input type="text" id="f-image" placeholder="https://...">
+    </div>
+    <div class="form-field">
+      <label>Body</label>
+      <textarea id="f-body" rows="7" placeholder="Article content..."></textarea>
+    </div>
+    <div class="form-field" style="display:flex;align-items:center;gap:8px">
+      <input type="checkbox" id="f-published" style="width:auto">
+      <label for="f-published" style="margin:0">Publish immediately</label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveArticle()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="_base.js"></script>
+<script>
+let page = 1;
+let editId = null;
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function load(p = 1) {
+  page = p;
+  const r = await apiFetch(`/api/admin/articles?page=${page}&per_page=20`);
+  if (!r) return;
+  const { data } = await r.json();
+  if (!data) return;
+
+  document.getElementById('total-label').textContent = `Articles (${data.total})`;
+  document.getElementById('page-info').textContent   = `Page ${data.page} of ${data.pages}`;
+  document.getElementById('prev-btn').disabled = data.page <= 1;
+  document.getElementById('next-btn').disabled = data.page >= data.pages;
+
+  const tbody = document.getElementById('articles-body');
+  if (!data.articles.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No articles yet</td></tr>'; return; }
+
+  tbody.innerHTML = data.articles.map(a => `
+    <tr>
+      <td><strong>${a.title}</strong></td>
+      <td>${badge(a.category, 'blue')}</td>
+      <td>${a.published ? badge('Published','green') : badge('Draft','grey')}</td>
+      <td>${fmtDate(a.created_at)}</td>
+      <td style="display:flex;gap:6px">
+        <button class="btn-primary btn-sm" onclick="openEdit(${JSON.stringify(a).replace(/"/g,'&quot;')})">Edit</button>
+        <button class="btn-danger btn-sm" onclick="deleteArticle('${a.id}')">Delete</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openCreate() {
+  editId = null;
+  document.getElementById('modal-title').textContent = 'New Article';
+  document.getElementById('f-title').value    = '';
+  document.getElementById('f-body').value     = '';
+  document.getElementById('f-image').value    = '';
+  document.getElementById('f-category').value = 'general';
+  document.getElementById('f-published').checked = false;
+  document.getElementById('modal').classList.add('open');
+}
+
+function openEdit(a) {
+  editId = a.id;
+  document.getElementById('modal-title').textContent = 'Edit Article';
+  document.getElementById('f-title').value    = a.title;
+  document.getElementById('f-body').value     = a.body;
+  document.getElementById('f-image').value    = a.image_url || '';
+  document.getElementById('f-category').value = a.category;
+  document.getElementById('f-published').checked = a.published;
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() { document.getElementById('modal').classList.remove('open'); editId = null; }
+
+async function saveArticle() {
+  const payload = {
+    title:     document.getElementById('f-title').value.trim(),
+    body:      document.getElementById('f-body').value.trim(),
+    category:  document.getElementById('f-category').value,
+    image_url: document.getElementById('f-image').value.trim(),
+    published: document.getElementById('f-published').checked,
+  };
+  if (!payload.title || !payload.body) return showToast('Title and body are required', 'error');
+
+  const url    = editId ? `/api/admin/articles/${editId}` : '/api/admin/articles';
+  const method = editId ? 'PUT' : 'POST';
+  const r = await apiFetch(url, { method, body: JSON.stringify(payload) });
+  if (!r) return;
+  const d = await r.json();
+  if (!r.ok) return showToast(d.message || 'Error', 'error');
+  showToast(editId ? 'Article updated' : 'Article created');
+  closeModal();
+  load(page);
+}
+
+async function deleteArticle(id) {
+  if (!confirm('Delete this article?')) return;
+  const r = await apiFetch(`/api/admin/articles/${id}`, { method: 'DELETE' });
+  if (!r) return;
+  showToast('Article deleted');
+  load(page);
+}
+
+load();
+</script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 """
 Scan controller -- image/video upload and synchronous detection flow.
+Enforces subscription plan limits and gates the detection response by plan tier.
 """
 import os
 import tempfile
@@ -9,7 +10,11 @@ from flask import Blueprint, current_app, g, request
 from app.middleware.auth_middleware import require_auth
 from app.models import audit_model, farm_model, forecast_model, notification_model, scan_model
 from app.observers import event_publisher
-from app.services import detection_proxy_service, insights_service, storage_service, video_service
+from app.services import (
+    detection_proxy_service, disease_report_service,
+    insights_service, storage_service, video_service,
+)
+from app.services.subscription_service import can_scan, build_scan_response
 from app.utils.validators import is_valid_object_id
 from app.views.responses import error_response, success_response
 
@@ -71,6 +76,11 @@ def upload_scan():
       201:
         description: Scan created and processed
     """
+    # ── Subscription scan quota check ────────────────────────────────────────
+    allowed, quota_msg = can_scan(g.current_user)
+    if not allowed:
+        return error_response(quota_msg, 403, extra={'upgrade_required': True, 'required_plan': 'premium'})
+
     has_image = 'image' in request.files and request.files['image'].filename
     has_video = 'video' in request.files and request.files['video'].filename
 
@@ -347,11 +357,38 @@ def upload_scan():
     if gradcam_overlay and serialized_scan.get('detection_result'):
         serialized_scan['detection_result']['gradcam_overlay'] = gradcam_overlay
 
+    # ── Generate AI disease report and build plan-gated result ───────────────
+    subscription_result = None
+    if detection and not detection.get('is_healthy', True):
+        try:
+            report = disease_report_service.generate_disease_report(
+                disease=detection.get('disease', ''),
+                crop_type=crop_type or detection.get('crop_type', 'unknown'),
+                severity=detection.get('severity', 'medium'),
+                confidence=detection.get('confidence', 0.8),
+                scientific_name=detection.get('scientific_name', ''),
+                lang=g.current_user.get('language', 'en'),
+            )
+        except Exception as exc:
+            current_app.logger.warning('Disease report generation failed: %s', exc)
+            report = None
+        subscription_result = build_scan_response(detection, report, g.current_user)
+    elif detection and detection.get('is_healthy'):
+        subscription_result = {
+            'disease_name': 'Healthy Plant',
+            'confidence_score': round(detection.get('confidence', 0) * 100, 1),
+            'is_healthy': True,
+            'basic_summary': 'No disease detected. Your plant appears healthy.',
+            'basic_treatment': ['Continue routine monitoring and balanced irrigation.'],
+            'plan': g.current_user.get('plan', 'free'),
+        }
+
     message = 'Scan processed successfully' if detection else 'Scan uploaded but detection failed'
     return success_response(
         {
             'scan': serialized_scan,
             'forecast': forecast_payload,
+            'result': subscription_result,
         },
         message,
         201,

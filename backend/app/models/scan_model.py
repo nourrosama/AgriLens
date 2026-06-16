@@ -89,6 +89,11 @@ def get_scans_by_user(user_id: str, page: int = 1, per_page: int = 20) -> list:
     return get_scans_filtered(user_id, page=page, per_page=per_page)
 
 
+def count_scans_by_user(user_id: str) -> int:
+    """Return the total number of scans for a user (no pagination)."""
+    return scans_col().count_documents({'user_id': ObjectId(user_id)})
+
+
 def get_scans_by_farm(farm_id: str, page: int = 1, per_page: int = 20) -> list:
     skip = (page - 1) * per_page
     return list(

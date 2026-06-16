@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriLens Admin — Users</title>
+<link rel="stylesheet" href="_layout.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h1>🌿 AgriLens</h1><p>Admin Panel</p></div>
+  <div class="nav">
+    <a class="nav-link" href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+    <a class="nav-link" href="users.html"><span class="icon">👥</span> Users</a>
+    <a class="nav-link" href="scans.html"><span class="icon">🔬</span> Scans</a>
+    <a class="nav-link" href="articles.html"><span class="icon">📰</span> Articles</a>
+    <a class="nav-link" href="notifications.html"><span class="icon">🔔</span> Broadcast</a>
+    <a class="nav-link" href="audit.html"><span class="icon">📋</span> Audit Logs</a>
+  </div>
+  <div class="sidebar-footer">
+    <span id="admin-name"></span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">Users</div>
+  <div class="content">
+    <div class="table-card">
+      <div class="table-header">
+        <h2 id="total-label">All Users</h2>
+        <div class="search-bar">
+          <input type="text" id="search" placeholder="Search name / phone / email" style="width:220px" oninput="debounceLoad()">
+          <select id="role-filter" onchange="load(1)">
+            <option value="">All roles</option>
+            <option value="farmer">Farmer</option>
+            <option value="researcher">Researcher</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th><th>Phone</th><th>Country</th><th>Role</th><th>Joined</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="users-body"></tbody>
+      </table>
+      <div class="pagination">
+        <button class="page-btn" id="prev-btn" onclick="load(page-1)">← Prev</button>
+        <button class="page-btn" id="next-btn" onclick="load(page+1)">Next →</button>
+        <span class="page-info" id="page-info"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit role modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3>Edit User</h3>
+    <div class="form-field">
+      <label>Role</label>
+      <select id="modal-role">
+        <option value="farmer">Farmer</option>
+        <option value="researcher">Researcher</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveUser()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="_base.js"></script>
+<script>
+let page = 1;
+let editId = null;
+let debounceTimer;
+
+function debounceLoad() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => load(1), 400);
+}
+
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function roleBadge(role) {
+  const map = { admin: 'blue', researcher: 'orange', farmer: 'green' };
+  return badge(role, map[role] || 'grey');
+}
+
+async function load(p = 1) {
+  page = p;
+  const search = document.getElementById('search').value.trim();
+  const role   = document.getElementById('role-filter').value;
+  let url = `/api/admin/users?page=${page}&per_page=20`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  if (role)   url += `&role=${role}`;
+
+  const r = await apiFetch(url);
+  if (!r) return;
+  const { data } = await r.json();
+  if (!data) return;
+
+  document.getElementById('total-label').textContent = `All Users (${data.total})`;
+  document.getElementById('page-info').textContent   = `Page ${data.page} of ${data.pages}`;
+  document.getElementById('prev-btn').disabled = data.page <= 1;
+  document.getElementById('next-btn').disabled = data.page >= data.pages;
+
+  const tbody = document.getElementById('users-body');
+  if (!data.users.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">No users found</td></tr>'; return; }
+
+  tbody.innerHTML = data.users.map(u => `
+    <tr>
+      <td><strong>${u.name || '—'}</strong></td>
+      <td>${u.phone}</td>
+      <td>${u.country || '—'}</td>
+      <td>${roleBadge(u.role)}</td>
+      <td>${fmtDate(u.created_at)}</td>
+      <td>
+        <button class="btn-primary btn-sm" onclick="openModal('${u.id}','${u.role}')">Edit Role</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function openModal(id, role) {
+  editId = id;
+  document.getElementById('modal-role').value = role;
+  document.getElementById('modal').classList.add('open');
+}
+function closeModal() { document.getElementById('modal').classList.remove('open'); editId = null; }
+
+async function saveUser() {
+  const role = document.getElementById('modal-role').value;
+  const r = await apiFetch(`/api/admin/users/${editId}`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  });
+  if (!r) return;
+  const d = await r.json();
+  if (!r.ok) return showToast(d.message || 'Error', 'error');
+  showToast('User updated');
+  closeModal();
+  load(page);
+}
+
+load();
+</script>
+</body>
+</html>
