@@ -146,6 +146,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 24),
                           _accountSummary(lang, user),
                           const SizedBox(height: 24),
+                          _planSection(context, lang, user),
+                          const SizedBox(height: 24),
                           _menuOptions(context, lang),
                           const SizedBox(height: 24),
                           _logoutBtn(context, lang, userProvider),
@@ -380,6 +382,137 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _planSection(BuildContext context, LanguageProvider lang, UserData user) {
+    final isRTL = lang.isRTL;
+    final plan = user.plan.isEmpty ? 'free' : user.plan;
+    final isPro = plan == 'professional';
+
+    // ── Subscription card ─────────────────────────────────────────────────────
+    Widget subCard;
+    if (plan == 'free') {
+      subCard = Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8E1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFFCC02)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.upgrade_rounded,
+                color: Color(0xFFFF8F00), size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isRTL ? 'أنت على الخطة المجانية' : 'You\'re on the Free plan',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF7B5800),
+                        fontSize: 14),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isRTL
+                        ? 'قم بالترقية للوصول إلى التحليلات والتقارير والمزيد'
+                        : 'Upgrade to unlock analytics, reports & more',
+                    style: const TextStyle(
+                        color: Color(0xFF9E7000), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () => context.push('/subscription-plans'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF8F00),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(isRTL ? 'ترقية' : 'Upgrade',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      subCard = GestureDetector(
+        onTap: () => context.push('/subscription-plans'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isPro
+                ? const Color(0xFFF3E5F5)
+                : const Color(0xFFE3F2FD),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: isPro
+                    ? const Color(0xFFCE93D8)
+                    : const Color(0xFF90CAF9)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isPro ? Icons.workspace_premium_rounded : Icons.star_rounded,
+                color: isPro
+                    ? const Color(0xFF7B1FA2)
+                    : const Color(0xFF1565C0),
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isPro
+                          ? (isRTL ? 'خطة المحترف' : 'Professional Plan')
+                          : (isRTL ? 'خطة بريميوم' : 'Premium Plan'),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isPro
+                              ? const Color(0xFF4A148C)
+                              : const Color(0xFF0D47A1),
+                          fontSize: 14),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isRTL
+                          ? 'إدارة اشتراكك'
+                          : 'Manage your subscription',
+                      style: TextStyle(
+                          color: isPro
+                              ? const Color(0xFF7B1FA2)
+                              : const Color(0xFF1565C0),
+                          fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        subCard,
+      ],
     );
   }
 

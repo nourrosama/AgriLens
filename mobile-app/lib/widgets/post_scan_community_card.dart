@@ -7,7 +7,8 @@ import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/theme.dart';
 
 /// "From the Community" card shown at the bottom of the scan result screen.
-/// Lazily fetches 3 relevant posts based on the crop type and detected disease.
+/// Shows relevant community posts. Disease articles are accessed from the Home
+/// screen (Premium & Professional users only).
 class PostScanCommunityCard extends StatefulWidget {
   const PostScanCommunityCard({
     super.key,
@@ -60,14 +61,10 @@ class _PostScanCommunityCardState extends State<PostScanCommunityCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────────────────────
             Row(
               children: [
-                const Icon(
-                  Icons.people_alt_rounded,
-                  color: AppColors.primary,
-                  size: 20,
-                ),
+                const Icon(Icons.people_alt_rounded, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
                 Text(
                   isRTL ? 'من مجتمع المزارعين' : 'From the Community',
@@ -77,38 +74,16 @@ class _PostScanCommunityCardState extends State<PostScanCommunityCard> {
                     color: AppColors.primaryDark,
                   ),
                 ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: () {
-                    final params = <String, String>{};
-                    if (widget.disease.isNotEmpty) params['disease'] = widget.disease;
-                    if (widget.cropType.isNotEmpty) params['crop'] = widget.cropType;
-                    final query = params.entries
-                        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-                        .join('&');
-                    context.push('/disease-articles${query.isNotEmpty ? '?$query' : ''}');
-                  },
-                  child: Text(
-                    isRTL ? 'المزيد ←' : 'See more →',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 12),
 
+            // ── Posts list ───────────────────────────────────────────────────
             if (_loading)
               const Center(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 16),
-                  child: CircularProgressIndicator(
-                    color: AppColors.primary,
-                    strokeWidth: 2,
-                  ),
+                  child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2),
                 ),
               )
             else if (_posts == null || _posts!.isEmpty)
@@ -118,59 +93,22 @@ class _PostScanCommunityCardState extends State<PostScanCommunityCard> {
                   isRTL
                       ? 'لا توجد منشورات ذات صلة بعد'
                       : 'No related posts yet — be the first to share!',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 13,
-                  ),
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
               )
             else
-              Column(
-                children: _posts!
-                    .map((post) => _MiniPostTile(post: post))
-                    .toList(),
-              ),
+              Column(children: _posts!.map((p) => _MiniPostTile(post: p)).toList()),
 
             const SizedBox(height: 8),
-            // Disease articles button (only when a disease is known)
-            if (widget.disease.isNotEmpty) ...[
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () {
-                    final params = <String, String>{'disease': widget.disease};
-                    if (widget.cropType.isNotEmpty) params['crop'] = widget.cropType;
-                    final query = params.entries
-                        .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-                        .join('&');
-                    context.push('/disease-articles?$query');
-                  },
-                  icon: const Icon(Icons.article_rounded, size: 18),
-                  label: Text(
-                    isRTL
-                        ? 'مقالات عن هذا المرض'
-                        : 'Articles about this disease',
-                  ),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    minimumSize: const Size(0, 44),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-            // Open Forum button
+
+            // ── Open Forum button ────────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () => context.push('/feed'),
                 icon: const Icon(Icons.forum_rounded, size: 18),
-                label: Text(
-                  isRTL ? 'فتح المنتدى الزراعي' : 'Open Farmer Forum',
-                ),
-                style: OutlinedButton.styleFrom(
-                  minimumSize: const Size(0, 44),
-                ),
+                label: Text(isRTL ? 'فتح المنتدى الزراعي' : 'Open Farmer Forum'),
+                style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
               ),
             ),
           ],
@@ -179,6 +117,8 @@ class _PostScanCommunityCardState extends State<PostScanCommunityCard> {
     );
   }
 }
+
+// ── Mini post tile ─────────────────────────────────────────────────────────────
 
 class _MiniPostTile extends StatelessWidget {
   const _MiniPostTile({required this.post});
@@ -191,11 +131,7 @@ class _MiniPostTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.circle,
-            size: 6,
-            color: AppColors.primary,
-          ),
+          const Icon(Icons.circle, size: 6, color: AppColors.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

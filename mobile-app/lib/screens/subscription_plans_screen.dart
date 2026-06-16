@@ -7,22 +7,76 @@ import 'package:agrilens/core/user_provider.dart';
 
 // Prices in Egyptian Pounds
 const _plans = [
-  {
-    'key': 'free',
-    'priceEgp': 0,
-    'recommended': false,
-  },
-  {
-    'key': 'pro',
-    'priceEgp': 499,
-    'recommended': true,
-  },
-  {
-    'key': 'enterprise',
-    'priceEgp': 1499,
-    'recommended': false,
-  },
+  {'key': 'free',         'priceEgp': 0,    'recommended': false},
+  {'key': 'premium',      'priceEgp': 499,  'recommended': true},
+  {'key': 'professional', 'priceEgp': 1499, 'recommended': false},
 ];
+
+// ── Per-plan feature lists ─────────────────────────────────────────────────────
+
+const _featuresEn = {
+  'free': [
+    'Disease detection from image',
+    'Confidence score',
+    'Basic disease description',
+    'Basic treatment recommendations',
+    'Maximum 5 scans per month',
+  ],
+  'premium': [
+    'All Free features',
+    'Detailed AI-generated reports',
+    'Disease severity assessment',
+    'Symptoms and causes analysis',
+    'Recovery timeline',
+    'Preventive measures',
+    'Weather-based disease risk assessment',
+    'Personalized recommendations',
+    'Unlimited scans',
+    'AI agricultural chatbot',
+  ],
+  'professional': [
+    'All Premium features',
+    'PDF report generation',
+    'Disease history tracking',
+    'Farm dashboard',
+    'Disease trend analytics',
+    'Yield impact estimation',
+    'Treatment cost estimation',
+    'Farm-wide insights',
+  ],
+};
+
+const _featuresAr = {
+  'free': [
+    'كشف الأمراض من الصورة',
+    'درجة الثقة',
+    'وصف أساسي للمرض',
+    'توصيات علاج أساسية',
+    'حد أقصى 5 فحوصات شهرياً',
+  ],
+  'premium': [
+    'كل ميزات النسخة المجانية',
+    'تقارير تفصيلية بالذكاء الاصطناعي',
+    'تقييم شدة المرض',
+    'تحليل الأعراض والأسباب',
+    'الجدول الزمني للتعافي',
+    'تدابير وقائية',
+    'تقييم مخاطر الأمراض بناءً على الطقس',
+    'توصيات مخصصة',
+    'فحوصات غير محدودة',
+    'روبوت دردشة زراعي بالذكاء الاصطناعي',
+  ],
+  'professional': [
+    'كل ميزات بريميوم',
+    'إنشاء تقارير PDF',
+    'تتبع تاريخ الأمراض',
+    'لوحة تحكم المزرعة',
+    'تحليلات اتجاهات الأمراض',
+    'تقدير تأثير المحصول',
+    'تقدير تكلفة العلاج',
+    'رؤى على مستوى المزرعة',
+  ],
+};
 
 class SubscriptionPlansScreen extends StatelessWidget {
   const SubscriptionPlansScreen({super.key});
@@ -38,7 +92,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            // ── Header ──────────────────────────────────────────────────────
             Container(
               color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -76,39 +130,34 @@ class SubscriptionPlansScreen extends StatelessWidget {
               ),
             ),
 
-            // Trial expired banner
+            // ── Trial expired banner ─────────────────────────────────────────
             if (trialExpired)
               Container(
                 width: double.infinity,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 color: const Color(0xFFFFF3E0),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline,
-                        color: Color(0xFFE65100), size: 20),
+                    const Icon(Icons.info_outline, color: Color(0xFFE65100), size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         lang.t('subscription.trialExpiredBody'),
-                        style: const TextStyle(
-                            color: Color(0xFFE65100), fontSize: 13),
+                        style: const TextStyle(color: Color(0xFFE65100), fontSize: 13),
                       ),
                     ),
                   ],
                 ),
               ),
 
-            // Currency note
+            // ── Currency note ────────────────────────────────────────────────
             Container(
               width: double.infinity,
               color: const Color(0xFFF0FDF4),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
               child: Row(
                 children: [
-                  const Icon(Icons.payments_outlined,
-                      size: 16, color: AppColors.primaryDark),
+                  const Icon(Icons.payments_outlined, size: 16, color: AppColors.primaryDark),
                   const SizedBox(width: 8),
                   Text(
                     lang.isRTL
@@ -124,6 +173,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
               ),
             ),
 
+            // ── Plan cards ───────────────────────────────────────────────────
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -133,21 +183,11 @@ class SubscriptionPlansScreen extends StatelessWidget {
                       context,
                       lang,
                       planKey: 'free',
-                      name: lang.t('subscription.free'),
+                      name: lang.isRTL ? 'مجاني' : 'Free',
                       priceEgp: 0,
                       features: lang.isRTL
-                          ? [
-                              '5 فحوصات يومياً',
-                              'كشف أمراض أساسي',
-                              'حقل واحد',
-                              'تقارير أساسية',
-                            ]
-                          : [
-                              '5 scans / day',
-                              'Basic disease detection',
-                              '1 field',
-                              'Basic reports',
-                            ],
+                          ? _featuresAr['free']!
+                          : _featuresEn['free']!,
                       recommended: false,
                       isCurrent: user.plan == 'free',
                     ),
@@ -155,58 +195,31 @@ class SubscriptionPlansScreen extends StatelessWidget {
                     _planCard(
                       context,
                       lang,
-                      planKey: 'pro',
-                      name: lang.t('subscription.pro'),
+                      planKey: 'premium',
+                      name: lang.isRTL ? 'بريميوم' : 'Premium',
                       priceEgp: 499,
                       features: lang.isRTL
-                          ? [
-                              'فحوصات غير محدودة',
-                              'تحليل متقدم للأمراض',
-                              'حتى 10 حقول',
-                              'توقعات الأمراض',
-                              'تقارير PDF',
-                              'دعم عبر الدردشة',
-                            ]
-                          : [
-                              'Unlimited scans',
-                              'Advanced disease analysis',
-                              'Up to 10 fields',
-                              'Disease forecasting',
-                              'PDF reports',
-                              'Chat support',
-                            ],
+                          ? _featuresAr['premium']!
+                          : _featuresEn['premium']!,
                       recommended: true,
-                      isCurrent: user.plan == 'pro',
+                      isCurrent: user.plan == 'premium',
                     ),
                     const SizedBox(height: 16),
                     _planCard(
                       context,
                       lang,
-                      planKey: 'enterprise',
-                      name: lang.t('subscription.enterprise'),
+                      planKey: 'professional',
+                      name: lang.isRTL ? 'احترافي' : 'Professional',
                       priceEgp: 1499,
                       features: lang.isRTL
-                          ? [
-                              'كل ميزات برو',
-                              'حقول غير محدودة',
-                              'دعم أولوية 24/7',
-                              'وصول API مخصص',
-                              'تحليلات متقدمة',
-                              'مدير حساب مخصص',
-                            ]
-                          : [
-                              'All Pro features',
-                              'Unlimited fields',
-                              'Priority 24/7 support',
-                              'Custom API access',
-                              'Advanced analytics',
-                              'Dedicated account manager',
-                            ],
+                          ? _featuresAr['professional']!
+                          : _featuresEn['professional']!,
                       recommended: false,
-                      isCurrent: user.plan == 'enterprise',
+                      isCurrent: user.plan == 'professional',
                     ),
                     const SizedBox(height: 24),
-                    // Guarantee note
+
+                    // ── Guarantee note ───────────────────────────────────────
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -281,7 +294,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Badges row
+          // ── Badges ────────────────────────────────────────────────────────
           if (recommended || isCurrent)
             Padding(
               padding: const EdgeInsets.only(bottom: 12),
@@ -289,8 +302,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                 children: [
                   if (recommended)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(20),
@@ -306,8 +318,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                   if (recommended && isCurrent) const SizedBox(width: 8),
                   if (isCurrent)
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFFE8F5E9),
                         borderRadius: BorderRadius.circular(20),
@@ -324,7 +335,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
               ),
             ),
 
-          // Plan name
+          // ── Plan name ─────────────────────────────────────────────────────
           Text(
             name,
             style: const TextStyle(
@@ -335,7 +346,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
 
-          // Price
+          // ── Price ─────────────────────────────────────────────────────────
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -366,14 +377,17 @@ class SubscriptionPlansScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Features
+          // ── Features ──────────────────────────────────────────────────────
           ...features.map(
             (f) => Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check_circle,
-                      size: 18, color: AppColors.primary),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(Icons.check_circle, size: 18, color: AppColors.primary),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
@@ -381,6 +395,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 14,
+                        height: 1.4,
                       ),
                     ),
                   ),
@@ -390,7 +405,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // CTA Button
+          // ── CTA Button ────────────────────────────────────────────────────
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
@@ -404,8 +419,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                             'priceEgp': priceEgp,
                           }),
               style: ElevatedButton.styleFrom(
-                backgroundColor:
-                    isCurrent ? AppColors.border : AppColors.primary,
+                backgroundColor: isCurrent ? AppColors.border : AppColors.primary,
                 foregroundColor: isCurrent ? AppColors.textSecondary : Colors.white,
                 disabledBackgroundColor: AppColors.border,
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -419,8 +433,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                     : planKey == 'free'
                         ? (lang.isRTL ? 'الاستمرار مجاناً' : 'Continue Free')
                         : (lang.isRTL ? 'اشترك الآن' : 'Subscribe Now'),
-                style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
             ),
           ),

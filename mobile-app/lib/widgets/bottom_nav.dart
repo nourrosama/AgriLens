@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
+import 'package:agrilens/widgets/plan_gate.dart';
 
 class BottomNav extends StatelessWidget {
   final String active;
@@ -10,6 +13,11 @@ class BottomNav extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final user = context.watch<UserProvider>();
+
+    final isPremiumPlus = user.plan == 'premium' || user.plan == 'professional';
+    final isProfessional = user.plan == 'professional';
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -39,12 +47,24 @@ class BottomNav extends StatelessWidget {
               onTap: () => context.go('/home'),
             ),
           ),
+          // Fields → Professional only
           Expanded(
             child: _NavItem(
               icon: Icons.eco_rounded,
               label: lang.t('nav.fields'),
               isActive: active == 'fields',
-              onTap: () => context.go('/fields'),
+              locked: !isProfessional,
+              onTap: () {
+                if (isProfessional) {
+                  context.go('/fields');
+                } else {
+                  showPlanGateSheet(
+                    context,
+                    requiredPlan: 'professional',
+                    isRTL: lang.isRTL,
+                  );
+                }
+              },
             ),
           ),
           Expanded(
@@ -55,12 +75,24 @@ class BottomNav extends StatelessWidget {
               onTap: () => context.go('/feed'),
             ),
           ),
+          // Reports → Professional only
           Expanded(
             child: _NavItem(
               icon: Icons.bar_chart_rounded,
               label: lang.t('nav.reports'),
               isActive: active == 'reports',
-              onTap: () => context.go('/reports'),
+              locked: !isProfessional,
+              onTap: () {
+                if (isProfessional) {
+                  context.go('/reports');
+                } else {
+                  showPlanGateSheet(
+                    context,
+                    requiredPlan: 'professional',
+                    isRTL: lang.isRTL,
+                  );
+                }
+              },
             ),
           ),
           Expanded(
@@ -81,6 +113,7 @@ class _NavItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isActive;
+  final bool locked;
   final VoidCallback onTap;
 
   const _NavItem({
@@ -88,18 +121,47 @@ class _NavItem extends StatelessWidget {
     required this.label,
     required this.isActive,
     required this.onTap,
+    this.locked = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? const Color(0xFF4CAF50) : const Color(0xFF9E9E9E);
+    final color = isActive
+        ? const Color(0xFF4CAF50)
+        : locked
+            ? const Color(0xFFBDBDBD)
+            : const Color(0xFF9E9E9E);
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 24, color: color),
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(icon, size: 24, color: color),
+              if (locked)
+                Positioned(
+                  right: -4,
+                  top: -4,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFBDBDBD),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.lock_rounded,
+                      color: Colors.white,
+                      size: 7,
+                    ),
+                  ),
+                ),
+            ],
+          ),
           const SizedBox(height: 4),
           Text(
             label,

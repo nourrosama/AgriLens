@@ -10,7 +10,9 @@ import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/theme.dart';
+import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
+import 'package:agrilens/widgets/plan_gate.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -64,7 +66,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final user = context.watch<UserProvider>();
     final scanHistory = context.watch<ScanHistoryProvider>();
+
+    // Plan gate — Reports requires Professional
+    if (user.plan != 'professional') {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: GestureDetector(
+            onTap: () => context.pop(),
+            child: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+          ),
+          title: Text(
+            lang.isRTL ? 'التقارير' : 'Reports',
+            style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold),
+          ),
+        ),
+        bottomNavigationBar: const BottomNav(active: 'reports'),
+        body: PlanGateBody(requiredPlan: 'professional', isRTL: lang.isRTL),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,

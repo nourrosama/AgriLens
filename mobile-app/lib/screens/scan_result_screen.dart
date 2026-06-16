@@ -9,6 +9,7 @@ import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/app_config.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
+import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/widgets/post_scan_community_card.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,9 +91,15 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final user = context.watch<UserProvider>();
     final result = _resolveResult();
     final severityColor = _severityColor(result?.severity);
     final severityLabel = _severityLabel(lang, result?.severity ?? 'none');
+
+    // FREE users get a concise 2-section report.
+    // PREMIUM and PROFESSIONAL get the full detailed report.
+    final isPaidPlan =
+        user.plan == 'premium' || user.plan == 'professional';
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -178,6 +185,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                             failed: _reportFailed,
                             onRetry: _fetchReport,
                             lang: lang,
+                            isPaidPlan: isPaidPlan,
                           ),
                         ],
 
@@ -306,6 +314,7 @@ class _AiReportCard extends StatelessWidget {
     required this.failed,
     required this.onRetry,
     required this.lang,
+    required this.isPaidPlan,
   });
 
   final Map<String, dynamic>? report;
@@ -313,6 +322,8 @@ class _AiReportCard extends StatelessWidget {
   final bool failed;
   final VoidCallback onRetry;
   final LanguageProvider lang;
+  /// true = Premium or Professional (full report); false = Free (concise only)
+  final bool isPaidPlan;
 
   @override
   Widget build(BuildContext context) {
@@ -374,6 +385,118 @@ class _AiReportCard extends StatelessWidget {
             ? const Color(0xFFFFF3E0)
             : const Color(0xFFE8F5E9);
 
+    // ── FREE plan: concise report (description + basic treatment only) ────────
+    if (!isPaidPlan) {
+      return _card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Title
+            Row(
+              children: [
+                const Icon(Icons.analytics_outlined, color: Color(0xFF2E7D32), size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isAr ? 'وصف المرض' : 'Disease Overview',
+                    style: const TextStyle(
+                      color: Color(0xFF2E7D32),
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Basic disease description
+            if (r['what_is_it'] != null) ...[
+              Row(
+                children: [
+                  const Icon(Icons.info_outline, size: 18, color: Color(0xFF2E7D32)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      isAr ? 'ما هذا المرض؟' : 'What is this disease?',
+                      style: const TextStyle(
+                        color: Color(0xFF2E7D32),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Show only first 2 sentences for free users
+              Text(
+                _truncate(r['what_is_it'].toString(), 2),
+                style: const TextStyle(color: Color(0xFF424242), fontSize: 14, height: 1.6),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Basic treatment (organic only, first item)
+            if (_asList(r['treatment_organic']).isNotEmpty) ...[
+              _SectionTitle(
+                  icon: Icons.local_pharmacy_outlined,
+                  label: isAr ? 'توصية العلاج الأساسية' : 'Basic Treatment Recommendation'),
+              const SizedBox(height: 8),
+              _BulletRow(
+                text: _asList(r['treatment_organic']).first,
+                icon: Icons.circle,
+                iconColor: const Color(0xFF388E3C),
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            // Upgrade prompt
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.4)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.lock_outline, color: Color(0xFF2E7D32), size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isAr
+                              ? 'التقرير الكامل متاح لمشتركي بريميوم والاحترافي'
+                              : 'Full report available on Premium & Professional',
+                          style: const TextStyle(
+                            color: Color(0xFF2E7D32),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isAr
+                        ? 'يشمل: تقييم الشدة، الأعراض والأسباب، الجدول الزمني للتعافي، التدابير الوقائية، وأكثر.'
+                        : 'Includes: severity assessment, symptoms & causes, recovery timeline, preventive measures, and more.',
+                    style: const TextStyle(color: Color(0xFF616161), fontSize: 12, height: 1.5),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── PREMIUM / PROFESSIONAL: full detailed report ──────────────────────────
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,7 +521,7 @@ class _AiReportCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // ── Urgency banner ─────────────────────────────────────────────────
+          // ── Urgency banner ───────────────────────────────────────────────────
           if (r['urgency_label'] != null)
             Container(
               width: double.infinity,
@@ -434,13 +557,13 @@ class _AiReportCard extends StatelessWidget {
               ),
             ),
 
-          // ── What is it ─────────────────────────────────────────────────────
+          // ── What is it ───────────────────────────────────────────────────────
           if (r['what_is_it'] != null) ...[
             const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(Icons.info_outline, size: 18, color: const Color(0xFF2E7D32)),
+                const Icon(Icons.info_outline, size: 18, color: Color(0xFF2E7D32)),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
@@ -478,7 +601,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Estimated impact ────────────────────────────────────────────────
+          // ── Estimated impact ─────────────────────────────────────────────────
           if (r['estimated_impact'] != null) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.trending_down, label: isAr ? 'التأثير المتوقع على المحصول' : 'Estimated crop impact'),
@@ -490,7 +613,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Favorable conditions ────────────────────────────────────────────
+          // ── Favorable conditions ─────────────────────────────────────────────
           if (r['favorable_conditions'] != null) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.thermostat_outlined, label: isAr ? 'الظروف المناسبة للانتشار' : 'Conditions that favour spread'),
@@ -510,7 +633,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Economic threshold ──────────────────────────────────────────────
+          // ── Economic threshold ───────────────────────────────────────────────
           if (r['economic_threshold'] != null) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.monetization_on_outlined, label: isAr ? 'العتبة الاقتصادية للتدخل' : 'Economic treatment threshold'),
@@ -530,7 +653,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Symptoms ────────────────────────────────────────────────────────
+          // ── Symptoms ─────────────────────────────────────────────────────────
           if (_asList(r['symptoms']).isNotEmpty) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.search, label: isAr ? 'الأعراض للتحقق' : 'Symptoms to verify'),
@@ -540,7 +663,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Look-alike diseases ─────────────────────────────────────────────
+          // ── Look-alike diseases ──────────────────────────────────────────────
           if (_asList(r['look_alike_diseases']).isNotEmpty) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.compare_arrows_outlined, label: isAr ? 'أمراض مشابهة — كيف تميّز؟' : 'Similar diseases — how to tell apart'),
@@ -550,7 +673,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── How it spreads ──────────────────────────────────────────────────
+          // ── How it spreads ───────────────────────────────────────────────────
           if (r['how_spreads'] != null) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.air, label: isAr ? 'كيف ينتشر' : 'How it spreads'),
@@ -561,7 +684,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Immediate actions ───────────────────────────────────────────────
+          // ── Immediate actions ────────────────────────────────────────────────
           if (_asList(r['immediate_actions']).isNotEmpty) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.bolt, label: isAr ? 'الإجراءات الفورية (اليوم)' : 'Immediate actions (today)'),
@@ -571,7 +694,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Treatment ──────────────────────────────────────────────────────
+          // ── Treatment ────────────────────────────────────────────────────────
           const SizedBox(height: 16),
           _SectionTitle(icon: Icons.local_pharmacy_outlined, label: isAr ? 'خيارات العلاج' : 'Treatment options'),
           const SizedBox(height: 8),
@@ -591,7 +714,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── When to apply ───────────────────────────────────────────────────
+          // ── When to apply ────────────────────────────────────────────────────
           if (r['when_to_apply'] != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -609,7 +732,8 @@ class _AiReportCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      (isAr ? 'توقيت التطبيق: ' : 'When to apply: ') + r['when_to_apply'].toString(),
+                      (isAr ? 'توقيت التطبيق: ' : 'When to apply: ') +
+                          r['when_to_apply'].toString(),
                       style: const TextStyle(color: Color(0xFF0D47A1), fontSize: 13, height: 1.5),
                     ),
                   ),
@@ -618,7 +742,7 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Prevention ─────────────────────────────────────────────────────
+          // ── Prevention ───────────────────────────────────────────────────────
           if (_asList(r['prevention']).isNotEmpty) ...[
             const SizedBox(height: 16),
             _SectionTitle(icon: Icons.shield_outlined, label: isAr ? 'الوقاية' : 'Prevention'),
@@ -628,7 +752,18 @@ class _AiReportCard extends StatelessWidget {
             ),
           ],
 
-          // ── Confidence note ─────────────────────────────────────────────────
+          // ── Recovery timeline ─────────────────────────────────────────────────
+          if (r['recovery_timeline'] != null) ...[
+            const SizedBox(height: 16),
+            _SectionTitle(
+              icon: Icons.timeline_rounded,
+              label: isAr ? 'الجدول الزمني للتعافي' : 'Recovery timeline',
+            ),
+            const SizedBox(height: 10),
+            _RecoveryTimeline(timeline: r['recovery_timeline'], isAr: isAr),
+          ],
+
+          // ── Confidence note ──────────────────────────────────────────────────
           if (r['confidence_note'] != null) ...[
             const SizedBox(height: 16),
             Container(
@@ -646,11 +781,7 @@ class _AiReportCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       r['confidence_note'].toString(),
-                      style: const TextStyle(
-                        color: Color(0xFF616161),
-                        fontSize: 13,
-                        height: 1.5,
-                      ),
+                      style: const TextStyle(color: Color(0xFF616161), fontSize: 13, height: 1.5),
                     ),
                   ),
                 ],
@@ -660,6 +791,13 @@ class _AiReportCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// Returns the first [n] sentences of [text].
+  String _truncate(String text, int sentences) {
+    final matches = RegExp(r'[^.!?]+[.!?]+').allMatches(text).take(sentences);
+    if (matches.isEmpty) return text;
+    return matches.map((m) => m.group(0)!).join(' ').trim();
   }
 
   List<String> _asList(dynamic value) {
@@ -684,6 +822,137 @@ class _AiReportCard extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Small reusable widgets inside the report card
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Recovery Timeline Widget
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _RecoveryTimeline extends StatelessWidget {
+  const _RecoveryTimeline({required this.timeline, required this.isAr});
+  final dynamic timeline;
+  final bool isAr;
+
+  @override
+  Widget build(BuildContext context) {
+    // timeline may be a List of step objects or a plain String
+    if (timeline is List) {
+      final steps = (timeline as List).cast<dynamic>();
+      return Column(
+        children: steps.asMap().entries.map((e) {
+          final step = e.value;
+          final isLast = e.key == steps.length - 1;
+          final label = step is Map
+              ? (step['label']?.toString() ?? step['phase']?.toString() ?? 'Step ${e.key + 1}')
+              : step.toString();
+          final duration = step is Map ? step['duration']?.toString() : null;
+          final detail = step is Map ? step['detail']?.toString() : null;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF4CAF50),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${e.key + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (!isLast)
+                    Container(width: 2, height: 36, color: const Color(0xFFBDBDBD)),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              label,
+                              style: const TextStyle(
+                                color: Color(0xFF2E7D32),
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          if (duration != null)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F5E9),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                duration,
+                                style: const TextStyle(
+                                  color: Color(0xFF388E3C),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (detail != null) ...[
+                        const SizedBox(height: 3),
+                        Text(
+                          detail,
+                          style: const TextStyle(
+                            color: Color(0xFF757575),
+                            fontSize: 12,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      );
+    }
+    // Plain text fallback
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFF4CAF50).withValues(alpha: 0.4)),
+      ),
+      child: Text(
+        timeline.toString(),
+        style: const TextStyle(
+          color: Color(0xFF2E7D32),
+          fontSize: 13,
+          height: 1.5,
+        ),
+      ),
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SectionTitle extends StatelessWidget {

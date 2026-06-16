@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import 'package:agrilens/core/fields_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/theme.dart';
+import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
+import 'package:agrilens/widgets/plan_gate.dart';
 
 class MyFieldsScreen extends StatelessWidget {
   const MyFieldsScreen({super.key});
@@ -14,8 +16,30 @@ class MyFieldsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final user = context.watch<UserProvider>();
     final fieldsProvider = context.watch<FieldsProvider>();
     final fields = fieldsProvider.fields;
+
+    // Plan gate — My Fields requires Professional
+    if (user.plan != 'professional') {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: GestureDetector(
+            onTap: () => context.pop(),
+            child: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+          ),
+          title: Text(
+            lang.t('home.myFields'),
+            style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold),
+          ),
+        ),
+        bottomNavigationBar: const BottomNav(active: 'fields'),
+        body: PlanGateBody(requiredPlan: 'professional', isRTL: lang.isRTL),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,

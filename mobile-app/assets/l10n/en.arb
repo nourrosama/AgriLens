@@ -372,5 +372,10 @@
   "tutorial.step6Title": "Ask AgriBot",
   "tutorial.step6": "Use the assistant for quick explanations and prevention tips.",
   "tutorial.watchVideo": "Watch Video Tutorial",
-  "tutorial.restart": "Restart Tutorial"
+  "tutorial.restart": "Restart Tutorial",
+  "home.goodAfternoon": "Good afternoon",
+  "home.goodEvening": "Good evening",
+  "home.goodNight": "Good night",
+  "subscription.trialActive": "Trial active",
+  "subscription.trialDaysLeft": "days left"
 }

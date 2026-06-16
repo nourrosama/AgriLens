@@ -9,6 +9,7 @@ import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
+import 'package:agrilens/widgets/plan_gate.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -26,7 +27,7 @@ class HomeScreen extends StatelessWidget {
     final activeDiseases = scans.activeDiseasesCount;
     final healthPercent = totalScans > 0
         ? ((totalScans - activeDiseases) / totalScans * 100).round()
-        : 85;
+        : 100;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -481,23 +482,53 @@ class HomeScreen extends StatelessWidget {
                       // Quick Actions Grid
                       Row(
                         children: [
+                          // My Fields — Professional only
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => context.push('/fields'),
+                              onTap: () {
+                                if (user.plan == 'professional') {
+                                  context.push('/fields');
+                                } else {
+                                  showPlanGateSheet(
+                                    context,
+                                    requiredPlan: 'professional',
+                                    isRTL: lang.isRTL,
+                                  );
+                                }
+                              },
                               child: _buildCard(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(
-                                      Icons.eco_rounded,
-                                      size: 40,
-                                      color: Color(0xFF4CAF50),
+                                    Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Icon(
+                                          Icons.eco_rounded,
+                                          size: 40,
+                                          color: user.plan == 'professional'
+                                              ? const Color(0xFF4CAF50)
+                                              : const Color(0xFFBDBDBD),
+                                        ),
+                                        if (user.plan != 'professional')
+                                          const Positioned(
+                                            right: -4,
+                                            top: -4,
+                                            child: Icon(
+                                              Icons.lock_rounded,
+                                              size: 16,
+                                              color: Color(0xFF9E9E9E),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
                                       lang.t('home.myFields'),
-                                      style: const TextStyle(
-                                        color: Color(0xFF2E7D32),
+                                      style: TextStyle(
+                                        color: user.plan == 'professional'
+                                            ? const Color(0xFF2E7D32)
+                                            : const Color(0xFF9E9E9E),
                                         fontSize: 18,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -508,23 +539,56 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 16),
+                          // Forecasting — Premium+ only
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => context.push('/forecasting'),
+                              onTap: () {
+                                if (user.plan == 'premium' ||
+                                    user.plan == 'professional') {
+                                  context.push('/forecasting');
+                                } else {
+                                  showPlanGateSheet(
+                                    context,
+                                    requiredPlan: 'premium',
+                                    isRTL: lang.isRTL,
+                                  );
+                                }
+                              },
                               child: _buildCard(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(
-                                      Icons.trending_up_rounded,
-                                      size: 40,
-                                      color: Color(0xFF4CAF50),
+                                    Stack(
+                                      clipBehavior: Clip.none,
+                                      children: [
+                                        Icon(
+                                          Icons.trending_up_rounded,
+                                          size: 40,
+                                          color: (user.plan == 'premium' ||
+                                                  user.plan == 'professional')
+                                              ? const Color(0xFF4CAF50)
+                                              : const Color(0xFFBDBDBD),
+                                        ),
+                                        if (user.plan == 'free')
+                                          const Positioned(
+                                            right: -4,
+                                            top: -4,
+                                            child: Icon(
+                                              Icons.lock_rounded,
+                                              size: 16,
+                                              color: Color(0xFF9E9E9E),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
                                       lang.t('home.forecasting'),
-                                      style: const TextStyle(
-                                        color: Color(0xFF2E7D32),
+                                      style: TextStyle(
+                                        color: (user.plan == 'premium' ||
+                                                user.plan == 'professional')
+                                            ? const Color(0xFF2E7D32)
+                                            : const Color(0xFF9E9E9E),
                                         fontSize: 18,
                                         fontWeight: FontWeight.w500,
                                       ),
@@ -536,6 +600,85 @@ class HomeScreen extends StatelessWidget {
                           ),
                         ],
                       ),
+                      const SizedBox(height: 24),
+
+                      // ── Disease Articles card ──────────────────────────────
+                      _buildArticlesCard(context, lang, user),
+                      const SizedBox(height: 24),
+
+                      // ── Premium Feature Cards ──────────────────────────────
+                      _buildSectionHeader(
+                        lang.isRTL ? '✨ مميزات بريميوم' : '✨ Premium Features',
+                        const Color(0xFF1565C0),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildFeatureRow(context, lang, user, [
+                        _FeatureCardData(
+                          icon: Icons.camera_alt_rounded,
+                          labelEn: 'Batch Scan',
+                          labelAr: 'مسح متعدد',
+                          route: '/batch-scan',
+                          requiredPlan: 'premium',
+                        ),
+                        _FeatureCardData(
+                          icon: Icons.sticky_note_2_rounded,
+                          labelEn: 'Scan Notes',
+                          labelAr: 'ملاحظات الفحص',
+                          route: '/disease-history',
+                          requiredPlan: 'premium',
+                        ),
+                      ]),
+                      const SizedBox(height: 24),
+
+                      // ── Professional Feature Cards ─────────────────────────
+                      _buildSectionHeader(
+                        lang.isRTL ? '🏆 أدوات المحترفين' : '🏆 Professional Tools',
+                        const Color(0xFF6A1B9A),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildFeatureRow(context, lang, user, [
+                        _FeatureCardData(
+                          icon: Icons.history_rounded,
+                          labelEn: 'Disease History',
+                          labelAr: 'سجل الأمراض',
+                          route: '/disease-history',
+                          requiredPlan: 'professional',
+                        ),
+                        _FeatureCardData(
+                          icon: Icons.bar_chart_rounded,
+                          labelEn: 'Disease Trends',
+                          labelAr: 'تحليل الأمراض',
+                          route: '/disease-trends',
+                          requiredPlan: 'professional',
+                        ),
+                      ]),
+                      const SizedBox(height: 12),
+                      _buildFeatureRow(context, lang, user, [
+                        _FeatureCardData(
+                          icon: Icons.map_rounded,
+                          labelEn: 'Spread Map',
+                          labelAr: 'خريطة الأمراض',
+                          route: '/disease-spread-map',
+                          requiredPlan: 'professional',
+                        ),
+                        _FeatureCardData(
+                          icon: Icons.group_rounded,
+                          labelEn: 'Farm Team',
+                          labelAr: 'فريق المزرعة',
+                          route: '/farm-team',
+                          requiredPlan: 'professional',
+                        ),
+                      ]),
+                      const SizedBox(height: 12),
+                      _buildFeatureRow(context, lang, user, [
+                        _FeatureCardData(
+                          icon: Icons.schedule_rounded,
+                          labelEn: 'Field Reports',
+                          labelAr: 'تقارير مجدولة',
+                          route: '/scheduled-reports',
+                          requiredPlan: 'professional',
+                        ),
+                      ]),
                     ],
                   ),
                 ),
@@ -553,6 +696,126 @@ class HomeScreen extends StatelessWidget {
 
           // Chatbot FAB
           const ChatbotButton(),
+        ],
+      ),
+    );
+  }
+
+  /// Disease Articles card — available to Premium & Professional users.
+  /// Free users see a locked prompt with an upgrade link.
+  Widget _buildArticlesCard(
+    BuildContext context,
+    LanguageProvider lang,
+    UserProvider user,
+  ) {
+    final isRTL = lang.isRTL;
+    final canAccess =
+        user.plan == 'premium' || user.plan == 'professional';
+
+    if (canAccess) {
+      return GestureDetector(
+        onTap: () => context.push('/articles-browser'),
+        child: _buildCard(
+          child: Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.article_rounded,
+                  color: Color(0xFF2E7D32),
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isRTL ? 'مقالات الأمراض' : 'Disease Articles',
+                      style: const TextStyle(
+                        color: Color(0xFF2E7D32),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isRTL
+                          ? 'تصفح المقالات العلمية والمجتمعية'
+                          : 'Browse scientific & community articles',
+                      style: const TextStyle(
+                        color: Color(0xFF757575),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right,
+                color: Color(0xFF4CAF50),
+                size: 24,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Free plan — locked card
+    return _buildCard(
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF5F5F5),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.lock_outline, color: Color(0xFF9E9E9E), size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isRTL ? 'مقالات الأمراض' : 'Disease Articles',
+                  style: const TextStyle(
+                    color: Color(0xFF9E9E9E),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  isRTL
+                      ? 'متاح لمشتركي بريميوم والاحترافي'
+                      : 'Available on Premium & Professional',
+                  style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 13),
+                ),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: () => context.push('/subscription-plans'),
+                  child: Text(
+                    isRTL ? 'ترقية الخطة ←' : 'Upgrade plan →',
+                    style: const TextStyle(
+                      color: Color(0xFF4CAF50),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -576,6 +839,113 @@ class HomeScreen extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE0E0E0)),
       ),
       child: child,
+    );
+  }
+
+  Widget _buildSectionHeader(String label, Color color) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureRow(
+    BuildContext context,
+    LanguageProvider lang,
+    UserProvider user,
+    List<_FeatureCardData> cards,
+  ) {
+    return Row(
+      children: [
+        for (int i = 0; i < cards.length; i++) ...[
+          if (i > 0) const SizedBox(width: 12),
+          Expanded(child: _buildFeatureCard(context, lang, user, cards[i])),
+        ],
+        // Pad if odd number
+        if (cards.length == 1) ...[const SizedBox(width: 12), const Expanded(child: SizedBox())],
+      ],
+    );
+  }
+
+  Widget _buildFeatureCard(
+    BuildContext context,
+    LanguageProvider lang,
+    UserProvider user,
+    _FeatureCardData card,
+  ) {
+    final isPremiumPlus =
+        user.plan == 'premium' || user.plan == 'professional';
+    final canAccess = card.requiredPlan == 'premium'
+        ? isPremiumPlus
+        : user.plan == 'professional';
+    final label = lang.isRTL ? card.labelAr : card.labelEn;
+
+    return GestureDetector(
+      onTap: () {
+        if (canAccess) {
+          context.push(card.route);
+        } else {
+          showPlanGateSheet(
+            context,
+            requiredPlan: card.requiredPlan,
+            isRTL: lang.isRTL,
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        decoration: BoxDecoration(
+          color: canAccess ? Colors.white : const Color(0xFFF9F9F9),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: canAccess
+                ? const Color(0xFFE0E0E0)
+                : const Color(0xFFEEEEEE),
+          ),
+        ),
+        child: Column(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(
+                  card.icon,
+                  size: 32,
+                  color: canAccess
+                      ? const Color(0xFF4CAF50)
+                      : const Color(0xFFBDBDBD),
+                ),
+                if (!canAccess)
+                  const Positioned(
+                    right: -6,
+                    top: -4,
+                    child: Icon(Icons.lock_rounded,
+                        size: 14, color: Color(0xFF9E9E9E)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: canAccess
+                    ? const Color(0xFF2E7D32)
+                    : const Color(0xFF9E9E9E),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -623,4 +993,20 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+// ─── Data class for feature cards ─────────────────────────────────────────────
+class _FeatureCardData {
+  const _FeatureCardData({
+    required this.icon,
+    required this.labelEn,
+    required this.labelAr,
+    required this.route,
+    required this.requiredPlan,
+  });
+  final IconData icon;
+  final String labelEn;
+  final String labelAr;
+  final String route;
+  final String requiredPlan; // 'premium' | 'professional'
 }
