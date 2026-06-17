@@ -66,12 +66,15 @@ class _PostScanCommunityCardState extends State<PostScanCommunityCard> {
               children: [
                 const Icon(Icons.people_alt_rounded, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
-                Text(
-                  isRTL ? 'من مجتمع المزارعين' : 'From the Community',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryDark,
+                Flexible(
+                  child: Text(
+                    isRTL ? 'من مجتمع المزارعين' : 'From the Community',
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primaryDark,
+                    ),
                   ),
                 ),
               ],

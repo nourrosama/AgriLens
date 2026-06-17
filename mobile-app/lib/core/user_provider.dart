@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'api_client.dart';
 import 'session_storage.dart';
@@ -88,11 +89,27 @@ class UserData {
   }
 }
 
-class UserProvider extends ChangeNotifier {
+class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
   UserProvider({ApiClient? apiClient, SessionStorage? sessionStorage})
     : _apiClient = apiClient ?? ApiClient(),
       _sessionStorage = sessionStorage ?? SessionStorage() {
     hydrate();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-register the FCM token on app resume so a token that rotated while
+  /// the app was in the background is always up to date in the backend.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _user.isLoggedIn) {
+      unawaited(_registerFcmToken());
+    }
   }
 
   final ApiClient _apiClient;
@@ -419,6 +436,22 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> _registerFcmToken() async {
+    // Wire the refresh callback every time so a rotated token is always
+    // re-sent even if this method is called multiple times (idempotent).
+    FcmService.onTokenRefresh = (newToken) async {
+      if (!_user.isLoggedIn) return;
+      try {
+        await _apiClient.post(
+          '/api/notifications/device-token',
+          body: {'token': newToken},
+          auth: true,
+        );
+        debugPrint('[FCM] Refreshed token registered with backend');
+      } catch (e) {
+        debugPrint('[FCM] Refreshed token registration failed: $e');
+      }
+    };
+
     final token = await FcmService.getToken();
     if (token == null) return;
     try {

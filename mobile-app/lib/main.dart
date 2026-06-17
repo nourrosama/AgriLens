@@ -22,7 +22,18 @@ import 'package:agrilens/core/fcm_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FcmService.init();
+
+  // Navigate to the scan result screen when a notification is tapped.
+  FcmService.onNotificationTap = (scanId) {
+    appRouter.push('/scan-result', extra: scanId);
+  };
+
   runApp(const AgriLensApp());
+
+  // If the app was cold-started by tapping a notification, the router wasn't
+  // mounted yet when FcmService.init() ran. consumePendingDeepLink() defers the
+  // navigation to the first rendered frame, by which time the router is ready.
+  FcmService.consumePendingDeepLink();
 }
 
 class AgriLensApp extends StatelessWidget {
@@ -33,10 +44,33 @@ class AgriLensApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => LanguageProvider()),
-        ChangeNotifierProvider(create: (_) => FieldsProvider()),
+        // UserProvider must come before any ProxyProvider that depends on it.
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => NotificationsProvider()),
-        ChangeNotifierProvider(create: (_) => ScanHistoryProvider()),
+        // These three hold user-specific data and must clear when the user
+        // logs out or switches accounts. The proxy calls onUserChanged()
+        // whenever UserProvider notifies; the provider itself guards against
+        // no-op calls (same userId → early return).
+        ChangeNotifierProxyProvider<UserProvider, FieldsProvider>(
+          create: (_) => FieldsProvider(),
+          update: (_, user, prev) {
+            prev!.onUserChanged(user.isLoggedIn ? user.userId : '');
+            return prev;
+          },
+        ),
+        ChangeNotifierProxyProvider<UserProvider, NotificationsProvider>(
+          create: (_) => NotificationsProvider(),
+          update: (_, user, prev) {
+            prev!.onUserChanged(user.isLoggedIn ? user.userId : '');
+            return prev;
+          },
+        ),
+        ChangeNotifierProxyProvider<UserProvider, ScanHistoryProvider>(
+          create: (_) => ScanHistoryProvider(),
+          update: (_, user, prev) {
+            prev!.onUserChanged(user.isLoggedIn ? user.userId : '');
+            return prev;
+          },
+        ),
         ChangeNotifierProvider(create: (_) => ChatHistoryProvider()),
         ChangeNotifierProvider(create: (_) => ForumProvider()),
         ChangeNotifierProvider(create: (_) => CommunityProvider()),

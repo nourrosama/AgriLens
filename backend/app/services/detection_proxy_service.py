@@ -285,6 +285,10 @@ def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
     """
     base = current_app.config.get('DETECTION_SERVICE_URL', 'http://localhost:5001')
     url = f'{base}/api/detect'
+    timeout = (
+        float(current_app.config.get('DETECTION_CONNECT_TIMEOUT', 5)),
+        float(current_app.config.get('DETECTION_REQUEST_TIMEOUT', 120)),
+    )
 
     try:
         if os.path.exists(image_path_or_url):
@@ -293,7 +297,7 @@ def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
                     url,
                     files={'image': file_obj},
                     data={'crop_type': crop_type, 'include_gradcam': 'true'},
-                    timeout=30,
+                    timeout=timeout,
                 )
         else:
             resp = requests.post(
@@ -303,7 +307,7 @@ def detect(image_path_or_url: str, crop_type: str = '') -> dict | None:
                     'crop_type': crop_type,
                     'include_gradcam': True,
                 },
-                timeout=30,
+                timeout=timeout,
             )
 
         if resp.status_code == 200:

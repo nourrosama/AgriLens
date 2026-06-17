@@ -168,6 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _userInfo(
+    BuildContext context,
     LanguageProvider lang,
     UserData user,
     FieldsProvider fieldsProvider,
@@ -234,6 +235,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => context.push('/scan-history'),
+                  child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
+                ),
+              ),
+              Expanded(
+                child: _stat(
+                  '${fieldsProvider.fields.length}',
+                  lang.t('nav.fields'),
+                ),
+              ),
+              Expanded(
+                child: _stat(
+                  '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
+                  lang.t('fields.healthScore'),
           scanProvider.isLoading
               ? const SizedBox(
                   height: 40,

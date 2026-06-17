@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -11,8 +13,37 @@ import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
 import 'package:agrilens/widgets/plan_gate.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  late final Timer _greetingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Tick every minute so the greeting switches at the exact boundary hour.
+    _greetingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _greetingTimer.cancel();
+    super.dispose();
+  }
+
+  String _greetingKey() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) return 'home.goodMorning';
+    if (hour >= 12 && hour < 18) return 'home.goodAfternoon';
+    return 'home.goodEvening';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +113,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '${_greeting(lang)}, ${user.fullName ?? lang.t('home.farmer')}',
+                            '${lang.t(_greetingKey())}, ${user.fullName ?? lang.t('home.farmer')}',
                             style: const TextStyle(
                               color: Color(0xFF424242),
                               fontSize: 14,
@@ -305,46 +336,36 @@ class HomeScreen extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            // Dynamic alerts from notifications
-                            _buildAlertBubble(
-                              notifications.notifications.isNotEmpty
-                                  ? (lang.isRTL
-                                        ? notifications
-                                              .notifications
-                                              .first
-                                              .titleAr
-                                        : notifications
-                                              .notifications
-                                              .first
-                                              .titleEn)
-                                  : lang.t('home.moderateRisk'),
-                              notifications.notifications.isNotEmpty
-                                  ? (lang.isRTL
-                                        ? notifications
-                                              .notifications
-                                              .first
-                                              .messageAr
-                                        : notifications
-                                              .notifications
-                                              .first
-                                              .messageEn)
-                                  : (lang.isRTL
-                                        ? 'القسم الشمالي - الحقل أ'
-                                        : 'Field A - North Section'),
-                              const Color(0xFFFFF3E0),
-                              Icons.warning_amber_rounded,
-                              const Color(0xFFFFC107),
-                            ),
-                            const SizedBox(height: 12),
-                            _buildAlertBubble(
-                              lang.t('home.treatmentComplete'),
-                              lang.isRTL
-                                  ? 'القسم الشرقي - الحقل ب'
-                                  : 'Field B - East Section',
-                              const Color(0xFFE8F5E9),
-                              Icons.eco_rounded,
-                              const Color(0xFF4CAF50),
-                            ),
+                            // First alert: most recent notification, or empty state
+                            if (notifications.notifications.isNotEmpty)
+                              _buildAlertBubble(
+                                lang.isRTL
+                                    ? notifications.notifications.first.titleAr
+                                    : notifications.notifications.first.titleEn,
+                                lang.isRTL
+                                    ? notifications.notifications.first.messageAr
+                                    : notifications.notifications.first.messageEn,
+                                notifications.notifications.first.bgColor,
+                                notifications.notifications.first.icon,
+                                notifications.notifications.first.color,
+                              )
+                            else
+                              _buildEmptyAlerts(lang),
+                            // Second alert: second notification if available
+                            if (notifications.notifications.length > 1) ...[
+                              const SizedBox(height: 12),
+                              _buildAlertBubble(
+                                lang.isRTL
+                                    ? notifications.notifications[1].titleAr
+                                    : notifications.notifications[1].titleEn,
+                                lang.isRTL
+                                    ? notifications.notifications[1].messageAr
+                                    : notifications.notifications[1].messageEn,
+                                notifications.notifications[1].bgColor,
+                                notifications.notifications[1].icon,
+                                notifications.notifications[1].color,
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -988,6 +1009,27 @@ class HomeScreen extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyAlerts(LanguageProvider lang) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_outline,
+              color: Color(0xFF9E9E9E), size: 20),
+          const SizedBox(width: 12),
+          Text(
+            lang.isRTL ? 'لا توجد تنبيهات نشطة' : 'No active alerts',
+            style: const TextStyle(color: Color(0xFF9E9E9E), fontSize: 14),
           ),
         ],
       ),

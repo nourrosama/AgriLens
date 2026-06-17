@@ -27,8 +27,4 @@ def create_app():
 
     app.register_blueprint(health_bp)
     init_runtime(app)
-
-    from app.observers.event_consumer import start_consumer
-
-    start_consumer(app)
     return app

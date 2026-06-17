@@ -29,10 +29,34 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   bool _reportFailed = false;
   bool _reportExpanded = false; // only shown after button tap
 
+  @override
+  void initState() {
+    super.initState();
+    // When navigating here from a notification tap, `extra` is a scan ID string.
+    // History may not be loaded yet, so trigger a refresh and rebuild.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final extra = GoRouterState.of(context).extra;
+      if (extra is String && extra.isNotEmpty) {
+        context.read<ScanHistoryProvider>().loadScans().then((_) {
+          if (mounted) setState(() {});
+        });
+      }
+    });
+  }
+
   ScanResult? _resolveResult() {
     final extra = GoRouterState.of(context).extra;
     if (extra is ScanResult) return extra;
     final scans = context.read<ScanHistoryProvider>().scans;
+    // Notification deep-link: extra is the scan ID string.
+    if (extra is String && extra.isNotEmpty) {
+      try {
+        return scans.firstWhere((s) => s.id == extra);
+      } catch (_) {
+        return null; // still loading — initState will trigger a rebuild
+      }
+    }
     return scans.isEmpty ? null : scans.first;
   }
 

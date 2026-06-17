@@ -139,41 +139,67 @@ class NotificationsScreen extends StatelessWidget {
   }
 
   Widget _buildNotifCard(NotificationData n, LanguageProvider lang) {
+    final isRead = n.isRead;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: n.bgColor,
+        color: isRead ? Colors.white : n.bgColor,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(n.icon, size: 24, color: n.color),
+          Icon(
+            n.icon,
+            size: 24,
+            color: isRead ? const Color(0xFFBDBDBD) : n.color,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  lang.isRTL ? n.titleAr : n.titleEn,
-                  style: const TextStyle(
-                    color: Color(0xFF2E7D32),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        lang.isRTL ? n.titleAr : n.titleEn,
+                        style: TextStyle(
+                          color: isRead
+                              ? const Color(0xFF757575)
+                              : const Color(0xFF2E7D32),
+                          fontSize: 16,
+                          fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (!isRead)
+                      Container(
+                        width: 8,
+                        height: 8,
+                        margin: const EdgeInsets.only(left: 8),
+                        decoration: BoxDecoration(
+                          color: n.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
                   lang.isRTL ? n.messageAr : n.messageEn,
-                  style: const TextStyle(
-                    color: Color(0xFF424242),
+                  style: TextStyle(
+                    color: isRead
+                        ? const Color(0xFF9E9E9E)
+                        : const Color(0xFF424242),
                     fontSize: 14,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  lang.isRTL ? n.timeAr : n.timeEn,
+                  n.timeLabel(lang.isRTL),
                   style: TextStyle(
                     color: const Color(0xFF424242).withValues(alpha: 0.7),
                     fontSize: 12,
