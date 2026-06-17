@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriLens Admin — Broadcast</title>
+<link rel="stylesheet" href="_layout.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h1>🌿 AgriLens</h1><p>Admin Panel</p></div>
+  <div class="nav">
+    <a class="nav-link" href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+    <a class="nav-link" href="users.html"><span class="icon">👥</span> Users</a>
+    <a class="nav-link" href="scans.html"><span class="icon">🔬</span> Scans</a>
+    <a class="nav-link" href="articles.html"><span class="icon">📰</span> Articles</a>
+    <a class="nav-link" href="notifications.html"><span class="icon">🔔</span> Broadcast</a>
+    <a class="nav-link" href="audit.html"><span class="icon">📋</span> Audit Logs</a>
+  </div>
+  <div class="sidebar-footer">
+    <span id="admin-name"></span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">Broadcast Notification</div>
+  <div class="content">
+    <div class="table-card" style="max-width:560px;padding:28px">
+      <h2 style="margin-bottom:20px;color:#1b5e20">Send to Users</h2>
+      <div class="form-field">
+        <label>Audience</label>
+        <select id="role">
+          <option value="">All users</option>
+          <option value="farmer">Farmers only</option>
+          <option value="researcher">Researchers only</option>
+        </select>
+      </div>
+      <div class="form-field">
+        <label>Title</label>
+        <input type="text" id="title" placeholder="Notification title">
+      </div>
+      <div class="form-field">
+        <label>Message</label>
+        <textarea id="message" rows="5" placeholder="Your message..."></textarea>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;margin-top:8px">
+        <button class="btn-primary" onclick="send()">Send Notification</button>
+        <span id="result" style="font-size:13px;color:#2e7d32"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="_base.js"></script>
+<script>
+function showToast(msg, type = 'success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function send() {
+  const title   = document.getElementById('title').value.trim();
+  const message = document.getElementById('message').value.trim();
+  const role    = document.getElementById('role').value;
+  if (!title || !message) return showToast('Title and message are required', 'error');
+
+  const r = await apiFetch('/api/admin/notifications/broadcast', {
+    method: 'POST',
+    body: JSON.stringify({ title, message, role }),
+  });
+  if (!r) return;
+  const d = await r.json();
+  if (!r.ok) return showToast(d.message || 'Error', 'error');
+  document.getElementById('result').textContent = `✓ Sent to ${d.data.recipients} users`;
+  document.getElementById('title').value   = '';
+  document.getElementById('message').value = '';
+  showToast(`Sent to ${d.data.recipients} users`);
+}
+</script>
+</body>
+</html>

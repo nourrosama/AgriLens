@@ -11,6 +11,7 @@ import 'package:agrilens/core/chat_history_store.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/user_provider.dart';
+import 'package:agrilens/widgets/plan_gate.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Screen
@@ -120,8 +121,29 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final user = context.watch<UserProvider>();
     final history = context.watch<ChatHistoryProvider>();
     final msgs = history.currentMessages;
+
+    // Plan gate — chatbot requires Premium or Professional
+    if (user.plan == 'free') {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: GestureDetector(
+            onTap: () => context.pop(),
+            child: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+          ),
+          title: Text(
+            lang.isRTL ? 'المساعد الزراعي' : 'AI Chatbot',
+            style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold),
+          ),
+        ),
+        body: PlanGateBody(requiredPlan: 'premium', isRTL: lang.isRTL),
+      );
+    }
 
     final suggestions = [
       lang.t('chat.question1'),

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgriLens Admin — Dashboard</title>
+<link rel="stylesheet" href="_layout.css">
+</head>
+<body>
+
+<nav class="sidebar">
+  <div class="sidebar-logo"><h1>🌿 AgriLens</h1><p>Admin Panel</p></div>
+  <div class="nav">
+    <a class="nav-link" href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+    <a class="nav-link" href="users.html"><span class="icon">👥</span> Users</a>
+    <a class="nav-link" href="scans.html"><span class="icon">🔬</span> Scans</a>
+    <a class="nav-link" href="articles.html"><span class="icon">📰</span> Articles</a>
+    <a class="nav-link" href="notifications.html"><span class="icon">🔔</span> Broadcast</a>
+    <a class="nav-link" href="audit.html"><span class="icon">📋</span> Audit Logs</a>
+  </div>
+  <div class="sidebar-footer">
+    <span id="admin-name"></span>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="topbar">Dashboard</div>
+  <div class="content">
+    <div class="stat-grid" id="stats">
+      <div class="stat-card"><div class="label">Total Users</div><div class="value" id="s-users">—</div><div class="sub" id="s-users-new"></div></div>
+      <div class="stat-card"><div class="label">Total Scans</div><div class="value" id="s-scans">—</div></div>
+      <div class="stat-card"><div class="label">Completed Scans</div><div class="value" id="s-completed">—</div></div>
+      <div class="stat-card"><div class="label">Failed Scans</div><div class="value" id="s-failed" style="color:#c62828">—</div></div>
+      <div class="stat-card"><div class="label">Total Farms</div><div class="value" id="s-farms">—</div></div>
+      <div class="stat-card"><div class="label">Articles</div><div class="value" id="s-articles">—</div><div class="sub" id="s-articles-pub"></div></div>
+    </div>
+
+    <div class="table-card">
+      <div class="table-header"><h2>Top Detected Diseases</h2></div>
+      <table>
+        <thead><tr><th>#</th><th>Disease</th><th>Detections</th></tr></thead>
+        <tbody id="diseases-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script src="_base.js"></script>
+<script>
+async function load() {
+  const r = await apiFetch('/api/admin/stats');
+  if (!r) return;
+  const { data } = await r.json();
+  if (!data) return;
+
+  document.getElementById('s-users').textContent     = data.users.total;
+  document.getElementById('s-users-new').textContent = `+${data.users.new_last_30_days} last 30 days`;
+  document.getElementById('s-scans').textContent     = data.scans.total;
+  document.getElementById('s-completed').textContent = data.scans.completed;
+  document.getElementById('s-failed').textContent    = data.scans.failed;
+  document.getElementById('s-farms').textContent     = data.farms.total;
+  document.getElementById('s-articles').textContent  = data.articles.total;
+  document.getElementById('s-articles-pub').textContent = `${data.articles.published} published`;
+
+  const tbody = document.getElementById('diseases-body');
+  if (!data.top_diseases.length) {
+    tbody.innerHTML = '<tr><td colspan="3" class="empty">No detections yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.top_diseases.map((d, i) =>
+    `<tr><td>${i + 1}</td><td>${d.disease}</td><td>${d.count}</td></tr>`
+  ).join('');
+}
+
+load();
+</script>
+</body>
+</html>

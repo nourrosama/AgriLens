@@ -69,6 +69,24 @@ class DiseaseArticlesService {
         .toList();
   }
 
+  /// Returns the full data map: crop → disease → articles
+  static Future<Map<String, Map<String, List<DiseaseArticle>>>> getAllCropDiseases() async {
+    await _load();
+    final result = <String, Map<String, List<DiseaseArticle>>>{};
+    for (final cropEntry in (_data ?? {}).entries) {
+      final cropKey = cropEntry.key;
+      final diseaseMap = cropEntry.value as Map<String, dynamic>;
+      result[cropKey] = {};
+      for (final diseaseEntry in diseaseMap.entries) {
+        final raw = diseaseEntry.value as List<dynamic>;
+        result[cropKey]![diseaseEntry.key] = raw
+            .map((e) => DiseaseArticle.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    }
+    return result;
+  }
+
   static String _normalise(String s) => s
       .toLowerCase()
       .replaceAll(RegExp(r'[\s\-]+'), '_')

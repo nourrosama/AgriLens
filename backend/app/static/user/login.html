@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriLens — Sign In</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/static/_layout.css">
+  <style>
+    .plans-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-top:24px; }
+    .plan-pill { background:rgba(255,255,255,.08); border:1.5px solid rgba(255,255,255,.2); border-radius:12px; padding:16px; text-align:center; }
+    .plan-pill h4 { font-size:13px; font-weight:700; color:#fff; margin-bottom:6px; }
+    .plan-pill ul { list-style:none; padding:0; margin:0; }
+    .plan-pill ul li { font-size:11px; color:rgba(255,255,255,.7); padding:2px 0; }
+    .plan-pill ul li::before { content:"✓ "; color:#a5d6a7; }
+    .plan-pill.highlight { background:rgba(255,255,255,.15); border-color:#fff; }
+    .plan-pill.highlight h4 { color:#fff; }
+    .demo-btn-group { display:flex; flex-direction:column; gap:8px; }
+    @media(max-width:500px){ .plans-row{ grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<div class="login-page">
+  <div style="width:100%;max-width:480px;">
+    <div class="login-card">
+      <div class="login-logo">
+        <h1>🌿 AgriLens</h1>
+        <p>AI-Powered Plant Disease Detection</p>
+      </div>
+
+      <!-- Step 1: Phone -->
+      <div class="login-step active" id="step-phone">
+        <div class="form-group">
+          <label class="form-label">Phone Number</label>
+          <input id="phone" class="form-control" type="tel" placeholder="+20XXXXXXXXXX" autocomplete="tel">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Your Name <span style="color:var(--grey-400);font-weight:400">(new users only)</span></label>
+          <input id="name" class="form-control" type="text" placeholder="Ahmed Ali">
+        </div>
+        <div id="phone-error" class="alert alert-error" style="display:none;"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" id="btn-send-otp">
+          Continue with OTP →
+        </button>
+        <div class="divider">or try a demo account</div>
+        <div class="demo-btn-group">
+          <button class="btn btn-secondary" style="width:100%;justify-content:center;" onclick="demoLogin('free')">
+            🌱 Demo — Free Plan
+          </button>
+          <button class="btn btn-amber" style="width:100%;justify-content:center;" onclick="demoLogin('premium')">
+            ⭐ Demo — Premium Plan
+          </button>
+          <button class="btn btn-purple" style="width:100%;justify-content:center;" onclick="demoLogin('professional')">
+            👑 Demo — Professional Plan
+          </button>
+        </div>
+      </div>
+
+      <!-- Step 2: OTP -->
+      <div class="login-step" id="step-otp">
+        <p style="text-align:center;color:var(--grey-600);font-size:14px;margin-bottom:16px;">
+          Enter the 6-digit code sent to <b id="otp-phone-display"></b>
+        </p>
+        <div class="otp-inputs">
+          <input type="text" maxlength="1" class="otp-digit" inputmode="numeric">
+          <input type="text" maxlength="1" class="otp-digit" inputmode="numeric">
+          <input type="text" maxlength="1" class="otp-digit" inputmode="numeric">
+          <input type="text" maxlength="1" class="otp-digit" inputmode="numeric">
+          <input type="text" maxlength="1" class="otp-digit" inputmode="numeric">
+          <input type="text" maxlength="1" class="otp-digit" inputmode="numeric">
+        </div>
+        <div id="otp-error" class="alert alert-error" style="display:none;"></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" id="btn-verify-otp">Verify →</button>
+        <p style="text-align:center;font-size:13px;color:var(--grey-500);margin-top:14px;">
+          <a href="#" id="btn-back">← Change number</a> &nbsp;|&nbsp;
+          <a href="#" id="btn-resend">Resend OTP</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Plan comparison cards -->
+    <div style="color:rgba(255,255,255,.8);text-align:center;margin-top:24px;font-size:13px;font-weight:600;margin-bottom:10px;">
+      Choose the plan that fits your farm
+    </div>
+    <div class="plans-row">
+      <div class="plan-pill">
+        <h4>🌱 Free</h4>
+        <ul>
+          <li>5 scans / month</li>
+          <li>Disease detection</li>
+          <li>Confidence score</li>
+          <li>Basic treatment tips</li>
+        </ul>
+      </div>
+      <div class="plan-pill highlight">
+        <h4>⭐ Premium — $19/mo</h4>
+        <ul>
+          <li>Unlimited scans</li>
+          <li>Full AI disease report</li>
+          <li>Severity & symptoms</li>
+          <li>AI farming chatbot</li>
+          <li>Weather risk alerts</li>
+          <li>Recovery timeline</li>
+        </ul>
+      </div>
+      <div class="plan-pill">
+        <h4>👑 Professional — $49/mo</h4>
+        <ul>
+          <li>Everything in Premium</li>
+          <li>PDF report export</li>
+          <li>Farm dashboard</li>
+          <li>Disease trend analytics</li>
+          <li>Yield & cost estimates</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app/static/_base.js"></script>
+<script>
+  if (Auth.isLoggedIn()) window.location.href = '/app/dashboard';
+
+  let currentPhone = '';
+
+  document.getElementById('btn-send-otp').addEventListener('click', sendOtp);
+  document.getElementById('phone').addEventListener('keydown', e => { if (e.key === 'Enter') sendOtp(); });
+
+  async function sendOtp() {
+    const phone = document.getElementById('phone').value.trim();
+    const name  = document.getElementById('name').value.trim();
+    const errEl = document.getElementById('phone-error');
+    errEl.style.display = 'none';
+    if (!phone) { showErr(errEl, 'Please enter your phone number.'); return; }
+
+    const btn = document.getElementById('btn-send-otp');
+    btn.disabled = true; btn.textContent = 'Sending…';
+
+    // Always try send-otp first (works for existing users).
+    // If the user doesn't exist yet, register them first.
+    let res = await apiFetch('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
+    if (!res?.ok && res?.status === 404 && name) {
+      // New user — register then retry send-otp
+      const reg = await apiFetch('/api/auth/register', { method: 'POST', body: JSON.stringify({ phone, name, country: 'egypt' }) });
+      if (reg?.ok) {
+        res = await apiFetch('/api/auth/send-otp', { method: 'POST', body: JSON.stringify({ phone }) });
+      } else {
+        btn.disabled = false; btn.textContent = 'Continue with OTP →';
+        showErr(errEl, reg?.data?.message || 'Registration failed.');
+        return;
+      }
+    }
+
+    btn.disabled = false; btn.textContent = 'Continue with OTP →';
+    if (res?.ok) {
+      currentPhone = phone;
+      document.getElementById('otp-phone-display').textContent = phone;
+      showStep('step-otp');
+      document.querySelector('.otp-digit').focus();
+    } else {
+      showErr(errEl, res?.data?.message || 'Failed to send OTP. Check your phone number.');
+    }
+  }
+
+  document.getElementById('btn-verify-otp').addEventListener('click', verifyOtp);
+  document.getElementById('btn-back').addEventListener('click',   e => { e.preventDefault(); showStep('step-phone'); });
+  document.getElementById('btn-resend').addEventListener('click', e => { e.preventDefault(); sendOtp(); });
+
+  document.querySelectorAll('.otp-digit').forEach((input, i, all) => {
+    input.addEventListener('input',   () => { if (input.value && i < all.length - 1) all[i+1].focus(); });
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Backspace' && !input.value && i > 0) all[i-1].focus();
+      if (e.key === 'Enter') verifyOtp();
+    });
+  });
+
+  async function verifyOtp() {
+    const digits = [...document.querySelectorAll('.otp-digit')].map(i => i.value).join('');
+    const errEl  = document.getElementById('otp-error');
+    errEl.style.display = 'none';
+    if (digits.length < 6) { showErr(errEl, 'Enter all 6 digits.'); return; }
+
+    const btn = document.getElementById('btn-verify-otp');
+    btn.disabled = true; btn.textContent = 'Verifying…';
+
+    const res = await apiFetch('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone: currentPhone, code: digits }),
+    });
+
+    btn.disabled = false; btn.textContent = 'Verify →';
+    if (res?.ok) {
+      const { token, user } = res.data.data || res.data;
+      Auth.save(token, user);
+      window.location.href = '/app/dashboard';
+    } else {
+      showErr(errEl, res?.data?.message || 'Invalid OTP. Please try again.');
+      document.querySelectorAll('.otp-digit').forEach(i => i.value = '');
+      document.querySelector('.otp-digit').focus();
+    }
+  }
+
+  // ── Demo login ─────────────────────────────────────────────────────────────
+  async function demoLogin(plan) {
+    // Clear any existing session first to avoid token contamination
+    Auth.clear();
+
+    const phones = { free: '+201000000001', premium: '+201000000002', professional: '+201000000003' };
+    const names  = { free: 'Demo Farmer (Free)', premium: 'Demo Farmer (Premium)', professional: 'Demo Farmer (Pro)' };
+
+    const btn = document.querySelector(`button[onclick="demoLogin('${plan}')"]`);
+    if (btn) { btn.disabled = true; btn.textContent = 'Signing in…'; }
+
+    // Ensure user exists in DB
+    await apiFetch('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phones[plan], name: names[plan], country: 'egypt' }),
+    });
+
+    // Send OTP
+    const otpRes = await apiFetch('/api/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phones[plan] }),
+    });
+    if (!otpRes?.ok) {
+      toast('Backend not running or TWILIO_MOCK_MODE not enabled.', 'error', 5000);
+      if (btn) { btn.disabled = false; btn.textContent = `Demo — ${plan.charAt(0).toUpperCase()+plan.slice(1)} Plan`; }
+      return;
+    }
+
+    // Verify with mock OTP
+    const verRes = await apiFetch('/api/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phone: phones[plan], code: '123456' }),
+    });
+    if (!verRes?.ok) {
+      toast('Verification failed. Is TWILIO_MOCK_MODE=true in your .env?', 'error', 5000);
+      if (btn) { btn.disabled = false; }
+      return;
+    }
+
+    const { token, user } = verRes.data.data || verRes.data;
+
+    // Set the correct plan in DB using the new token (not the stale localStorage one)
+    const upRes = await apiFetch('/api/subscription/upgrade', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${token}` },
+      body:    JSON.stringify({ plan }),
+    });
+    // upRes might be 400 "already on this plan" — that's fine, plan is already correct
+
+    user.plan = plan;
+    Auth.save(token, user);
+    window.location.href = '/app/dashboard';
+  }
+
+  function showStep(id) {
+    document.querySelectorAll('.login-step').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+  }
+  function showErr(el, msg) { el.textContent = msg; el.style.display = 'flex'; }
+</script>
+</body>
+</html>

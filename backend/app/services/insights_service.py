@@ -9,6 +9,7 @@ import requests
 from flask import current_app
 
 from app.models import farm_model, notification_model, scan_model
+from app.models.scan_model import count_scans_by_user
 
 logger = logging.getLogger(__name__)
 
@@ -304,7 +305,8 @@ def compute_forecast(scans: list, weather: dict, days_ahead: int = 7) -> dict:
 def build_dashboard_summary(user_id: str) -> dict:
     """Return a dashboard summary payload for the mobile home screen."""
     farms = farm_model.get_farms_by_owner(user_id)
-    scans = scan_model.get_scans_by_user(user_id, 1, 50)
+    scans = scan_model.get_scans_by_user(user_id, 1, 50)  # recent scans for risk calc
+    total_scan_count = count_scans_by_user(user_id)
     notifications = notification_model.list_notifications(user_id, 50)
     healthy_fields = 0
     total_fields = 0
@@ -325,7 +327,7 @@ def build_dashboard_summary(user_id: str) -> dict:
         'total_fields': total_fields,
         'healthy_fields': healthy_fields,
         'average_health_score': avg_health,
-        'total_scans': len(scans),
+        'total_scans': total_scan_count,
         'active_alerts': unread,
         'current_risk': current_risk,
         'weather': weather,

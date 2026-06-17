@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriLens — Articles</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/static/_layout.css">
+  <style>
+    .article-detail { display:none; }
+    .article-detail.open { display:block; }
+    .article-detail-img { width:100%; height:220px; object-fit:cover; border-radius:var(--radius) var(--radius) 0 0; background:var(--green-100); display:flex; align-items:center;justify-content:center;font-size:60px; }
+    .article-body-text { font-size:15px; line-height:1.8; color:var(--grey-800); }
+    .article-body-text p { margin-bottom:12px; }
+    .filter-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px; }
+    .filter-chip { padding:6px 14px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; border:2px solid var(--grey-200); background:var(--white); color:var(--grey-600); transition:all .15s; }
+    .filter-chip:hover, .filter-chip.active { background:var(--green-700); color:#fff; border-color:var(--green-700); }
+    .depth-notice { display:inline-flex; align-items:center; gap:6px; background:var(--amber-100); color:#92400E; border-radius:8px; padding:8px 14px; font-size:13px; font-weight:600; margin-bottom:16px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🌿 Agri<span>Lens</span></div>
+      <span class="plan-badge" id="sb-plan-badge">Free</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <a class="nav-item" data-page="dashboard" href="/app/dashboard"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a class="nav-item" data-page="scan"      href="/app/scan">     <span class="nav-icon">🔬</span> Scan Plant</a>
+      <a class="nav-item" data-page="articles"  href="/app/articles"> <span class="nav-icon">📰</span> Articles</a>
+      <div class="nav-section-title" style="margin-top:8px;">Premium</div>
+      <a class="nav-item" data-page="chatbot" href="/app/chatbot"><span class="nav-icon">🤖</span> AI Chatbot <span class="lock-icon" id="lock-chatbot">🔒</span></a>
+      <div class="nav-section-title" style="margin-top:8px;">Professional</div>
+      <a class="nav-item" data-page="farm"    href="/app/farm">   <span class="nav-icon">🌾</span> Farm Dashboard <span class="lock-icon" id="lock-farm">🔒</span></a>
+      <a class="nav-item" data-page="reports" href="/app/reports"><span class="nav-icon">📄</span> Reports <span class="lock-icon" id="lock-reports">🔒</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="upgrade-cta" id="sb-upgrade-cta">
+        <p>Read full articles with Premium</p>
+        <button class="btn-upgrade" onclick="openUpgradeModal('premium')">⬆ Upgrade Plan</button>
+      </div>
+      <div class="sidebar-user">
+        <div class="avatar" id="sb-avatar">F</div>
+        <div class="sidebar-user-info">
+          <div class="name" id="sb-name">Farmer</div>
+          <div class="email" id="sb-email"></div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Sign out">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div>
+        <div class="topbar-title">📰 Agricultural Articles</div>
+        <div class="topbar-sub" id="topbar-depth-sub">Loading…</div>
+      </div>
+      <div class="topbar-actions">
+        <input type="text" id="search-input" placeholder="Search articles…" class="form-control" style="width:200px;">
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- List view -->
+      <div id="list-view">
+        <div id="depth-notice-bar"></div>
+
+        <div class="filter-row">
+          <button class="filter-chip active" data-cat="">All</button>
+          <button class="filter-chip" data-cat="disease">🦠 Disease</button>
+          <button class="filter-chip" data-cat="tips">💡 Tips</button>
+          <button class="filter-chip" data-cat="weather">🌦 Weather</button>
+          <button class="filter-chip" data-cat="general">📋 General</button>
+        </div>
+
+        <div id="articles-grid" class="article-grid">
+          <div class="loading-center" style="grid-column:1/-1;"><div class="spinner"></div>Loading articles…</div>
+        </div>
+
+        <div style="display:flex;justify-content:center;gap:10px;margin-top:24px;" id="pagination-row"></div>
+      </div>
+
+      <!-- Detail view -->
+      <div id="detail-view" class="article-detail">
+        <div style="margin-bottom:16px;">
+          <button class="btn btn-secondary btn-sm" onclick="closeDetail()">← Back to Articles</button>
+        </div>
+        <div class="card" id="detail-card"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/app/static/_base.js"></script>
+<script>
+Auth.requireLogin();
+const plan = Auth.plan();
+if (planMeets('premium'))      { document.getElementById('lock-chatbot')?.remove(); }
+if (planMeets('professional')) { document.getElementById('lock-farm')?.remove(); document.getElementById('lock-reports')?.remove(); }
+initSidebar('articles');
+
+const DEPTH_LABELS = { basic: 'Free — Article previews only', detailed: 'Premium — Full articles', full: 'Professional — Full articles + PDF download' };
+let currentPage = 1, currentCat = '', allArticles = [], readerDepth = 'basic';
+
+// Set depth subtitle
+const depthLabel = DEPTH_LABELS[plan === 'free' ? 'basic' : plan === 'premium' ? 'detailed' : 'full'] || 'Free';
+document.getElementById('topbar-depth-sub').textContent = depthLabel;
+
+// Depth notice banner
+function renderDepthNotice(depth) {
+  const noticeEl = document.getElementById('depth-notice-bar');
+  if (depth === 'basic') {
+    noticeEl.innerHTML = `<div class="depth-notice">🔒 You're seeing article previews. <a href="#" onclick="openUpgradeModal('premium')">Upgrade to Premium</a> to read full articles.</div>`;
+  } else if (depth === 'detailed') {
+    noticeEl.innerHTML = `<div class="depth-notice" style="background:var(--blue-100);color:var(--blue-600);">⭐ Premium — Full articles unlocked. <a href="#" onclick="openUpgradeModal('professional')">Upgrade to Pro</a> to download PDFs.</div>`;
+  } else {
+    noticeEl.innerHTML = `<div class="depth-notice" style="background:var(--purple-100);color:var(--purple-600);">👑 Professional — Full access: read & download all articles.</div>`;
+  }
+}
+
+async function loadArticles(page = 1, category = '') {
+  currentPage = page; currentCat = category;
+  const grid = document.getElementById('articles-grid');
+  grid.innerHTML = '<div class="loading-center" style="grid-column:1/-1;"><div class="spinner"></div>Loading…</div>';
+
+  const url = `/api/articles?page=${page}&per_page=12${category ? '&category=' + category : ''}`;
+  const res  = await apiFetch(url);
+  if (!res?.ok) { grid.innerHTML = '<div class="alert alert-error">Failed to load articles.</div>'; return; }
+
+  const { articles, total, pages } = res.data.data;
+  readerDepth = res.data.data.reader_depth || 'basic';
+  allArticles = articles;
+
+  renderDepthNotice(readerDepth);
+
+  if (!articles.length) {
+    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><div class="icon">📰</div><h3>No articles yet</h3><p>Check back soon for agricultural guides and tips.</p></div>`;
+    return;
+  }
+
+  const searchVal = document.getElementById('search-input').value.toLowerCase();
+  const filtered  = searchVal ? articles.filter(a => a.title.toLowerCase().includes(searchVal) || a.body.toLowerCase().includes(searchVal)) : articles;
+
+  grid.innerHTML = filtered.map(art => {
+    const locked    = art.body_truncated;
+    const canDl     = art.can_download;
+    const catEmoji  = { disease:'🦠', tips:'💡', weather:'🌦', general:'📋' }[art.category] || '📰';
+    return `
+      <div class="article-card" onclick="openDetail('${art.id}')">
+        <div class="article-card-img">${art.image_url ? `<img src="${art.image_url}" alt="${art.title}">` : catEmoji}</div>
+        <div class="article-card-body">
+          <div class="article-category">${art.category || 'general'}</div>
+          <div class="article-title">${art.title}</div>
+          <div class="article-excerpt">${art.body?.substring(0, 120)}${art.body?.length > 120 ? '…' : ''}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:10px;">
+            ${locked    ? `<div class="article-locked">🔒 Upgrade for full article</div>` : ''}
+            ${canDl     ? `<button class="btn btn-sm btn-secondary" onclick="event.stopPropagation();downloadArticle('${art.id}','${art.title}')">⬇ PDF</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  // Pagination
+  const paginRow = document.getElementById('pagination-row');
+  paginRow.innerHTML = '';
+  if (pages > 1) {
+    for (let i = 1; i <= pages; i++) {
+      const btn = document.createElement('button');
+      btn.className = `btn btn-sm ${i === page ? 'btn-primary' : 'btn-secondary'}`;
+      btn.textContent = i;
+      btn.addEventListener('click', () => loadArticles(i, currentCat));
+      paginRow.appendChild(btn);
+    }
+  }
+}
+
+function openDetail(articleId) {
+  const art = allArticles.find(a => a.id === articleId);
+  if (!art) return;
+
+  const catEmoji = { disease:'🦠', tips:'💡', weather:'🌦', general:'📋' }[art.category] || '📰';
+  const detailCard = document.getElementById('detail-card');
+  detailCard.innerHTML = `
+    <div class="article-detail-img">${art.image_url ? `<img src="${art.image_url}" alt="${art.title}" style="width:100%;height:100%;object-fit:cover;border-radius:inherit;">` : catEmoji}</div>
+    <div class="card-body">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+        <span class="badge badge-green">${art.category || 'general'}</span>
+        ${art.can_download ? `<button class="btn btn-sm btn-secondary" onclick="downloadArticle('${art.id}','${art.title}')">⬇ Download PDF</button>` : ''}
+      </div>
+      <h1 style="font-size:22px;font-weight:800;color:var(--grey-900);margin-bottom:16px;line-height:1.3;">${art.title}</h1>
+      <div class="article-body-text">${art.body?.replace(/\n/g, '<br>') || ''}</div>
+      ${art.body_truncated ? `
+        <div style="margin-top:24px;" class="gate-overlay">
+          <div class="gate-icon">🔒</div>
+          <h3>Continue Reading</h3>
+          <p>${art.upgrade_prompt || 'Upgrade to Premium to read the full article.'}</p>
+          <button class="btn btn-amber" onclick="openUpgradeModal('premium')">⬆ Upgrade to Premium</button>
+        </div>` : ''}
+      <div style="margin-top:20px;">
+        <button class="btn btn-secondary btn-sm" onclick="closeDetail()">← Back</button>
+      </div>
+    </div>`;
+
+  document.getElementById('list-view').style.display   = 'none';
+  document.getElementById('detail-view').classList.add('open');
+  window.scrollTo(0, 0);
+}
+
+function closeDetail() {
+  document.getElementById('detail-view').classList.remove('open');
+  document.getElementById('list-view').style.display = '';
+}
+
+async function downloadArticle(articleId, title) {
+  if (!planMeets('professional')) { openUpgradeModal('professional'); return; }
+  toast('Generating PDF…', 'info');
+  // Simple text-to-PDF using /api/reports/pdf redirect or client-side print
+  const art = allArticles.find(a => a.id === articleId);
+  if (!art) return;
+
+  // Open print window with article content
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>${art.title}</title>
+    <style>body{font-family:sans-serif;max-width:700px;margin:40px auto;line-height:1.7;color:#222;}h1{color:#2E7D32;}p{margin-bottom:12px;}</style>
+    </head><body><h1>${art.title}</h1>${art.body?.replace(/\n/g,'<br>') || ''}</body></html>`);
+  win.document.close();
+  setTimeout(() => win.print(), 400);
+}
+
+// Category filter chips
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    loadArticles(1, chip.dataset.cat);
+  });
+});
+
+// Search
+let searchTimer;
+document.getElementById('search-input').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadArticles(currentPage, currentCat), 300);
+});
+
+loadArticles();
+</script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriLens — Farm Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/static/_layout.css">
+  <style>
+    .disease-bar { height:10px; border-radius:999px; background:var(--green-500); margin-top:4px; }
+    .trend-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--grey-100); }
+    .trend-row:last-child { border-bottom:none; }
+    .trend-name { flex:1; font-size:14px; font-weight:600; color:var(--grey-800); }
+    .trend-count { font-size:13px; color:var(--grey-500); width:32px; text-align:right; }
+    .trend-bar-wrap { flex:2; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🌿 Agri<span>Lens</span></div>
+      <span class="plan-badge" id="sb-plan-badge">Free</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <a class="nav-item" data-page="dashboard" href="/app/dashboard"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a class="nav-item" data-page="scan"      href="/app/scan">     <span class="nav-icon">🔬</span> Scan Plant</a>
+      <a class="nav-item" data-page="articles"  href="/app/articles"> <span class="nav-icon">📰</span> Articles</a>
+      <div class="nav-section-title" style="margin-top:8px;">Premium</div>
+      <a class="nav-item" data-page="chatbot" href="/app/chatbot"><span class="nav-icon">🤖</span> AI Chatbot <span class="lock-icon" id="lock-chatbot">🔒</span></a>
+      <div class="nav-section-title" style="margin-top:8px;">Professional</div>
+      <a class="nav-item" data-page="farm"    href="/app/farm">   <span class="nav-icon">🌾</span> Farm Dashboard <span class="lock-icon" id="lock-farm">🔒</span></a>
+      <a class="nav-item" data-page="reports" href="/app/reports"><span class="nav-icon">📄</span> Reports <span class="lock-icon" id="lock-reports">🔒</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="upgrade-cta" id="sb-upgrade-cta">
+        <p>Farm Dashboard requires Professional</p>
+        <button class="btn-upgrade" onclick="openUpgradeModal('professional')">⬆ Upgrade Plan</button>
+      </div>
+      <div class="sidebar-user">
+        <div class="avatar" id="sb-avatar">F</div>
+        <div class="sidebar-user-info">
+          <div class="name" id="sb-name">Farmer</div>
+          <div class="email" id="sb-email"></div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Sign out">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div>
+        <div class="topbar-title">🌾 Farm Dashboard</div>
+        <div class="topbar-sub">Disease history, trends, and farm-wide insights</div>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-purple">Professional</span>
+        <a href="/app/reports" class="btn btn-sm btn-secondary">📄 Export Report</a>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div id="gate-area"></div>
+      <div id="pro-content" style="display:none;">
+
+        <!-- Stats -->
+        <div class="stat-grid" id="farm-stats">
+          <div class="stat-card green"><div class="stat-label">Total Farms</div><div class="stat-value" id="stat-farms">—</div></div>
+          <div class="stat-card"><div class="stat-label">Total Fields</div><div class="stat-value" id="stat-fields">—</div></div>
+          <div class="stat-card red"><div class="stat-label">Diseases Found</div><div class="stat-value" id="stat-diseases">—</div></div>
+          <div class="stat-card amber"><div class="stat-label">Health Rate</div><div class="stat-value" id="stat-health">—%</div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px;">
+
+          <!-- Disease Trends -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">📊 Disease Trends</div></div>
+            <div class="card-body" id="trends-body">
+              <div class="loading-center"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+          <!-- Farm Health -->
+          <div class="card">
+            <div class="card-header"><div class="card-title">🌱 Farm Health Overview</div></div>
+            <div class="card-body" id="health-body">
+              <div class="loading-center"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Farms -->
+        <div class="card" style="margin-bottom:24px;">
+          <div class="card-header">
+            <div class="card-title">🌾 My Farms</div>
+          </div>
+          <div class="card-body" id="farms-body">
+            <div class="loading-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+        <!-- Disease History -->
+        <div class="card" style="margin-bottom:24px;">
+          <div class="card-header"><div class="card-title">🗂 Disease History</div></div>
+          <div class="card-body">
+            <div class="table-wrap" id="history-table-wrap">
+              <div class="loading-center"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Farm-wide Insights -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">💡 Farm-Wide Insights</div></div>
+          <div class="card-body" id="insights-body">
+            <div class="loading-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app/static/_base.js"></script>
+<script>
+Auth.requireLogin();
+const plan = Auth.plan();
+if (planMeets('premium'))      { document.getElementById('lock-chatbot')?.remove(); }
+if (planMeets('professional')) { document.getElementById('lock-farm')?.remove(); document.getElementById('lock-reports')?.remove(); }
+initSidebar('farm');
+
+if (!planMeets('professional')) {
+  document.getElementById('gate-area').innerHTML = gateHtml('professional', 'Farm Dashboard');
+} else {
+  document.getElementById('pro-content').style.display = '';
+
+  (async () => {
+    const [farmsRes, scansRes] = await Promise.all([
+      apiFetch('/api/farms'),
+      apiFetch('/api/scans?per_page=200'),
+    ]);
+
+    const farms = farmsRes?.data?.data?.farms || [];
+    const scans = scansRes?.data?.data?.scans || [];
+
+    // Stats
+    const totalFields   = farms.reduce((s, f) => s + (f.fields?.length || 0), 0);
+    const diseased      = scans.filter(s => s.detection_result && !s.detection_result.is_healthy);
+    const healthRate    = scans.length ? Math.round(((scans.length - diseased.length) / scans.length) * 100) : 100;
+    document.getElementById('stat-farms').textContent    = farms.length;
+    document.getElementById('stat-fields').textContent   = totalFields;
+    document.getElementById('stat-diseases').textContent = diseased.length;
+    document.getElementById('stat-health').textContent   = healthRate + '%';
+
+    // Disease trends
+    const diseaseCounts = {};
+    diseased.forEach(s => {
+      const d = s.detection_result?.disease || 'Unknown';
+      diseaseCounts[d] = (diseaseCounts[d] || 0) + 1;
+    });
+    const sortedDiseases = Object.entries(diseaseCounts).sort((a,b) => b[1]-a[1]).slice(0, 8);
+    const maxCount = sortedDiseases[0]?.[1] || 1;
+    const trendsEl = document.getElementById('trends-body');
+    if (!sortedDiseases.length) {
+      trendsEl.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="icon">✅</div><h3>No diseases detected</h3><p>Your farm looks healthy!</p></div>';
+    } else {
+      trendsEl.innerHTML = sortedDiseases.map(([name, count]) => `
+        <div class="trend-row">
+          <div class="trend-name">${name}</div>
+          <div class="trend-count">${count}×</div>
+          <div class="trend-bar-wrap">
+            <div class="disease-bar" style="width:${Math.round((count/maxCount)*100)}%;background:${count > 3 ? 'var(--red-600)' : count > 1 ? 'var(--amber-600)' : 'var(--green-500)'};"></div>
+          </div>
+        </div>`).join('');
+    }
+
+    // Farm health overview
+    const healthEl = document.getElementById('health-body');
+    healthEl.innerHTML = `
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:64px;font-weight:900;color:${healthRate >= 80 ? 'var(--green-700)' : healthRate >= 60 ? 'var(--amber-600)' : 'var(--red-600)'};">${healthRate}%</div>
+        <div style="font-size:14px;color:var(--grey-500);">Overall Plant Health Rate</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Total scans</span><b>${scans.length}</b></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Diseased plants</span><b style="color:var(--red-600);">${diseased.length}</b></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span>Healthy plants</span><b style="color:var(--green-700);">${scans.length - diseased.length}</b></div>
+      </div>`;
+
+    // Farms list
+    const farmsEl = document.getElementById('farms-body');
+    if (!farms.length) {
+      farmsEl.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="icon">🌾</div><h3>No farms added yet</h3><p>Add your first farm via the mobile app.</p></div>';
+    } else {
+      farmsEl.innerHTML = `<div class="farm-grid">${farms.map(f => `
+        <div class="farm-card">
+          <div class="farm-name">${f.name || 'Unnamed Farm'}</div>
+          <div class="farm-meta">📍 ${f.location?.address || 'No location'}</div>
+          <div class="farm-meta">🌾 ${f.crop_type || 'Mixed'} · ${f.area_hectares || '—'} ha</div>
+          <div class="field-list">${(f.fields || []).map(field => `
+            <div class="field-item">🟩 ${field.name || 'Field'} ${field.area_hectares ? '· ' + field.area_hectares + ' ha' : ''}</div>`).join('')}
+          </div>
+        </div>`).join('')}</div>`;
+    }
+
+    // Disease history table
+    const histEl = document.getElementById('history-table-wrap');
+    const diseaseScans = scans.filter(s => s.detection_result && !s.detection_result.is_healthy);
+    if (!diseaseScans.length) {
+      histEl.innerHTML = '<p style="color:var(--grey-500);font-size:14px;text-align:center;">No disease detections recorded.</p>';
+    } else {
+      histEl.innerHTML = `
+        <table>
+          <thead><tr><th>Date</th><th>Crop</th><th>Disease</th><th>Severity</th><th>Confidence</th></tr></thead>
+          <tbody>${diseaseScans.slice(0, 20).map(s => {
+            const dr = s.detection_result;
+            return `<tr>
+              <td>${fmtDate(s.created_at)}</td>
+              <td>${s.crop_type || '—'}</td>
+              <td style="font-weight:600;">${dr.disease || '—'}</td>
+              <td>${severityBadge(dr.severity || 'unknown')}</td>
+              <td>${dr.confidence ? Math.round(dr.confidence * 100) + '%' : '—'}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>`;
+    }
+
+    // Farm insights
+    const insightsEl = document.getElementById('insights-body');
+    const mostCommon  = sortedDiseases[0]?.[0];
+    insightsEl.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="alert alert-info">📊 <b>Scan Summary:</b> ${scans.length} total scans · ${diseased.length} disease detections · ${healthRate}% health rate.</div>
+        ${mostCommon ? `<div class="alert alert-warning">⚠ <b>Most Common Disease:</b> ${mostCommon} (${diseaseCounts[mostCommon]}× detected). Consider targeted prevention for this disease in your crop rotation.</div>` : '<div class="alert alert-success">✅ No recurring diseases detected. Your farm health looks excellent.</div>'}
+        <div class="alert alert-success">💡 <b>Recommendation:</b> Scout fields weekly and use early-morning scans for best image quality. Rotate crops and remove plant debris after harvest to reduce disease carryover.</div>
+        <div style="text-align:right;margin-top:4px;">
+          <a href="/app/reports" class="btn btn-secondary btn-sm">📄 Download Full PDF Report →</a>
+        </div>
+      </div>`;
+  })();
+}
+</script>
+</body>
+</html>

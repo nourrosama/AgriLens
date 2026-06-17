@@ -1,6 +1,7 @@
 """
 AI-powered chatbot controller using Groq API.
 Chat history is persisted to MongoDB (chat_sessions / chat_messages collections).
+Chatbot is gated to Premium and Professional plans.
 """
 import logging
 from datetime import datetime, timezone
@@ -9,6 +10,7 @@ from bson import ObjectId
 from flask import Blueprint, request, g
 
 from app.middleware.auth_middleware import require_auth
+from app.middleware.subscription_middleware import require_plan
 from app.services import chatbot_service, disease_report_service
 from app.models.db import chat_sessions_col, chat_messages_col
 from app.views.responses import success_response, error_response
@@ -55,8 +57,9 @@ def chat_test():
 
 @chatbot_bp.route('/api/chatbot', methods=['POST'])
 @require_auth
+@require_plan('premium')
 def chat():
-    """Return an AI-powered assistant response and persist the exchange."""
+    """Return an AI-powered assistant response and persist the exchange. Requires Premium plan."""
     data = request.get_json(silent=True) or {}
     message = (data.get('message') or '').strip()
     lang = (data.get('lang') or 'en').strip()
@@ -205,7 +208,5 @@ def get_disease_report():
         crop_type=(data.get('crop_type') or 'unknown').strip(),
         severity=(data.get('severity') or 'medium').strip(),
         confidence=float(data.get('confidence') or 0.5),
-        scientific_name=(data.get('scientific_name') or '').strip(),
-        lang=(data.get('lang') or 'en').strip(),
     )
     return success_response({'report': report})

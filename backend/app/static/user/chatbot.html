@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriLens — AI Chatbot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/static/_layout.css">
+</head>
+<body>
+<div class="app-shell">
+
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🌿 Agri<span>Lens</span></div>
+      <span class="plan-badge" id="sb-plan-badge">Free</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <a class="nav-item" data-page="dashboard" href="/app/dashboard"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a class="nav-item" data-page="scan"      href="/app/scan">     <span class="nav-icon">🔬</span> Scan Plant</a>
+      <a class="nav-item" data-page="articles"  href="/app/articles"> <span class="nav-icon">📰</span> Articles</a>
+      <div class="nav-section-title" style="margin-top:8px;">Premium</div>
+      <a class="nav-item" data-page="chatbot" href="/app/chatbot"><span class="nav-icon">🤖</span> AI Chatbot <span class="lock-icon" id="lock-chatbot">🔒</span></a>
+      <div class="nav-section-title" style="margin-top:8px;">Professional</div>
+      <a class="nav-item" data-page="farm"    href="/app/farm">   <span class="nav-icon">🌾</span> Farm Dashboard <span class="lock-icon" id="lock-farm">🔒</span></a>
+      <a class="nav-item" data-page="reports" href="/app/reports"><span class="nav-icon">📄</span> Reports <span class="lock-icon" id="lock-reports">🔒</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="upgrade-cta" id="sb-upgrade-cta">
+        <p>Chat requires Premium plan</p>
+        <button class="btn-upgrade" onclick="openUpgradeModal('premium')">⬆ Upgrade Plan</button>
+      </div>
+      <div class="sidebar-user">
+        <div class="avatar" id="sb-avatar">F</div>
+        <div class="sidebar-user-info">
+          <div class="name" id="sb-name">Farmer</div>
+          <div class="email" id="sb-email"></div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Sign out">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div>
+        <div class="topbar-title">🤖 AI Agricultural Chatbot</div>
+        <div class="topbar-sub">Ask anything about plant diseases, treatments, and farm management</div>
+      </div>
+      <div class="topbar-actions">
+        <span class="badge badge-amber" id="plan-badge-topbar"></span>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div id="gate-area"></div>
+
+      <!-- Chat UI (shown for Premium+) -->
+      <div id="chat-area" style="display:none;">
+        <div class="chat-window">
+          <div class="chat-messages" id="chat-messages">
+            <div class="msg bot">
+              <div class="msg-bubble">
+                👋 Hello! I'm your AgriLens AI assistant. I can help you with:<br><br>
+                • Identifying plant diseases from symptoms<br>
+                • Treatment and prevention advice<br>
+                • Crop management best practices<br>
+                • Interpreting your scan results<br><br>
+                What can I help you with today?
+              </div>
+              <div class="msg-time">Just now</div>
+            </div>
+          </div>
+          <div class="chat-input-row">
+            <input type="text" id="chat-input" placeholder="Ask about your plants…" autocomplete="off">
+            <button class="chat-send" id="btn-send" title="Send">➤</button>
+          </div>
+        </div>
+
+        <!-- Suggested questions -->
+        <div style="margin-top:16px;">
+          <div style="font-size:12px;font-weight:700;color:var(--grey-500);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Suggested questions</div>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <button class="btn btn-sm btn-secondary" onclick="sendSuggestion(this.textContent)">How do I prevent tomato blight?</button>
+            <button class="btn btn-sm btn-secondary" onclick="sendSuggestion(this.textContent)">What causes yellow leaves?</button>
+            <button class="btn btn-sm btn-secondary" onclick="sendSuggestion(this.textContent)">Best organic fungicides?</button>
+            <button class="btn btn-sm btn-secondary" onclick="sendSuggestion(this.textContent)">When should I spray copper?</button>
+            <button class="btn btn-sm btn-secondary" onclick="sendSuggestion(this.textContent)">How to identify early blight?</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/app/static/_base.js"></script>
+<script>
+Auth.requireLogin();
+const plan = Auth.plan();
+if (planMeets('premium'))      { document.getElementById('lock-chatbot')?.remove(); }
+if (planMeets('professional')) { document.getElementById('lock-farm')?.remove(); document.getElementById('lock-reports')?.remove(); }
+initSidebar('chatbot');
+
+const planBadgeEl = document.getElementById('plan-badge-topbar');
+planBadgeEl.textContent = PLAN_LABEL[plan] || plan;
+planBadgeEl.className   = `badge badge-${plan === 'professional' ? 'purple' : plan === 'premium' ? 'amber' : 'grey'}`;
+
+if (!planMeets('premium')) {
+  document.getElementById('gate-area').innerHTML = gateHtml('premium', 'AI Agricultural Chatbot');
+} else {
+  document.getElementById('chat-area').style.display = '';
+
+  const input  = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('btn-send');
+  const msgContainer = document.getElementById('chat-messages');
+
+  sendBtn.addEventListener('click', sendMessage);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+
+  function sendSuggestion(text) { input.value = text; sendMessage(); }
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    input.disabled = true; sendBtn.disabled = true;
+
+    appendMsg(text, 'user');
+
+    const typing = appendMsg('…', 'bot', true);
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+
+    const res = await apiFetch('/api/chatbot', {
+      method: 'POST',
+      body: JSON.stringify({ message: text, lang: 'en' }),
+    });
+
+    typing.remove();
+    input.disabled = false; sendBtn.disabled = false; input.focus();
+
+    if (res?.ok) {
+      const reply = res.data.data?.message || res.data.data?.reply || 'I could not generate a response.';
+      const replyText = typeof reply === 'string' ? reply : reply.text || JSON.stringify(reply);
+      appendMsg(replyText, 'bot');
+    } else if (res?.status === 403) {
+      appendMsg('⚠ This feature requires a Premium plan. Please upgrade to continue.', 'bot');
+    } else {
+      appendMsg('⚠ Sorry, I encountered an error. Please try again.', 'bot');
+    }
+
+    msgContainer.scrollTop = msgContainer.scrollHeight;
+  }
+
+  function appendMsg(text, role, isTyping = false) {
+    const wrap = document.createElement('div');
+    wrap.className = `msg ${role}`;
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    wrap.innerHTML = `
+      <div class="msg-bubble">${isTyping ? '<div class="spinner" style="width:16px;height:16px;border-width:2px;display:inline-block;"></div>' : text.replace(/\n/g,'<br>')}</div>
+      ${!isTyping ? `<div class="msg-time">${now}</div>` : ''}`;
+    msgContainer.appendChild(wrap);
+    return wrap;
+  }
+}
+</script>
+</body>
+</html>

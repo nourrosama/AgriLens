@@ -125,8 +125,12 @@ class _FeedCardState extends State<FeedCard>
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
-    final currentUserId = context.watch<UserProvider>().userId;
+    final userProvider = context.watch<UserProvider>();
+    final currentUserId = userProvider.userId;
     final isOwner = widget.post.authorId == currentUserId;
+    final isPremiumPlus =
+        userProvider.plan == 'premium' || userProvider.plan == 'professional';
+    final isProfessional = userProvider.plan == 'professional';
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -138,18 +142,79 @@ class _FeedCardState extends State<FeedCard>
             // ── Author row + type badge + optional menu ──────────────────────
             Row(
               children: [
-                _Avatar(authorId: widget.post.authorId),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _Avatar(authorId: widget.post.authorId),
+                    if (isOwner && isPremiumPlus)
+                      Positioned(
+                        right: -3,
+                        bottom: -3,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: isProfessional
+                                ? const Color(0xFF7B1FA2)
+                                : const Color(0xFF1976D2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          child: const Icon(Icons.star_rounded,
+                              color: Colors.white, size: 9),
+                        ),
+                      ),
+                  ],
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        _shortId(widget.post.authorId),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _shortId(widget.post.authorId),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isOwner && isPremiumPlus) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isProfessional
+                                    ? const Color(0xFFF3E5F5)
+                                    : const Color(0xFFE3F2FD),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isProfessional
+                                      ? const Color(0xFF9C27B0)
+                                      : const Color(0xFF1976D2),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                isProfessional
+                                    ? (lang.isRTL ? '⭐ محترف' : '⭐ Pro Expert')
+                                    : (lang.isRTL ? '⭐ بريميوم' : '⭐ Premium'),
+                                style: TextStyle(
+                                  color: isProfessional
+                                      ? const Color(0xFF6A1B9A)
+                                      : const Color(0xFF0D47A1),
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       Text(
                         _timeAgo(widget.post.createdAt, lang),
