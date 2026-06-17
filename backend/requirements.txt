@@ -18,3 +18,4 @@ certifi==2025.1.31
 opencv-python-headless==4.10.0.84
 groq>=0.4.1
 gunicorn
+reportlab>=4.0.0

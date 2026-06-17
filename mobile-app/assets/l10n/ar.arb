@@ -378,5 +378,10 @@
   "tutorial.step6Title": "اسأل أجري بوت",
   "tutorial.step6": "استخدم المساعد لشرح النتائج وتقديم نصائح الوقاية.",
   "tutorial.watchVideo": "مشاهدة الدليل المرئي",
-  "tutorial.restart": "إعادة تشغيل الدليل"
+  "tutorial.restart": "إعادة تشغيل الدليل",
+  "home.goodAfternoon": "مساء الخير",
+  "home.goodEvening": "مساء النور",
+  "home.goodNight": "تصبح على خير",
+  "subscription.trialActive": "الفترة التجريبية نشطة",
+  "subscription.trialDaysLeft": "أيام متبقية"
 }

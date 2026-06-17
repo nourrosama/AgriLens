@@ -41,6 +41,11 @@ class _SplashScreenState extends State<SplashScreen>
       }
       if (userProvider.isLoggedIn) {
         context.read<ScanHistoryProvider>().syncQueuedScans();
+        // Enforce trial gate: expired trial → subscription plans screen
+        if (userProvider.isTrialExpired) {
+          context.go('/subscription-plans');
+          return;
+        }
       }
       context.go(userProvider.isLoggedIn ? '/home' : '/onboarding');
     });

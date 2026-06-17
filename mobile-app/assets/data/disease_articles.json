@@ -1,0 +1,1124 @@
+{
+  "wheat": {
+    "aphid": [
+      {
+        "title": "Wheat Aphid Integrated Pest Management",
+        "title_ar": "الإدارة المتكاملة لحشرة المن في القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8513891/",
+        "summary": "Scientific study on integrated management approaches for wheat aphid control."
+      },
+      {
+        "title": "Aphid Resistance Mechanisms in Wheat",
+        "title_ar": "آليات مقاومة المن في القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC4889116/",
+        "summary": "Research on plant resistance mechanisms against aphid infestation in wheat crops."
+      },
+      {
+        "title": "Wheat Pest Biology and Management",
+        "title_ar": "بيولوجيا وإدارة آفات القمح",
+        "source": "PubMed",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/34342710/",
+        "summary": "Peer-reviewed research on wheat pest biology and integrated management strategies."
+      },
+      {
+        "title": "Aphid Impact on Wheat — Nature Scientific Reports",
+        "title_ar": "تأثير المن على القمح — التقارير العلمية",
+        "source": "Nature Scientific Reports",
+        "url": "https://www.nature.com/articles/s41598-021-92883-9",
+        "summary": "Scientific report on aphid infestation effects on wheat yield and quality."
+      },
+      {
+        "title": "Aphid Infestation Effects on Wheat",
+        "title_ar": "تأثير إصابة المن على محصول القمح",
+        "source": "SCIRP",
+        "url": "https://www.scirp.org/journal/paperinformation?paperid=118028",
+        "summary": "Study on the effects of aphid species infestation on wheat crop production."
+      },
+      {
+        "title": "آفات القمح في مصر",
+        "title_ar": "دليل إدارة آفات القمح في مصر",
+        "source": "عالم الزراعة",
+        "url": "https://agricultureegypt.com/Agenda/Articles/557",
+        "summary": "دليل عملي لإدارة آفات القمح في البيئة المصرية."
+      },
+      {
+        "title": "موسوعة أمراض وآفات القمح",
+        "title_ar": "موسوعة أمراض وآفات القمح",
+        "source": "تاجيبيديا",
+        "url": "https://www.tagepedia.org/Entry.aspx?id=1041159",
+        "summary": "موسوعة شاملة عن أمراض وآفات القمح ووسائل مكافحتها."
+      }
+    ],
+    "black_rust": [
+      {
+        "title": "Wheat Rust Diseases — Comprehensive Review",
+        "title_ar": "مراجعة شاملة لأمراض صدأ القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7378807/",
+        "summary": "Comprehensive scientific review of wheat rust diseases including black/stem rust epidemiology."
+      },
+      {
+        "title": "Wheat Disease Integrated Management",
+        "title_ar": "الإدارة المتكاملة لأمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Scientific review of integrated disease management strategies for major wheat diseases."
+      },
+      {
+        "title": "Wheat Pathogen Genomics",
+        "title_ar": "جينوميات مسببات أمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomics-based approaches to understanding and managing wheat fungal diseases."
+      },
+      {
+        "title": "Advances in Tackling Deadly Wheat Stem Rust",
+        "title_ar": "تقدم في مكافحة صدأ ساق القمح الفتاك",
+        "source": "IAEA",
+        "url": "https://www.iaea.org/newscenter/news/advances-in-tackling-deadly-wheat-disease",
+        "summary": "IAEA report on nuclear and isotopic techniques used to combat deadly wheat stem rust (Ug99)."
+      },
+      {
+        "title": "Ug99 Stem Rust Threat — BSPP Report",
+        "title_ar": "تهديد صدأ الساق Ug99",
+        "source": "British Society for Plant Pathology",
+        "url": "https://www.bspp.org.uk/wp-content/uploads/2021/01/Ug99-Stem-Rust-4.2NH.pdf",
+        "summary": "BSPP scientific report on the Ug99 wheat stem rust race and its global threat to food security."
+      },
+      {
+        "title": "صدأ الساق الأسود في القمح",
+        "title_ar": "صدأ الساق الأسود في القمح — الأعراض والمكافحة",
+        "source": "مجلة ملجي الزراعية",
+        "url": "https://meleigi.com/en_US/2017/02/12/صدأ-الساق-الأسود-في-القمح",
+        "summary": "مقال علمي حول صدأ الساق الأسود في القمح وطرق مكافحته."
+      },
+      {
+        "title": "الصدأ الأسود في القمح — المرجة",
+        "title_ar": "الصدأ الأسود للقمح — مرجع علمي",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=255798",
+        "summary": "مرجع علمي حول الصدأ الأسود الذي يصيب القمح وطرق التشخيص والمكافحة."
+      }
+    ],
+    "blast": [
+      {
+        "title": "Wheat Blast Disease — Global Review",
+        "title_ar": "مرض انفجار القمح — مراجعة عالمية",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10077833/",
+        "summary": "Comprehensive review of wheat blast disease, its emergence, spread, and management globally."
+      },
+      {
+        "title": "Wheat Blast Pathogen Genomics — Frontiers in Microbiology",
+        "title_ar": "جينوميات الانفجار في القمح — الأحياء الدقيقة",
+        "source": "Frontiers in Microbiology",
+        "url": "https://www.frontiersin.org/journals/microbiology/articles/10.3389/fmicb.2022.983243/full",
+        "summary": "Research on wheat blast pathogen Magnaporthe oryzae biology and resistance strategies."
+      },
+      {
+        "title": "Wheat Blast Resistance — Frontiers in Plant Science",
+        "title_ar": "مقاومة انفجار القمح — علوم النبات",
+        "source": "Frontiers in Plant Science",
+        "url": "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.710707/full",
+        "summary": "Plant science research on resistance mechanisms against wheat blast disease."
+      },
+      {
+        "title": "Wheat Blast Research — University of Göttingen",
+        "title_ar": "أبحاث انفجار القمح — جامعة غوتنغن",
+        "source": "University of Göttingen",
+        "url": "https://www.uni-goettingen.de/en/572605.html",
+        "summary": "Research on wheat blast disease detection and management from the University of Göttingen."
+      }
+    ],
+    "brown_rust": [
+      {
+        "title": "Wheat Brown Rust — Nature Scientific Reports",
+        "title_ar": "الصدأ البني للقمح — التقارير العلمية",
+        "source": "Nature Scientific Reports",
+        "url": "https://www.nature.com/articles/s41598-025-24407-8",
+        "summary": "Recent scientific findings on wheat brown rust (leaf rust) biology, virulence, and resistance."
+      },
+      {
+        "title": "Wheat Rust Diseases Comprehensive Review",
+        "title_ar": "مراجعة أمراض صدأ القمح الشاملة",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7378807/",
+        "summary": "Review of wheat rust diseases including brown/leaf rust epidemiology and control."
+      },
+      {
+        "title": "Wheat Pathogen Genomics Research",
+        "title_ar": "بحوث جينوميات مسببات أمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomics approaches for understanding wheat brown rust and other fungal pathogens."
+      },
+      {
+        "title": "Wheat Leaf Rust Resistance — UEA Research",
+        "title_ar": "مقاومة الصدأ البني — بحث جامعة أنجليا الشرقية",
+        "source": "University of East Anglia",
+        "url": "https://ueaeprints.uea.ac.uk/id/eprint/79182/1/2020DohertyRMScR.pdf",
+        "summary": "MSc research on wheat leaf rust resistance mechanisms at the University of East Anglia."
+      },
+      {
+        "title": "Brown Rust Management — Agricultural Research Journal",
+        "title_ar": "إدارة الصدأ البني — مجلة البحوث الزراعية",
+        "source": "Agricultural Research Journal",
+        "url": "https://agri-research-journal.net/SjarEn/?p=521",
+        "summary": "Research article on brown rust (leaf rust) management strategies in wheat production."
+      }
+    ],
+    "common_root_rot": [
+      {
+        "title": "Wheat Disease Management — Scientific Review",
+        "title_ar": "مراجعة علمية لإدارة أمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Review covering major wheat diseases including root rot and soilborne pathogen management."
+      },
+      {
+        "title": "Wheat Fungal Pathogen Genomics",
+        "title_ar": "جينوميات فطريات جذور القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic approaches to understanding wheat soilborne pathogens causing root rot."
+      },
+      {
+        "title": "Crown and Root Rot of Wheat — UNL Extension",
+        "title_ar": "تعفّن التاج والجذور في القمح — جامعة نبراسكا",
+        "source": "University of Nebraska-Lincoln Extension",
+        "url": "https://extensionpubs.unl.edu/publication/g1998/2015/html/view",
+        "summary": "Extension guide on crown and root rot diseases of wheat, causes, and management."
+      }
+    ],
+    "fusarium_head_blight": [
+      {
+        "title": "Fusarium Head Blight of Wheat — Scientific Review",
+        "title_ar": "لفحة السنبلة الفيوزاريومية — مراجعة علمية",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7080935/",
+        "summary": "Scientific review of Fusarium head blight, mycotoxin contamination, and disease management."
+      },
+      {
+        "title": "FHB Resistance Research — PubMed",
+        "title_ar": "مقاومة لفحة السنبلة الفيوزاريومية",
+        "source": "PubMed",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/36977083/",
+        "summary": "Latest research on Fusarium head blight resistance mechanisms and fungicide management."
+      },
+      {
+        "title": "Frontiers in Agronomy — FHB Management 2025",
+        "title_ar": "الزراعة الحديثة — إدارة لفحة السنبلة 2025",
+        "source": "Frontiers in Agronomy",
+        "url": "https://www.frontiersin.org/journals/agronomy/articles/10.3389/fagro.2025.1716770/full",
+        "summary": "Recent advances in Fusarium head blight management strategies in wheat production (2025)."
+      },
+      {
+        "title": "Wheat Rust and FHB — Joint Review",
+        "title_ar": "صدأ القمح ولفحة السنبلة — مراجعة مشتركة",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7378807/",
+        "summary": "Review including Fusarium head blight alongside rust diseases as key wheat threats."
+      },
+      {
+        "title": "Wheat Fungal Disease Genomics",
+        "title_ar": "جينوميات أمراض القمح الفطرية",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic insights into Fusarium pathogens causing head blight in wheat."
+      }
+    ],
+    "healthy": [
+      {
+        "title": "Wheat Disease Integrated Management Review",
+        "title_ar": "مراجعة الإدارة المتكاملة لأمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Integrated strategies for maintaining healthy wheat crops and preventing disease outbreaks."
+      },
+      {
+        "title": "Wheat Pathogen Genomics and Health",
+        "title_ar": "جينوميات مسببات الأمراض وصحة القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomics-based approaches to improving wheat health and disease resistance."
+      },
+      {
+        "title": "Wheat Plant Immunity and Disease Resistance",
+        "title_ar": "مناعة القمح ومقاومة الأمراض",
+        "source": "Frontiers in Plant Science",
+        "url": "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.671060/full",
+        "summary": "Research on wheat immune mechanisms and strategies for durable disease resistance."
+      },
+      {
+        "title": "Wheat Pest and Disease Reference — USDA",
+        "title_ar": "دليل آفات وأمراض القمح — وزارة الزراعة الأمريكية",
+        "source": "USDA Wheat Genetics Resource Center",
+        "url": "https://wheat.pw.usda.gov/ggpages/wheatpests.html",
+        "summary": "USDA reference page on wheat pests and diseases, useful for healthy crop management."
+      }
+    ],
+    "leaf_blight": [
+      {
+        "title": "Wheat Disease Management Review",
+        "title_ar": "مراجعة إدارة أمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Scientific review of major wheat diseases including foliar blights."
+      },
+      {
+        "title": "Wheat Fungal Disease Genomics",
+        "title_ar": "جينوميات الفطريات المسببة للفحة أوراق القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic characterisation of wheat fungal pathogens causing leaf blight diseases."
+      },
+      {
+        "title": "Wheat Leaf Blight — ICAR Research",
+        "title_ar": "لفحة أوراق القمح — بحوث ICAR",
+        "source": "ICAR / Indian Phytopathology",
+        "url": "https://epubs.icar.org.in/index.php/IPPJ/article/view/19557",
+        "summary": "Research article on wheat leaf blight disease management from the Indian Council of Agricultural Research."
+      }
+    ],
+    "mildew": [
+      {
+        "title": "Wheat Powdery Mildew Evolutionary Biology",
+        "title_ar": "البيولوجيا التطورية للبياض الدقيقي في القمح",
+        "source": "Nature Ecology & Evolution",
+        "url": "https://www.nature.com/articles/s41559-025-02791-8",
+        "summary": "Evolutionary study of wheat powdery mildew pathogen and implications for disease management."
+      },
+      {
+        "title": "Wheat Disease Management — PMC Review",
+        "title_ar": "مراجعة إدارة أمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Review of integrated disease management including powdery mildew control strategies."
+      },
+      {
+        "title": "Wheat Pathogen Genomics",
+        "title_ar": "جينوميات مسببات أمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic insights into wheat powdery mildew and other fungal pathogens."
+      },
+      {
+        "title": "Wheat Plant Immunity and Mildew Resistance",
+        "title_ar": "مناعة القمح ومقاومة البياض الدقيقي",
+        "source": "Frontiers in Plant Science",
+        "url": "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2021.671060/full",
+        "summary": "Plant immunity mechanisms and breeding for powdery mildew resistance in wheat."
+      }
+    ],
+    "mite": [
+      {
+        "title": "Wheat Mite Pest Management",
+        "title_ar": "إدارة آفات الأكاروسات في القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7962190/",
+        "summary": "Scientific study on wheat mite pests, their biology, and integrated management strategies."
+      },
+      {
+        "title": "Wheat Curl Mite as Virus Vector",
+        "title_ar": "أكاروس تجعد القمح كناقل للفيروسات",
+        "source": "APS Plant Disease",
+        "url": "https://apsjournals.apsnet.org/doi/10.1094/PDIS-03-19-0620-SR",
+        "summary": "Review of wheat curl mite as vector of wheat streak mosaic virus and management options."
+      },
+      {
+        "title": "Wheat Disease and Mite Management Review",
+        "title_ar": "مراجعة إدارة أمراض وأكاروسات القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Comprehensive review covering mite-transmitted diseases in wheat production."
+      },
+      {
+        "title": "Wheat Pathogen and Pest Genomics",
+        "title_ar": "جينوميات مسببات أمراض وآفات القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic approaches to understanding wheat pathogens and mite-associated diseases."
+      }
+    ],
+    "septoria": [
+      {
+        "title": "Septoria Tritici Blotch — APS Phytopathology Review",
+        "title_ar": "تبقع سبتوريا للقمح — مراجعة علم الأمراض",
+        "source": "APS Phytopathology",
+        "url": "https://apsjournals.apsnet.org/doi/10.1094/PHYTO-07-20-0280-RVW",
+        "summary": "Scientific review of septoria diseases of wheat including epidemiology and fungicide management."
+      },
+      {
+        "title": "Septoria Leaf Blotch — PLOS ONE",
+        "title_ar": "تبقع السبتوريا — مجلة بلوس ون",
+        "source": "PLOS ONE",
+        "url": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0308116",
+        "summary": "Research study on septoria leaf blotch disease dynamics and management in wheat fields."
+      },
+      {
+        "title": "Wheat Disease Integrated Management",
+        "title_ar": "إدارة أمراض القمح المتكاملة",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Integrated disease management review covering septoria as a key wheat foliar disease."
+      }
+    ],
+    "smut": [
+      {
+        "title": "Wheat Smut Pathogen Genomics",
+        "title_ar": "جينوميات مسببات التفحم في القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6529584/",
+        "summary": "Genomic characterisation of smut pathogens (Tilletia and Ustilago) affecting wheat."
+      },
+      {
+        "title": "Smut Resistance in Wheat — Frontiers in Plant Science",
+        "title_ar": "مقاومة التفحم في القمح",
+        "source": "Frontiers in Plant Science",
+        "url": "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2020.569057/full",
+        "summary": "Research on resistance mechanisms and breeding strategies against wheat smut diseases."
+      },
+      {
+        "title": "Wheat Disease Management Review",
+        "title_ar": "مراجعة إدارة أمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Integrated review of wheat diseases including smut disease management strategies."
+      },
+      {
+        "title": "Wheat Fungal Pathogen Genomics",
+        "title_ar": "جينوميات الفطريات المسببة لتفحم القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic insights into wheat smut (Tilletia, Ustilago) and other fungal pathogens."
+      }
+    ],
+    "stem_fly": [
+      {
+        "title": "Wheat Stem Fly — Frontiers in Plant Science 2025",
+        "title_ar": "ذبابة ساق القمح — حدود علوم النبات 2025",
+        "source": "Frontiers in Plant Science",
+        "url": "https://www.frontiersin.org/journals/plant-science/articles/10.3389/fpls.2025.1497732/full",
+        "summary": "Recent research on wheat stem fly biology, damage assessment, and management strategies."
+      },
+      {
+        "title": "Wheat Disease and Pest Management",
+        "title_ar": "إدارة أمراض وآفات القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Review of wheat disease and pest management including stem-boring insects."
+      },
+      {
+        "title": "Wheat Pathogen and Pest Genomics",
+        "title_ar": "جينوميات آفات القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic approaches to understanding wheat stem fly and associated pest interactions."
+      }
+    ],
+    "tan_spot": [
+      {
+        "title": "Wheat Pathogen Genomics and Tan Spot",
+        "title_ar": "جينوميات مسببات البقعة التانية في القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomics of Pyrenophora tritici-repentis and other wheat pathogens causing tan spot."
+      },
+      {
+        "title": "Wheat Disease Integrated Management",
+        "title_ar": "الإدارة المتكاملة لأمراض القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9877539/",
+        "summary": "Integrated management review covering tan spot as a significant wheat foliar disease."
+      }
+    ],
+    "yellow_rust": [
+      {
+        "title": "Wheat Stripe Rust — Comprehensive Review",
+        "title_ar": "الصدأ الأصفر الخطي للقمح — مراجعة شاملة",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8942934/",
+        "summary": "Comprehensive scientific review of wheat stripe rust disease epidemiology and management."
+      },
+      {
+        "title": "Wheat Rust Diseases Review",
+        "title_ar": "مراجعة أمراض صدأ القمح",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7378807/",
+        "summary": "Review of wheat rust diseases including yellow/stripe rust epidemiology and control strategies."
+      },
+      {
+        "title": "Wheat Pathogen Genomics and Yellow Rust",
+        "title_ar": "جينوميات مسببات الصدأ الأصفر",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6638159/",
+        "summary": "Genomic approaches to durable resistance against wheat stripe rust."
+      },
+      {
+        "title": "Yellow Rust Virulence — New Research 2023",
+        "title_ar": "ضراوة الصدأ الأصفر — أبحاث 2023",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC12465673/",
+        "summary": "Research on new virulent yellow rust races and their interaction with wheat resistance genes."
+      },
+      {
+        "title": "الصدأ الأصفر — المجلة المصرية لوقاية النبات",
+        "title_ar": "الصدأ الأصفر للقمح — بحث علمي مصري",
+        "source": "المجلة المصرية لوقاية النبات",
+        "url": "https://ejp.journals.ekb.eg/article_120129.html",
+        "summary": "بحث علمي حول الصدأ الأصفر للقمح في المجلة المصرية المتخصصة."
+      },
+      {
+        "title": "موسوعة الصدأ الأصفر للقمح",
+        "title_ar": "الصدأ الأصفر للقمح — موسوعة تاجيبيديا",
+        "source": "تاجيبيديا",
+        "url": "https://www.tagepedia.org/Entry.aspx?id=1041159",
+        "summary": "موسوعة شاملة عن الصدأ الأصفر للقمح وطرق مكافحته."
+      }
+    ]
+  },
+  "tomato": {
+    "bacterial_spot": [
+      {
+        "title": "Tomato Bacterial Spot — PubMed Research",
+        "title_ar": "اللفحة البكتيرية للطماطم — بحث PubMed",
+        "source": "PubMed",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/34342710/",
+        "summary": "Peer-reviewed research on bacterial spot of tomato, pathogen characterisation, and management."
+      },
+      {
+        "title": "Bacterial Spot of Tomato — PMC Review",
+        "title_ar": "اللفحة البكتيرية للطماطم — مراجعة علمية",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC7084486/",
+        "summary": "Comprehensive PMC review of bacterial spot disease caused by Xanthomonas spp. on tomato."
+      },
+      {
+        "title": "Bacterial Spot Resistance in Tomato — APS Phytopathology",
+        "title_ar": "مقاومة اللفحة البكتيرية في الطماطم",
+        "source": "APS Phytopathology",
+        "url": "https://apsjournals.apsnet.org/doi/pdf/10.1094/PHYTO-02-15-0051-R",
+        "summary": "Research on bacterial spot resistance mechanisms and race diversity in tomato production."
+      },
+      {
+        "title": "Bacterial Spot Management — APS Plant Health Progress",
+        "title_ar": "إدارة اللفحة البكتيرية — تقدم صحة النبات",
+        "source": "APS Plant Health Progress",
+        "url": "https://apsjournals.apsnet.org/doi/10.1094/PHP-11-21-0140-DG",
+        "summary": "Diagnostic guide and management recommendations for bacterial spot of tomato."
+      },
+      {
+        "title": "Bacterial Spot of Tomato — Plant Archives",
+        "title_ar": "اللفحة البكتيرية للطماطم — أرشيف النبات",
+        "source": "Plant Archives",
+        "url": "https://www.plantarchives.org/article/77",
+        "summary": "Research article on bacterial spot disease biology and integrated management strategies."
+      },
+      {
+        "title": "Tomato Bacterial Diseases — PubMed",
+        "title_ar": "الأمراض البكتيرية للطماطم — بحث علمي",
+        "source": "PubMed",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/32138355/",
+        "summary": "Research on bacterial diseases of tomato including spot, speck, and canker."
+      },
+      {
+        "title": "اللفحة البكتيرية للطماطم — المرجة",
+        "title_ar": "اللفحة البكتيرية في الطماطم",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=73970",
+        "summary": "مرجع علمي حول اللفحة البكتيرية التي تصيب الطماطم وطرق مكافحتها."
+      }
+    ],
+    "early_blight": [
+      {
+        "title": "Tomato Early Blight — PubMed Research",
+        "title_ar": "اللفحة المبكرة للطماطم — بحث علمي",
+        "source": "PubMed",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/28934121/",
+        "summary": "Research on Alternaria solani causing early blight of tomato and management strategies."
+      },
+      {
+        "title": "Early Blight Resistance in Tomato — PMC",
+        "title_ar": "مقاومة اللفحة المبكرة في الطماطم",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC9870120/",
+        "summary": "Study on resistance mechanisms and genetic basis of early blight resistance in tomato."
+      },
+      {
+        "title": "Tomato Early Blight Management — PMC",
+        "title_ar": "إدارة اللفحة المبكرة للطماطم",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC10687106/",
+        "summary": "Comprehensive management study for tomato early blight in production systems."
+      },
+      {
+        "title": "Early Blight of Tomato — University of Tehran",
+        "title_ar": "اللفحة المبكرة للطماطم — جامعة طهران",
+        "source": "Journal of University of Tehran",
+        "url": "https://journals.ut.ac.ir/article_104710_00c3509b5544defde1e2f0061ef6efce.pdf",
+        "summary": "Research on tomato early blight from the University of Tehran agricultural sciences journal."
+      },
+      {
+        "title": "Early Blight Research — GCSAR Syria",
+        "title_ar": "اللفحة المبكرة — البحوث العلمية الزراعية السورية",
+        "source": "General Commission for Scientific Agricultural Research — Syria",
+        "url": "http://gcsar.gov.sy/elibrary/phd-msc/masters/master-69/",
+        "summary": "MSc research on tomato early blight management from the Syrian Agricultural Research Commission."
+      }
+    ],
+    "late_blight": [
+      {
+        "title": "Late Blight of Tomato — Phytojournal",
+        "title_ar": "اللفحة المتأخرة للطماطم — المجلة النباتية",
+        "source": "Journal of Pharmacognosy and Phytochemistry",
+        "url": "https://www.phytojournal.com/archives/2018/vol7issue5/PartBE/7-5-539-950.pdf",
+        "summary": "Research on late blight of tomato caused by Phytophthora infestans and management strategies."
+      },
+      {
+        "title": "Tomato Late Blight Management — SCIRP",
+        "title_ar": "إدارة اللفحة المتأخرة للطماطم",
+        "source": "SCIRP",
+        "url": "https://www.scirp.org/journal/paperinformation?paperid=47921",
+        "summary": "Study on late blight disease management and resistance in tomato production systems."
+      }
+    ],
+    "leaf_mold": [
+      {
+        "title": "Tomato Leaf Mould — RHS Guide",
+        "title_ar": "عفن أوراق الطماطم — الجمعية الملكية",
+        "source": "Royal Horticultural Society",
+        "url": "https://www.rhs.org.uk/disease/tomato-leaf-mould",
+        "summary": "RHS guide on tomato leaf mould caused by Passalora fulva, symptoms, and control methods."
+      }
+    ],
+    "septoria_leaf_spot": [
+      {
+        "title": "Septoria Leaf Spot of Tomato — APS Education",
+        "title_ar": "تبقع سبتوريا أوراق الطماطم",
+        "source": "American Phytopathological Society",
+        "url": "https://www.apsnet.org/edcenter/pdlessons/Pages/SeptoriaLeafSpot.aspx",
+        "summary": "Educational resource on Septoria lycopersici, disease cycle, and management strategies on tomato."
+      }
+    ],
+    "spider_mites": [
+      {
+        "title": "Spider Mites on Tomato — APS Education",
+        "title_ar": "أكاروسات العنكبوت على الطماطم",
+        "source": "American Phytopathological Society",
+        "url": "https://www.apsnet.org/edcenter/pdlessons/Pages/SpiderMites.aspx",
+        "summary": "Educational resource on two-spotted spider mite biology, damage, and management on tomatoes."
+      }
+    ],
+    "target_spot": [
+      {
+        "title": "Target Spot of Tomato — APS Education",
+        "title_ar": "البقعة المستهدفة للطماطم",
+        "source": "American Phytopathological Society",
+        "url": "https://www.apsnet.org/edcenter/pdlessons/Pages/TargetSpot.aspx",
+        "summary": "Educational resource on target spot of tomato caused by Corynespora cassiicola."
+      }
+    ],
+    "tomato_yellow_leaf_curl_virus": [
+      {
+        "title": "Tomato Yellow Leaf Curl Virus — APS Education",
+        "title_ar": "فيروس تجعد أوراق الطماطم الأصفر",
+        "source": "American Phytopathological Society",
+        "url": "https://www.apsnet.org/edcenter/pdlessons/Pages/TomatoYellowLeafCurl.aspx",
+        "summary": "Educational resource on TYLCV, its whitefly vector, geographic spread, and management."
+      },
+      {
+        "title": "TYLCV Research — Arab Journal Vol. 36",
+        "title_ar": "فيروس TYLCV — المجلة العربية مجلد 36",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/wp-content/uploads/2018/09/V362-Pages-114-122-MS33-17.pdf",
+        "summary": "بحث علمي عربي حول فيروس تجعد أوراق الطماطم الأصفر وانتشاره وإدارته."
+      },
+      {
+        "title": "TYLCV Research — Arab Journal Vol. 7",
+        "title_ar": "فيروس TYLCV — المجلة العربية مجلد 7",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/wp-content/uploads/2021/04/V7-2_210-219.pdf",
+        "summary": "أبحاث عربية حول فيروس تجعد أوراق الطماطم الأصفر في منطقة الشرق الأوسط."
+      }
+    ],
+    "tomato_mosaic_virus": [
+      {
+        "title": "Tomato Mosaic Virus — APS Education",
+        "title_ar": "فيروس فسيفساء الطماطم",
+        "source": "American Phytopathological Society",
+        "url": "https://www.apsnet.org/edcenter/pdlessons/Pages/TomatoMosaic.aspx",
+        "summary": "Educational resource on tomato mosaic virus, strain diversity, symptoms, and management."
+      },
+      {
+        "title": "Tomato Virus Research — Arab Journal Vol. 36",
+        "title_ar": "فيروسات الطماطم — المجلة العربية مجلد 36",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/wp-content/uploads/2018/09/V362-Pages-114-122-MS33-17.pdf",
+        "summary": "بحث علمي عربي حول فيروسات الطماطم بما فيها فيروس الموزاييك."
+      }
+    ],
+    "healthy": [
+      {
+        "title": "Tomato Diseases Overview — APS Education",
+        "title_ar": "نظرة عامة على أمراض الطماطم",
+        "source": "American Phytopathological Society",
+        "url": "https://www.apsnet.org/edcenter/pdlessons/Pages/TomatoDiseases.aspx",
+        "summary": "Comprehensive overview of tomato diseases to help distinguish healthy from diseased plants."
+      },
+      {
+        "title": "Healthy Tomato Production — Arab Journal 2025",
+        "title_ar": "إنتاج الطماطم الصحي — المجلة العربية 2025",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/article/2025/02/4640/",
+        "summary": "Recent research on healthy tomato production and disease prevention in the Arab region."
+      },
+      {
+        "title": "إنتاج الطماطم الصحي — عالم الزراعة",
+        "title_ar": "الإنتاج الصحي لمحصول الطماطم",
+        "source": "عالم الزراعة",
+        "url": "https://agricultureegypt.com/Agenda/Articles/531/",
+        "summary": "دليل عملي لإنتاج طماطم صحية والوقاية من الأمراض الرئيسية في البيئة المصرية."
+      }
+    ]
+  },
+  "sugarcane": {
+    "healthy": [
+      {
+        "title": "Sugarcane Crop Protection — FAO Technical Guide",
+        "title_ar": "حماية محصول قصب السكر — دليل الفاو",
+        "source": "FAO",
+        "url": "https://www.fao.org/4/y4011e/y4011e0g.htm",
+        "summary": "FAO technical guide on sugarcane crop protection and healthy crop management."
+      },
+      {
+        "title": "قصب السكر الصحي — عالم الزراعة",
+        "title_ar": "الإنتاج الصحي لمحصول قصب السكر",
+        "source": "عالم الزراعة",
+        "url": "https://agricultureegypt.com/Agenda/Articles/571",
+        "summary": "دليل عملي للحفاظ على محصول قصب السكر صحياً في الظروف المصرية."
+      }
+    ],
+    "mosaic": [
+      {
+        "title": "Sugarcane Mosaic Virus — PubMed",
+        "title_ar": "فيروس موزاييك قصب السكر",
+        "source": "PubMed",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/33079018/",
+        "summary": "Research on sugarcane mosaic virus epidemiology, diagnostics, and management strategies."
+      },
+      {
+        "title": "Sugarcane Mosaic Disease — PMC Review",
+        "title_ar": "مرض الموزاييك في قصب السكر — مراجعة علمية",
+        "source": "NCBI / PubMed Central",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6873528/",
+        "summary": "Comprehensive study on sugarcane mosaic disease biology, spread, and resistant varieties."
+      },
+      {
+        "title": "Sugarcane Mosaic Virus — eAgri Lecture",
+        "title_ar": "فيروس الموزاييك — محاضرة زراعية",
+        "source": "eAgri / Plant Pathology",
+        "url": "http://eagri.org/eagri50/PATH272/lecture06/008.html",
+        "summary": "Educational resource on sugarcane mosaic virus disease cycle and control methods."
+      },
+      {
+        "title": "الموزاييك في قصب السكر — أغرينوز",
+        "title_ar": "فيروس الموزاييك في قصب السكر",
+        "source": "أغرينوز",
+        "url": "https://www.agrinewz.com/Section-204/مقالات/الدكتور-صادق-الشيمى",
+        "summary": "مقالات الدكتور صادق الشيمي حول الموزاييك وأمراض قصب السكر الفيروسية."
+      }
+    ],
+    "redrot": [
+      {
+        "title": "التعفن الأحمر في قصب السكر — عالم الزراعة",
+        "title_ar": "التعفن الأحمر في قصب السكر",
+        "source": "عالم الزراعة",
+        "url": "https://agricultureegypt.com/Agenda/Articles/571",
+        "summary": "دليل عملي لتشخيص ومكافحة مرض التعفن الأحمر في محصول قصب السكر."
+      }
+    ],
+    "rust": [
+      {
+        "title": "Sugarcane Disease Management — FAO",
+        "title_ar": "إدارة أمراض قصب السكر — الفاو",
+        "source": "FAO",
+        "url": "https://www.fao.org/4/y4011e/y4011e0g.htm",
+        "summary": "FAO technical guide covering sugarcane rust disease and crop protection strategies."
+      },
+      {
+        "title": "الصدأ في قصب السكر — عالم الزراعة",
+        "title_ar": "مرض الصدأ في قصب السكر",
+        "source": "عالم الزراعة",
+        "url": "https://agricultureegypt.com/Agenda/Articles/571",
+        "summary": "دليل لتشخيص ومكافحة مرض الصدأ في محصول قصب السكر في مصر."
+      }
+    ],
+    "yellow": [
+      {
+        "title": "اصفرار قصب السكر — أغرينوز",
+        "title_ar": "مرض الاصفرار في قصب السكر",
+        "source": "أغرينوز",
+        "url": "https://www.agrinewz.com/Section-204/مقالات/الدكتور-صادق-الشيمى",
+        "summary": "مقالات متخصصة حول مرض الاصفرار في قصب السكر وطرق الإدارة."
+      },
+      {
+        "title": "الاصفرار في قصب السكر — عالم الزراعة",
+        "title_ar": "الاصفرار في قصب السكر — دليل المزارع",
+        "source": "عالم الزراعة",
+        "url": "https://agricultureegypt.com/Agenda/Articles/571",
+        "summary": "دليل عملي لتشخيص ومكافحة مرض الاصفرار في محصول قصب السكر."
+      }
+    ]
+  },
+  "potato": {
+    "bacteria": [
+      {
+        "title": "الأمراض البكتيرية للبطاطس — المرجة",
+        "title_ar": "الأمراض البكتيرية للبطاطس",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=73970",
+        "summary": "مرجع علمي حول الأمراض البكتيرية التي تصيب البطاطس وطرق مكافحتها."
+      },
+      {
+        "title": "أمراض البطاطس البكتيرية — المكتبة الزراعية",
+        "title_ar": "الأمراض البكتيرية للبطاطس — المكتبة",
+        "source": "المكتبة الزراعية الشاملة",
+        "url": "https://www.agro-lib.site/2024/03/blog-post_4.html",
+        "summary": "دليل شامل للأمراض البكتيرية في البطاطس وطرق التشخيص والمكافحة."
+      }
+    ],
+    "fungi": [
+      {
+        "title": "الأمراض الفطرية للبطاطس — المرجة",
+        "title_ar": "الأمراض الفطرية للبطاطس",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=73970",
+        "summary": "مرجع علمي حول الأمراض الفطرية التي تصيب البطاطس وطرق مكافحتها."
+      },
+      {
+        "title": "إدارة أمراض البطاطس — عالم الزراعة",
+        "title_ar": "الأمراض الفطرية للبطاطس — عالم الزراعة",
+        "source": "عالم الزراعة",
+        "url": "https://agricultureegypt.com/Agenda/Articles/571",
+        "summary": "دليل لإدارة الأمراض الفطرية في البطاطس في البيئة المصرية."
+      }
+    ],
+    "healthy": [
+      {
+        "title": "Healthy Potato Production — Arab Journal 2025",
+        "title_ar": "إنتاج البطاطس الصحي — المجلة العربية",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/article/2025/02/4640/",
+        "summary": "Research on maintaining healthy potato crops and preventing major disease outbreaks."
+      },
+      {
+        "title": "إنتاج البطاطس الصحي — المرجة",
+        "title_ar": "الإنتاج الصحي لمحصول البطاطس",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=73970",
+        "summary": "مرجع عملي للحفاظ على صحة محصول البطاطس وزيادة إنتاجيته."
+      }
+    ],
+    "nematode": [
+      {
+        "title": "Potato Nematode Management — ARSCO",
+        "title_ar": "إدارة النيماتودا في البطاطس",
+        "source": "ARSCO — Arab Center for Agricultural Studies",
+        "url": "https://arsco.org/studies-and-research/article-detail-39780/",
+        "summary": "دراسة حول النيماتودا المصيبة لمحصول البطاطس وطرق المكافحة المتكاملة."
+      }
+    ],
+    "pest": [
+      {
+        "title": "آفات البطاطس — المرجة",
+        "title_ar": "آفات محصول البطاطس ووسائل مكافحتها",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=73970",
+        "summary": "مرجع شامل حول آفات محصول البطاطس والتدابير الوقائية والعلاجية."
+      }
+    ],
+    "phytophthora": [
+      {
+        "title": "Potato Late Blight (Phytophthora) — ARSCO",
+        "title_ar": "الفيتوفثورا في البطاطس — المركز العربي",
+        "source": "ARSCO — Arab Center for Agricultural Studies",
+        "url": "https://arsco.org/studies-and-research/article-detail-39780/",
+        "summary": "دراسة عن فيتوفثورا اللفحة المتأخرة في محصول البطاطس وطرق المكافحة."
+      },
+      {
+        "title": "اللفحة المتأخرة في البطاطس — المكتبة الزراعية",
+        "title_ar": "الفيتوفثورا في البطاطس — المكتبة الزراعية",
+        "source": "المكتبة الزراعية الشاملة",
+        "url": "https://www.agro-lib.site/2024/03/blog-post_4.html",
+        "summary": "دليل شامل للفحة المتأخرة الفيتوفثورية في البطاطس وطرق المكافحة."
+      }
+    ],
+    "virus": [
+      {
+        "title": "Potato Virus Research — Arab Journal Vol. 36",
+        "title_ar": "فيروسات البطاطس — المجلة العربية مجلد 36",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/wp-content/uploads/2018/09/V362-Pages-114-122-MS33-17.pdf",
+        "summary": "بحث علمي عن فيروسات البطاطس، تصنيفها، وطرق إدارتها."
+      },
+      {
+        "title": "Potato Virus Research — Arab Journal Vol. 7",
+        "title_ar": "فيروسات البطاطس — المجلة العربية مجلد 7",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/wp-content/uploads/2021/04/V7-2_210-219.pdf",
+        "summary": "بحوث حول فيروسات البطاطس وإدارتها في منطقة الشرق الأوسط."
+      }
+    ]
+  },
+  "grape": {
+    "bacterial_rot": [
+      {
+        "title": "أمراض العنب البكتيرية — المجلة العربية",
+        "title_ar": "اللفحة البكتيرية للعنب — بحث عربي",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/wp-content/uploads/2021/04/V7-2_210-219.pdf",
+        "summary": "بحث عربي حول الأمراض البكتيرية للعنب وطرق إدارتها."
+      }
+    ],
+    "black_rot": [
+      {
+        "title": "أمراض العنب — اللفحة السوداء",
+        "title_ar": "اللفحة السوداء للعنب — الملجي الزراعي",
+        "source": "مجلة ملجي الزراعية",
+        "url": "https://meleigi.com/wp-content/uploads/2019/03/amraaz-alOnab.pdf",
+        "summary": "دليل أمراض العنب باللغة العربية يشمل اللفحة السوداء وطرق المكافحة."
+      }
+    ],
+    "downey_mildew": [
+      {
+        "title": "الآفات والأمراض الشائعة في العنب — ويكي فلاح",
+        "title_ar": "البياض الزغبي في العنب — دليل المزارع",
+        "source": "WikiFarmer",
+        "url": "https://wikifarmer.com/library/ar/article/الآفات-والأمراض-الشائعة-فى-العنب",
+        "summary": "دليل شامل للآفات والأمراض الشائعة في العنب يشمل البياض الزغبي وطرق الوقاية."
+      }
+    ],
+    "esca_black_measles": [
+      {
+        "title": "أمراض العنب — الإسكا والملجي",
+        "title_ar": "مرض الإسكا في الكروم — الملجي الزراعي",
+        "source": "مجلة ملجي الزراعية",
+        "url": "https://meleigi.com/wp-content/uploads/2019/03/amraaz-alOnab.pdf",
+        "summary": "دليل أمراض العنب يشمل مرض الإسكا (البقع السوداء) وطرق مكافحته."
+      }
+    ],
+    "healthy": [
+      {
+        "title": "صحة الكروم — المجلة العربية",
+        "title_ar": "إنتاج العنب الصحي — بحث عربي",
+        "source": "Arab Journal of Plant Protection",
+        "url": "https://arabjournalpp.org/wp-content/uploads/2021/04/V7-2_210-219.pdf",
+        "summary": "بحث عربي حول الحفاظ على صحة الكروم والوقاية من أمراضها الرئيسية."
+      },
+      {
+        "title": "العنب الصحي — ويكي فلاح",
+        "title_ar": "الإنتاج الصحي للعنب — دليل المزارع",
+        "source": "WikiFarmer",
+        "url": "https://wikifarmer.com/library/ar/article/الآفات-والأمراض-الشائعة-فى-العنب",
+        "summary": "دليل شامل لرعاية كروم العنب الصحية والوقاية من الآفات والأمراض الشائعة."
+      }
+    ],
+    "leaf_blight": [
+      {
+        "title": "لفحة أوراق العنب — المرجة",
+        "title_ar": "لفحة أوراق العنب وطرق مكافحتها",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=73970",
+        "summary": "مرجع علمي حول لفحة أوراق العنب وأساليب المكافحة الفعّالة."
+      }
+    ],
+    "powdery_mildew": [
+      {
+        "title": "البياض الدقيقي للعنب — الملجي الزراعي",
+        "title_ar": "البياض الدقيقي في الكروم — الملجي",
+        "source": "مجلة ملجي الزراعية",
+        "url": "https://meleigi.com/wp-content/uploads/2019/03/amraaz-alOnab.pdf",
+        "summary": "دليل أمراض العنب يشمل البياض الدقيقي وطرق المكافحة الكيميائية والعضوية."
+      }
+    ]
+  },
+  "cotton": {
+    "bacterial_blight": [
+      {
+        "title": "اللفحة البكتيرية للقطن — اليوم السابع",
+        "title_ar": "اللفحة البكتيرية في محصول القطن",
+        "source": "اليوم السابع",
+        "url": "https://www.youm7.com/story/2018/2/23",
+        "summary": "مقال حول مرض اللفحة البكتيرية للقطن وأساليب مكافحته."
+      },
+      {
+        "title": "اللفحة البكتيرية للقطن — المرجة",
+        "title_ar": "اللفحة البكتيرية في القطن — مرجع علمي",
+        "source": "المرجة للزراعة",
+        "url": "https://ns1.almerja.com/more.php?idm=252081",
+        "summary": "مرجع علمي حول اللفحة البكتيرية التي تصيب القطن ووسائل المكافحة المتاحة."
+      }
+    ],
+    "curl_virus": [
+      {
+        "title": "فيروس تجعد أوراق القطن — اليوم السابع",
+        "title_ar": "فيروس تجعد أوراق القطن",
+        "source": "اليوم السابع",
+        "url": "https://www.youm7.com/story/2018/2/23",
+        "summary": "مقال حول فيروس تجعد أوراق القطن وأساليب الحد من انتشاره."
+      },
+      {
+        "title": "فيروس تجعد الأوراق — المرجة",
+        "title_ar": "فيروس تجعد أوراق القطن — مرجع علمي",
+        "source": "المرجة للزراعة",
+        "url": "https://ns1.almerja.com/more.php?idm=252081",
+        "summary": "دليل علمي حول فيروس تجعد أوراق القطن المنقول بالذبابة البيضاء."
+      }
+    ],
+    "fussarium_wilt": [
+      {
+        "title": "الذبول الفيوزاريومي للقطن — اليوم السابع",
+        "title_ar": "الذبول الفيوزاريومي في محصول القطن",
+        "source": "اليوم السابع",
+        "url": "https://www.youm7.com/story/2018/2/23",
+        "summary": "مقال حول مرض الذبول الفيوزاريومي في القطن وطرق المكافحة المتكاملة."
+      },
+      {
+        "title": "الذبول الفيوزاريومي — المرجة",
+        "title_ar": "ذبول الفيوزاريوم في القطن — مرجع علمي",
+        "source": "المرجة للزراعة",
+        "url": "https://ns1.almerja.com/more.php?idm=252081",
+        "summary": "مرجع علمي متخصص حول الذبول الفيوزاريومي في القطن وأساليب الوقاية منه."
+      }
+    ],
+    "healthy": [
+      {
+        "title": "الإنتاج الصحي للقطن — اليوم السابع",
+        "title_ar": "دليل إنتاج القطن الصحي",
+        "source": "اليوم السابع",
+        "url": "https://www.youm7.com/story/2018/2/23",
+        "summary": "مقال إرشادي حول إنتاج القطن الصحي والوقاية من الأمراض الرئيسية."
+      },
+      {
+        "title": "القطن الصحي — المرجة",
+        "title_ar": "الإنتاج الصحي لمحصول القطن",
+        "source": "المرجة للزراعة",
+        "url": "https://ns1.almerja.com/more.php?idm=252081",
+        "summary": "دليل عملي للحفاظ على صحة محصول القطن وزيادة إنتاجيته."
+      }
+    ]
+  },
+  "corn": {
+    "blight": [
+      {
+        "title": "لفحة الذرة — المرجة الزراعية",
+        "title_ar": "مرض لفحة الذرة — مرجع زراعي",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=54095",
+        "summary": "مرجع علمي شامل حول مرض اللفحة في الذرة وطرق التشخيص والمكافحة."
+      },
+      {
+        "title": "إدارة أمراض الذرة — أهل مصر",
+        "title_ar": "إدارة أمراض الذرة في مصر",
+        "source": "أهل مصر",
+        "url": "https://ahlmasrnews.com/862287",
+        "summary": "مقال حول إدارة أمراض الذرة الرئيسية في البيئة المصرية."
+      }
+    ],
+    "common_rust": [
+      {
+        "title": "الصدأ الشائع للذرة — المرجة",
+        "title_ar": "الصدأ الشائع للذرة — مرجع زراعي",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=54095",
+        "summary": "مرجع علمي حول الصدأ الشائع للذرة وطرق المكافحة المتكاملة."
+      }
+    ],
+    "gray_leaf_spot": [
+      {
+        "title": "البقعة الرمادية للذرة — المرجة",
+        "title_ar": "البقعة الرمادية للذرة — مرجع زراعي",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=54095",
+        "summary": "مرجع علمي شامل حول البقعة الرمادية في الذرة وطرق التشخيص والمكافحة."
+      }
+    ],
+    "healthy": [
+      {
+        "title": "الإنتاج الصحي للذرة — المرجة",
+        "title_ar": "الإنتاج الصحي لمحصول الذرة",
+        "source": "المرجة للزراعة",
+        "url": "https://www.almerja.com/reading.php?idm=54095",
+        "summary": "مرجع زراعي شامل حول صحة محصول الذرة وإدارة الأمراض."
+      },
+      {
+        "title": "الذرة الصحية — أهل مصر",
+        "title_ar": "إنتاج الذرة الصحي في مصر",
+        "source": "أهل مصر",
+        "url": "https://ahlmasrnews.com/862287",
+        "summary": "دليل الإنتاج الصحي لمحصول الذرة والوقاية من الأمراض الرئيسية."
+      }
+    ]
+  },
+  "apple": {
+    "apple_scab": [
+      {
+        "title": "جرب التفاح — المكتبة الزراعية",
+        "title_ar": "جرب التفاح — المكتبة الزراعية الشاملة",
+        "source": "المكتبة الزراعية الشاملة",
+        "url": "https://www.agro-lib.site/2020/11/blog-post_94.html",
+        "summary": "دليل أمراض التفاح الشامل يتضمن جرب التفاح وطرق المكافحة."
+      }
+    ],
+    "black_rot": [
+      {
+        "title": "التعفن الأسود للتفاح — المكتبة الزراعية",
+        "title_ar": "التعفن الأسود للتفاح",
+        "source": "المكتبة الزراعية الشاملة",
+        "url": "https://www.agro-lib.site/2020/11/blog-post_94.html",
+        "summary": "دليل التعفن الأسود في التفاح وطرق تشخيصه ومكافحته."
+      },
+      {
+        "title": "Apple Black Rot — ARSCO Research",
+        "title_ar": "التعفن الأسود للتفاح — دراسة علمية",
+        "source": "ARSCO",
+        "url": "https://arsco.org/studies-and-research/article-detail-39780/",
+        "summary": "دراسة علمية حول التعفن الأسود في التفاح وطرق إدارته."
+      }
+    ],
+    "cedar_apple_rust": [
+      {
+        "title": "صدأ التفاح والعرعر — المكتبة الزراعية",
+        "title_ar": "صدأ التفاح والعرعر",
+        "source": "المكتبة الزراعية الشاملة",
+        "url": "https://www.agro-lib.site/2020/11/blog-post_94.html",
+        "summary": "دليل مرض صدأ التفاح والعرعر وطرق الوقاية والمكافحة."
+      },
+      {
+        "title": "Cedar Apple Rust — ARSCO",
+        "title_ar": "صدأ التفاح والعرعر — المركز العربي",
+        "source": "ARSCO",
+        "url": "https://arsco.org/studies-and-research/article-detail-39780/",
+        "summary": "دراسة حول صدأ التفاح والعرعر وطرق إدارته في المناطق العربية."
+      }
+    ],
+    "healthy": [
+      {
+        "title": "أمراض التفاحيات — إيمو فيد",
+        "title_ar": "أمراض التفاحيات وطرق مكافحتها",
+        "source": "إيمو فيد",
+        "url": "https://emufeed.com/ar/article/أمراض_التفاحيات",
+        "summary": "مقال شامل حول أمراض التفاحيات وطرق الوقاية والمكافحة المتكاملة."
+      },
+      {
+        "title": "صحة بستان التفاح — ARSCO",
+        "title_ar": "الإنتاج الصحي لمحصول التفاح",
+        "source": "ARSCO",
+        "url": "https://arsco.org/studies-and-research/article-detail-39780/",
+        "summary": "دراسة علمية حول الحفاظ على صحة محصول التفاح والوقاية من الأمراض."
+      }
+    ]
+  }
+}

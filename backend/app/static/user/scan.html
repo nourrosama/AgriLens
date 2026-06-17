@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgriLens — Scan Plant</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app/static/_layout.css">
+  <style>
+    .result-tabs { display:flex; gap:4px; margin-bottom:16px; }
+    .result-tab  { padding:7px 16px; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; border:none; background:var(--grey-100); color:var(--grey-600); }
+    .result-tab.active { background:var(--green-700); color:#fff; }
+    .result-tab-panel { display:none; }
+    .result-tab-panel.active { display:block; }
+    .confidence-ring { width:80px; height:80px; flex-shrink:0; }
+    .treatment-item { display:flex; gap:10px; padding:10px; background:var(--grey-50); border-radius:8px; margin-bottom:8px; }
+    .treatment-bullet { width:22px; height:22px; border-radius:50%; background:var(--green-700); color:#fff; font-size:12px; font-weight:700; display:flex; align-items:center;justify-content:center;flex-shrink:0;margin-top:1px; }
+    .gradcam-wrap { position:relative; display:inline-block; border-radius:var(--radius); overflow:hidden; }
+    .gradcam-wrap img { display:block; max-width:100%; max-height:280px; }
+    .gradcam-overlay { position:absolute; inset:0; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- Sidebar -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">🌿 Agri<span>Lens</span></div>
+      <span class="plan-badge" id="sb-plan-badge">Free</span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section-title">Main</div>
+      <a class="nav-item" data-page="dashboard" href="/app/dashboard"><span class="nav-icon">🏠</span> Dashboard</a>
+      <a class="nav-item" data-page="scan"      href="/app/scan">     <span class="nav-icon">🔬</span> Scan Plant</a>
+      <a class="nav-item" data-page="articles"  href="/app/articles"> <span class="nav-icon">📰</span> Articles</a>
+      <div class="nav-section-title" style="margin-top:8px;">Premium</div>
+      <a class="nav-item" data-page="chatbot" href="/app/chatbot"><span class="nav-icon">🤖</span> AI Chatbot <span class="lock-icon" id="lock-chatbot">🔒</span></a>
+      <div class="nav-section-title" style="margin-top:8px;">Professional</div>
+      <a class="nav-item" data-page="farm"    href="/app/farm">   <span class="nav-icon">🌾</span> Farm Dashboard <span class="lock-icon" id="lock-farm">🔒</span></a>
+      <a class="nav-item" data-page="reports" href="/app/reports"><span class="nav-icon">📄</span> Reports <span class="lock-icon" id="lock-reports">🔒</span></a>
+    </div>
+    <div class="sidebar-footer">
+      <div class="upgrade-cta" id="sb-upgrade-cta">
+        <p>Unlock detailed AI reports</p>
+        <button class="btn-upgrade" onclick="openUpgradeModal('premium')">⬆ Upgrade Plan</button>
+      </div>
+      <div class="sidebar-user">
+        <div class="avatar" id="sb-avatar">F</div>
+        <div class="sidebar-user-info">
+          <div class="name" id="sb-name">Farmer</div>
+          <div class="email" id="sb-email"></div>
+        </div>
+        <button class="btn-logout" id="btn-logout" title="Sign out">↩</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <header class="topbar">
+      <button class="hamburger" id="hamburger">☰</button>
+      <div>
+        <div class="topbar-title">🔬 Scan Plant</div>
+        <div class="topbar-sub">Upload a photo to detect diseases instantly</div>
+      </div>
+      <div class="topbar-actions">
+        <div id="quota-topbar"></div>
+      </div>
+    </header>
+
+    <div class="page-content" style="display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start;">
+
+      <!-- Upload panel -->
+      <div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Upload Image</div></div>
+          <div class="card-body">
+            <div class="drop-zone" id="drop-zone">
+              <div class="drop-icon">📷</div>
+              <p>Drag & drop or click to upload</p>
+              <p class="drop-hint">JPG, PNG, WebP · max 50 MB</p>
+              <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp">
+            </div>
+            <img id="preview-img" class="preview-img" alt="Preview">
+
+            <div style="margin-top:16px;">
+              <div class="form-group">
+                <label class="form-label">Crop Type</label>
+                <select id="crop-type" class="form-control">
+                  <option value="">— Select crop —</option>
+                  <option value="tomato">Tomato</option>
+                  <option value="apple">Apple</option>
+                  <option value="potato">Potato</option>
+                  <option value="corn">Corn</option>
+                  <option value="wheat">Wheat</option>
+                  <option value="grape">Grape</option>
+                  <option value="sweetpotato">Sweet Potato</option>
+                  <option value="mushroom">Mushroom</option>
+                </select>
+              </div>
+
+              <div class="form-group" id="crop-age-group" style="display:none">
+                <label class="form-label">Plant Age (weeks) <span class="badge badge-amber" style="font-size:10px;">Premium</span></label>
+                <input type="number" id="plant-age" class="form-control" placeholder="e.g. 8" min="1" max="200">
+              </div>
+
+              <div id="quota-alert"></div>
+              <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px;" id="btn-scan" disabled>
+                🔬 Analyze Image
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scan history -->
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header"><div class="card-title">Scan History</div></div>
+          <div class="card-body" id="history-body">
+            <div class="loading-center"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Result panel -->
+      <div id="result-panel">
+        <div class="card">
+          <div class="card-body" style="text-align:center;padding:40px;color:var(--grey-400);">
+            <div style="font-size:48px;margin-bottom:12px;">🌿</div>
+            <div style="font-size:14px;">Upload a plant image to see disease analysis here</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="/app/static/_base.js"></script>
+<script>
+Auth.requireLogin();
+const plan = Auth.plan();
+if (planMeets('premium')) { document.getElementById('lock-chatbot')?.remove(); document.getElementById('crop-age-group').style.display = ''; }
+if (planMeets('professional')) { document.getElementById('lock-farm')?.remove(); document.getElementById('lock-reports')?.remove(); }
+initSidebar('scan');
+
+let selectedFile = null;
+
+// ── Quota check ───────────────────────────────────────────────────────────────
+(async () => {
+  const subRes = await apiFetch('/api/subscription/status');
+  if (subRes?.ok) {
+    const { quota } = subRes.data.data;
+    document.getElementById('quota-topbar').innerHTML = renderQuotaBar(quota);
+    if (!quota.unlimited && quota.remaining === 0) {
+      document.getElementById('quota-alert').innerHTML = `
+        <div class="alert alert-warning">
+          ⚠ You've used all <b>${quota.limit}</b> free scans this month.
+          <a href="#" onclick="openUpgradeModal('premium')">Upgrade to Premium</a> for unlimited scans.
+        </div>`;
+      document.getElementById('btn-scan').disabled = true;
+    }
+  }
+
+  // Scan history
+  const histRes = await apiFetch('/api/scans?per_page=8');
+  const histEl  = document.getElementById('history-body');
+  if (histRes?.ok) {
+    const scans = histRes.data.data?.scans || [];
+    if (!scans.length) {
+      histEl.innerHTML = '<p style="color:var(--grey-500);font-size:13px;text-align:center;">No scans yet.</p>';
+    } else {
+      histEl.innerHTML = scans.map(scan => {
+        const dr  = scan.detection_result || {};
+        const sev = dr.severity || 'none';
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--grey-100);">
+            <div style="width:36px;height:36px;border-radius:8px;background:var(--grey-100);overflow:hidden;flex-shrink:0;">
+              ${scan.image_url ? `<img src="${scan.image_url}" style="width:100%;height:100%;object-fit:cover;">` : '<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">🌿</div>'}
+            </div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13px;font-weight:600;color:var(--grey-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${dr.disease || 'Pending'}</div>
+              <div style="font-size:11px;color:var(--grey-500);">${scan.crop_type || '—'} · ${fmtDate(scan.created_at)}</div>
+            </div>
+            ${severityBadge(sev)}
+          </div>`;
+      }).join('');
+    }
+  }
+})();
+
+// ── File upload ───────────────────────────────────────────────────────────────
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('fileInput');
+const preview   = document.getElementById('preview-img');
+const btnScan   = document.getElementById('btn-scan');
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
+fileInput.addEventListener('change', () => handleFile(fileInput.files[0]));
+
+function handleFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  const url = URL.createObjectURL(file);
+  preview.src = url; preview.style.display = 'block';
+  btnScan.disabled = false;
+  btnScan.textContent = '🔬 Analyze Image';
+}
+
+// ── Scan submission ───────────────────────────────────────────────────────────
+btnScan.addEventListener('click', async () => {
+  if (!selectedFile) { toast('Please select an image first.', 'error'); return; }
+
+  btnScan.disabled = true;
+  btnScan.innerHTML = '<div class="spinner" style="width:18px;height:18px;border-width:2px;margin-right:8px;"></div> Analyzing…';
+
+  const fd = new FormData();
+  fd.append('image', selectedFile);
+  const cropType = document.getElementById('crop-type').value;
+  if (cropType) fd.append('crop_type', cropType);
+
+  const resultPanel = document.getElementById('result-panel');
+  resultPanel.innerHTML = '<div class="card"><div class="loading-center"><div class="spinner"></div>AI is analyzing your plant…</div></div>';
+
+  const res = await apiFetch('/api/scans', { method: 'POST', body: fd });
+
+  btnScan.disabled = false; btnScan.textContent = '🔬 Analyze Image';
+
+  if (!res?.ok) {
+    if (res?.status === 403) {
+      resultPanel.innerHTML = gateHtml('premium', 'Unlimited Scans');
+    } else {
+      resultPanel.innerHTML = `<div class="alert alert-error">❌ ${res?.data?.message || 'Scan failed. Please try again.'}</div>`;
+    }
+    return;
+  }
+
+  const r = res.data.data?.result;
+  if (!r) {
+    resultPanel.innerHTML = '<div class="alert alert-error">Detection returned no result.</div>';
+    return;
+  }
+
+  renderResult(r, res.data.data?.scan, res.data.data?.forecast);
+
+  // Refresh history
+  const histRes2 = await apiFetch('/api/scans?per_page=8');
+  // (re-render history silently)
+});
+
+// ── Result renderer ────────────────────────────────────────────────────────────
+function renderResult(r, scan, forecast) {
+  const resultPanel = document.getElementById('result-panel');
+  const isHealthy   = r.is_healthy;
+  const pct         = r.confidence_score || 0;
+  const sev         = r.severity || 'none';
+  const userPlan    = r.plan || plan;
+
+  let html = `
+    <div class="result-card">
+      <div class="result-header ${isHealthy ? 'healthy' : 'disease'}">
+        <div class="result-icon">${isHealthy ? '✅' : '🦠'}</div>
+        <div>
+          <div class="result-name">${r.disease_name || 'Unknown'}</div>
+          <div class="result-confidence">Confidence: <b>${pct}%</b> · ${severityBadge(sev)}</div>
+          ${r.scientific_name ? `<div style="font-size:12px;color:var(--grey-500);font-style:italic;margin-top:2px;">${r.scientific_name}</div>` : ''}
+        </div>
+      </div>
+      <div class="result-body">`;
+
+  if (r.urgency) {
+    const urgColor = r.urgency_level === 'high' ? 'alert-error' : r.urgency_level === 'medium' ? 'alert-warning' : 'alert-info';
+    html += `<div class="alert ${urgColor}" style="margin-bottom:16px;">⚡ ${r.urgency}</div>`;
+  }
+
+  // Tabs (only shown if Premium+)
+  const hasTabs = !!(r.symptoms || r.causes || r.treatment_plan || r.preventive_measures);
+  if (hasTabs) {
+    html += `
+      <div class="result-tabs">
+        <button class="result-tab active" onclick="switchTab('summary')">Summary</button>
+        <button class="result-tab" onclick="switchTab('symptoms')">Symptoms</button>
+        <button class="result-tab" onclick="switchTab('treatment')">Treatment</button>
+        <button class="result-tab" onclick="switchTab('prevention')">Prevention</button>
+        ${planMeets('professional') ? '<button class="result-tab" onclick="switchTab(\'insights\')">Insights</button>' : ''}
+      </div>`;
+  }
+
+  // Summary tab
+  html += `<div class="result-tab-panel active" id="tab-summary">`;
+  html += `<div class="result-section"><h4>Summary</h4><p>${r.basic_summary || '—'}</p></div>`;
+  if (r.basic_treatment?.length) {
+    html += `<div class="result-section"><h4>Quick Actions</h4>`;
+    r.basic_treatment.forEach((t, i) => {
+      html += `<div class="treatment-item"><div class="treatment-bullet">${i+1}</div><div style="font-size:14px;">${t}</div></div>`;
+    });
+    html += `</div>`;
+  }
+  if (r.confidence_note) html += `<div class="alert alert-info">${r.confidence_note}</div>`;
+  html += `</div>`;
+
+  // Symptoms tab (Premium+)
+  html += `<div class="result-tab-panel" id="tab-symptoms">`;
+  if (r.symptoms?.length) {
+    html += `<div class="result-section"><h4>Visible Symptoms</h4><ul>${r.symptoms.map(s => `<li>${s}</li>`).join('')}</ul></div>`;
+  }
+  if (r.causes) {
+    html += `<div class="result-section"><h4>How It Spreads</h4><p>${r.causes.how_spreads || '—'}</p></div>`;
+    if (r.causes.favorable_conditions) html += `<div class="result-section"><h4>Favorable Conditions</h4><p>${r.causes.favorable_conditions}</p></div>`;
+    if (r.causes.pathogen_type) html += `<div class="result-section"><h4>Pathogen Type</h4><p>${r.causes.pathogen_type}</p></div>`;
+  }
+  if (r.look_alike_diseases?.length) html += `<div class="result-section"><h4>Similar Diseases</h4><ul>${r.look_alike_diseases.map(d => `<li>${d}</li>`).join('')}</ul></div>`;
+  html += `</div>`;
+
+  // Treatment tab (Premium+)
+  html += `<div class="result-tab-panel" id="tab-treatment">`;
+  if (r.treatment_plan) {
+    const tp = r.treatment_plan;
+    if (tp.immediate_actions?.length) {
+      html += `<div class="result-section"><h4>Immediate Actions</h4>`;
+      tp.immediate_actions.forEach((t, i) => { html += `<div class="treatment-item"><div class="treatment-bullet">${i+1}</div><div style="font-size:14px;">${t}</div></div>`; });
+      html += `</div>`;
+    }
+    if (tp.chemical?.length)  html += `<div class="result-section"><h4>Chemical Treatment</h4><ul>${tp.chemical.map(t => `<li>${t}</li>`).join('')}</ul></div>`;
+    if (tp.organic?.length)   html += `<div class="result-section"><h4>Organic Alternatives</h4><ul>${tp.organic.map(t => `<li>${t}</li>`).join('')}</ul></div>`;
+    if (tp.when_to_apply)     html += `<div class="result-section"><h4>When to Apply</h4><p>${tp.when_to_apply}</p></div>`;
+  }
+  if (r.recovery_timeline) html += `<div class="result-section"><h4>Recovery Timeline</h4><p>${r.recovery_timeline}</p></div>`;
+  html += `</div>`;
+
+  // Prevention tab (Premium+)
+  html += `<div class="result-tab-panel" id="tab-prevention">`;
+  if (r.preventive_measures?.length) {
+    html += `<div class="result-section"><h4>Preventive Measures</h4><ul>${r.preventive_measures.map(m => `<li>${m}</li>`).join('')}</ul></div>`;
+  }
+  html += `</div>`;
+
+  // Insights tab (Professional)
+  if (planMeets('professional')) {
+    html += `<div class="result-tab-panel" id="tab-insights">`;
+    if (r.yield_impact) html += `<div class="result-section"><h4>Yield Impact</h4><p>${r.yield_impact}</p></div>`;
+    if (r.cost_estimation) html += `<div class="result-section"><h4>Treatment Cost Estimate</h4><p>${r.cost_estimation}</p></div>`;
+    if (r.farm_insights) html += `<div class="result-section"><h4>Farm Insights</h4><p>${r.farm_insights}</p></div>`;
+    if (r.economic_threshold) html += `<div class="result-section"><h4>Economic Threshold</h4><p>${r.economic_threshold}</p></div>`;
+    html += `</div>`;
+  }
+
+  // Upgrade hint for Free users
+  if (r.upgrade_hint) {
+    const uh = r.upgrade_hint;
+    html += `<div style="margin-top:16px;">
+      <div class="gate-overlay">
+        <div class="gate-icon">⭐</div>
+        <h3>${uh.title}</h3>
+        <p>${uh.message}</p>
+        <div class="gate-features">${uh.features.map(f => `<span class="gate-feature">✓ ${f}</span>`).join('')}</div>
+        <button class="btn btn-amber" onclick="openUpgradeModal('premium')">⬆ Upgrade to Premium</button>
+      </div>
+    </div>`;
+  }
+
+  html += `</div></div>`;
+
+  // GradCAM (if present in scan)
+  const gcam = scan?.detection_result?.gradcam_overlay;
+  if (gcam) {
+    html += `
+      <div class="card" style="margin-top:12px;">
+        <div class="card-header"><div class="card-title">🌡 AI Heatmap (Grad-CAM)</div></div>
+        <div class="card-body" style="text-align:center;">
+          <div class="gradcam-wrap">
+            <img src="${document.getElementById('preview-img').src}" style="max-height:250px;display:block;border-radius:8px;">
+            <img class="gradcam-overlay" src="data:image/png;base64,${gcam}" style="max-height:250px;opacity:.65;mix-blend-mode:multiply;">
+          </div>
+          <p style="font-size:12px;color:var(--grey-500);margin-top:8px;">Hot zones show the model's focus area</p>
+        </div>
+      </div>`;
+  }
+
+  resultPanel.innerHTML = html;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.result-tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.result-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name)?.classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

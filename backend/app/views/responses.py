@@ -12,9 +12,11 @@ def success_response(data=None, message='Success', status=200):
     return jsonify(body), status
 
 
-def error_response(message='An error occurred', status=400, errors=None):
+def error_response(message='An error occurred', status=400, errors=None, extra=None):
     """Return an error JSON envelope."""
     body = {'status': 'error', 'message': message}
     if errors:
         body['errors'] = errors
+    if extra:
+        body.update(extra)
     return jsonify(body), status

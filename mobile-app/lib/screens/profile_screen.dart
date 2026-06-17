@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -13,8 +14,33 @@ import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Reload data every time the profile screen is opened.
+    // The providers already loaded at startup, but the call may have failed
+    // (backend not running, token expired, CORS on web, etc.).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<ScanHistoryProvider>().loadScans();
+      context.read<FieldsProvider>().loadFields();
+    });
+  }
+
+  Future<void> _refresh() async {
+    await Future.wait([
+      context.read<ScanHistoryProvider>().loadScans(),
+      context.read<FieldsProvider>().loadFields(),
+    ]);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +50,11 @@ class ProfileScreen extends StatelessWidget {
     final scanProvider = context.watch<ScanHistoryProvider>();
     final user = userProvider.user;
 
+    final hasError =
+        (scanProvider.errorMessage != null || fieldsProvider.errorMessage != null) &&
+        scanProvider.totalScans == 0 &&
+        fieldsProvider.fields.isEmpty;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -31,6 +62,7 @@ class ProfileScreen extends StatelessWidget {
           children: [
             Column(
               children: [
+                // Header
                 Container(
                   color: Colors.white,
                   padding: const EdgeInsets.symmetric(
@@ -65,20 +97,63 @@ class ProfileScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
+
+                // Error banner (shown when backend unreachable)
+                if (hasError)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                    color: const Color(0xFFFFF3E0),
+                    child: Row(
                       children: [
-                        _userInfo(context, lang, user, fieldsProvider, scanProvider),
-                        const SizedBox(height: 24),
-                        _accountSummary(lang, user),
-                        const SizedBox(height: 24),
-                        _menuOptions(context, lang),
-                        const SizedBox(height: 24),
-                        _logoutBtn(context, lang, userProvider),
-                        const SizedBox(height: 80),
+                        const Icon(Icons.cloud_off,
+                            color: Color(0xFFE65100), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            lang.isRTL
+                                ? 'تعذر الاتصال بالخادم. تأكد أن تطبيق الخادم يعمل.'
+                                : 'Could not reach server. Make sure your backend is running.',
+                            style: const TextStyle(
+                              color: Color(0xFFE65100),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: _refresh,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.refresh,
+                                color: Color(0xFFE65100), size: 20),
+                          ),
+                        ),
                       ],
+                    ),
+                  ),
+
+                Expanded(
+                  child: RefreshIndicator(
+                    color: AppColors.primary,
+                    onRefresh: _refresh,
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        children: [
+                          _userInfo(lang, user, fieldsProvider, scanProvider),
+                          const SizedBox(height: 24),
+                          _accountSummary(lang, user),
+                          const SizedBox(height: 24),
+                          _planSection(context, lang, user),
+                          const SizedBox(height: 24),
+                          _menuOptions(context, lang),
+                          const SizedBox(height: 24),
+                          _logoutBtn(context, lang, userProvider),
+                          const SizedBox(height: 80),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -178,10 +253,40 @@ class ProfileScreen extends StatelessWidget {
                 child: _stat(
                   '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
                   lang.t('fields.healthScore'),
+          scanProvider.isLoading
+              ? const SizedBox(
+                  height: 40,
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  ),
+                )
+              : Row(
+                  children: [
+                    Expanded(
+                      child: _stat(
+                          '${scanProvider.totalScans}', lang.t('nav.scan')),
+                    ),
+                    Expanded(
+                      child: _stat(
+                        '${fieldsProvider.fields.length}',
+                        lang.t('nav.fields'),
+                      ),
+                    ),
+                    Expanded(
+                      child: _stat(
+                        '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
+                        lang.t('fields.healthScore'),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
-          ),
         ],
       ),
     );
@@ -209,7 +314,7 @@ class ProfileScreen extends StatelessWidget {
             const Icon(Icons.person, size: 40, color: AppColors.primary),
       );
     }
-    if (File(path).existsSync()) {
+    if (!kIsWeb && File(path).existsSync()) {
       return Image.file(File(path), fit: BoxFit.cover);
     }
     return const Icon(Icons.person, size: 40, color: AppColors.primary);
@@ -229,7 +334,8 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          style:
+              const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
       ],
     );
@@ -298,10 +404,150 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Widget _planSection(BuildContext context, LanguageProvider lang, UserData user) {
+    final isRTL = lang.isRTL;
+    final plan = user.plan.isEmpty ? 'free' : user.plan;
+    final isPro = plan == 'professional';
+
+    // ── Subscription card ─────────────────────────────────────────────────────
+    Widget subCard;
+    if (plan == 'free') {
+      subCard = Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF8E1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFFFFCC02)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.upgrade_rounded,
+                color: Color(0xFFFF8F00), size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isRTL ? 'أنت على الخطة المجانية' : 'You\'re on the Free plan',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF7B5800),
+                        fontSize: 14),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    isRTL
+                        ? 'قم بالترقية للوصول إلى التحليلات والتقارير والمزيد'
+                        : 'Upgrade to unlock analytics, reports & more',
+                    style: const TextStyle(
+                        color: Color(0xFF9E7000), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: () => context.push('/subscription-plans'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF8F00),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(isRTL ? 'ترقية' : 'Upgrade',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      subCard = GestureDetector(
+        onTap: () => context.push('/subscription-plans'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isPro
+                ? const Color(0xFFF3E5F5)
+                : const Color(0xFFE3F2FD),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+                color: isPro
+                    ? const Color(0xFFCE93D8)
+                    : const Color(0xFF90CAF9)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                isPro ? Icons.workspace_premium_rounded : Icons.star_rounded,
+                color: isPro
+                    ? const Color(0xFF7B1FA2)
+                    : const Color(0xFF1565C0),
+                size: 28,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isPro
+                          ? (isRTL ? 'خطة المحترف' : 'Professional Plan')
+                          : (isRTL ? 'خطة بريميوم' : 'Premium Plan'),
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isPro
+                              ? const Color(0xFF4A148C)
+                              : const Color(0xFF0D47A1),
+                          fontSize: 14),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      isRTL
+                          ? 'إدارة اشتراكك'
+                          : 'Manage your subscription',
+                      style: TextStyle(
+                          color: isPro
+                              ? const Color(0xFF7B1FA2)
+                              : const Color(0xFF1565C0),
+                          fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        subCard,
+      ],
+    );
+  }
+
   Widget _menuOptions(BuildContext context, LanguageProvider lang) {
     final items = [
       (Icons.edit_outlined, lang.t('profile.editProfile'), '/edit-profile'),
-      (Icons.settings_outlined, lang.t('profile.accountSettings'), '/settings'),
+      (
+        Icons.settings_outlined,
+        lang.t('profile.accountSettings'),
+        '/settings',
+      ),
+      (
+        Icons.star_rounded,
+        lang.isRTL ? 'المفضلة' : 'Favourites',
+        '/favourites',
+      ),
       (
         Icons.support_agent_outlined,
         lang.t('profile.helpSupport'),
@@ -327,7 +573,8 @@ class ProfileScreen extends StatelessWidget {
                   padding: const EdgeInsets.all(20),
                   child: Row(
                     children: [
-                      Icon(item.$1, size: 24, color: AppColors.textSecondary),
+                      Icon(item.$1,
+                          size: 24, color: AppColors.textSecondary),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -385,7 +632,8 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               lang.t('profile.logout'),
-              style: const TextStyle(color: Color(0xFFF44336), fontSize: 18),
+              style:
+                  const TextStyle(color: Color(0xFFF44336), fontSize: 18),
             ),
           ],
         ),

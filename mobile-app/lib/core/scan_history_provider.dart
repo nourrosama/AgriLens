@@ -218,6 +218,15 @@ class ScanHistoryProvider extends ChangeNotifier {
     } else {
       loadScans();
     }
+
+  // Number of scans waiting to be synced while offline.
+  int _queuedCount = 0;
+  int get queuedCount => _queuedCount;
+
+  Future<void> _refreshQueuedCount() async {
+    final queued = await _queueStore.listQueuedScans();
+    _queuedCount = queued.length;
+    notifyListeners();
   }
   int get activeDiseasesCount => _scans
       .where(
@@ -381,6 +390,15 @@ class ScanHistoryProvider extends ChangeNotifier {
         farmId: farmId,
         fieldId: fieldId,
       );
+      if (mediaType == 'image') {
+        await _queueStore.enqueueScan(
+          imageFile: file,
+          cropType: cropType,
+          farmId: farmId,
+          fieldId: fieldId,
+        );
+        await _refreshQueuedCount();
+      }
       _errorMessage = error.toString();
       notifyListeners();
       return null;
@@ -431,6 +449,7 @@ class ScanHistoryProvider extends ChangeNotifier {
         }
       }
     }
+    await _refreshQueuedCount();
   }
 
   Future<ScanResult?> getScan(String id) async {

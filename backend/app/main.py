@@ -74,6 +74,7 @@ def create_app():
             {'name': 'Reports', 'description': 'Report export'},
             {'name': 'Chatbot', 'description': 'Farmer assistant'},
             {'name': 'Forum', 'description': 'Community feed, posts, Q&A, communities'},
+            {'name': 'Articles', 'description': 'Farmer-facing published articles'},
             {'name': 'Health', 'description': 'Service status'},
         ],
     }
@@ -91,6 +92,9 @@ def create_app():
     from app.controllers.chatbot_controller import chatbot_bp
     from app.controllers.forum_controller import forum_bp
     from app.controllers.community_controller import community_bp
+    from app.controllers.admin_controller import admin_bp
+    from app.controllers.article_controller import article_bp
+    from app.controllers.subscription_controller import subscription_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
@@ -104,6 +108,66 @@ def create_app():
     app.register_blueprint(chatbot_bp)
     app.register_blueprint(forum_bp)
     app.register_blueprint(community_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(article_bp)
+    app.register_blueprint(subscription_bp)
+
+    import os
+
+    admin_static = os.path.join(os.path.dirname(__file__), 'static', 'admin')
+    user_static  = os.path.join(os.path.dirname(__file__), 'static', 'user')
+
+    @app.route('/admin/', defaults={'filename': 'login.html'})
+    @app.route('/admin/<path:filename>')
+    def serve_admin(filename):
+        """Serve the admin HTML dashboard."""
+        return send_from_directory(admin_static, filename)
+
+    # ── User Portal (subscription-aware web UI) ────────────────────────────
+    USER_PAGES = {
+        'login':     'login.html',
+        'dashboard': 'dashboard.html',
+        'scan':      'scan.html',
+        'articles':  'articles.html',
+        'chatbot':   'chatbot.html',
+        'farm':      'farm.html',
+        'reports':   'reports.html',
+    }
+
+    @app.route('/app/')
+    @app.route('/app/dashboard')
+    def user_dashboard():
+        return send_from_directory(user_static, 'dashboard.html')
+
+    @app.route('/app/login')
+    def user_login():
+        return send_from_directory(user_static, 'login.html')
+
+    @app.route('/app/scan')
+    def user_scan():
+        return send_from_directory(user_static, 'scan.html')
+
+    @app.route('/app/articles')
+    def user_articles():
+        return send_from_directory(user_static, 'articles.html')
+
+    @app.route('/app/chatbot')
+    def user_chatbot():
+        return send_from_directory(user_static, 'chatbot.html')
+
+    @app.route('/app/farm')
+    def user_farm():
+        return send_from_directory(user_static, 'farm.html')
+
+    @app.route('/app/reports')
+    def user_reports():
+        return send_from_directory(user_static, 'reports.html')
+
+
+    @app.route('/app/static/<path:filename>')
+    def serve_user_static(filename):
+        """Serve shared CSS/JS assets for the user portal."""
+        return send_from_directory(user_static, filename)
 
     from app.services import storage_service
 

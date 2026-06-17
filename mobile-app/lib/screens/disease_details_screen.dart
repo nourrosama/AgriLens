@@ -2,24 +2,74 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agrilens/core/connectivity_provider.dart';
+import 'package:agrilens/core/disease_local_db.dart';
+import 'package:agrilens/core/favourites_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/theme.dart';
 
-class DiseaseDetailsScreen extends StatelessWidget {
+class DiseaseDetailsScreen extends StatefulWidget {
   const DiseaseDetailsScreen({super.key});
+
+  @override
+  State<DiseaseDetailsScreen> createState() => _DiseaseDetailsScreenState();
+}
+
+class _DiseaseDetailsScreenState extends State<DiseaseDetailsScreen> {
+  LocalDisease? _localDisease;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final result = _resolveResult(context);
+    if (result != null && _localDisease == null) {
+      DiseaseLocalDb.instance.findByName(result.diseaseNameEn).then((d) {
+        if (mounted) setState(() => _localDisease = d);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final isOnline = context.watch<ConnectivityProvider>().isOnline;
+    final favourites = context.watch<FavouritesProvider>();
     final result = _resolveResult(context);
+
+    final diseaseId = result?.diseaseNameEn ?? '';
+    final isFav = favourites.isFavourite(diseaseId);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
-            _header(context, lang),
+            _header(context, lang, diseaseId, isFav, favourites),
+            // Offline notice
+            if (!isOnline)
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: const Color(0xFFFFF3E0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.wifi_off,
+                        size: 14, color: Color(0xFFE65100)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        lang.isRTL
+                            ? 'غير متصل — يتم عرض المعلومات المحلية'
+                            : 'Offline — showing locally stored info',
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFFE65100)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
@@ -36,6 +86,12 @@ class DiseaseDetailsScreen extends StatelessWidget {
                             const SizedBox(height: 20),
                             _predictionsCard(result: result),
                           ],
+                          // Local disease info (always shown; especially useful offline)
+                          if (_localDisease != null) ...[
+                            const SizedBox(height: 20),
+                            _localInfoCard(lang, _localDisease!),
+                          ],
+                          const SizedBox(height: 20),
                         ],
                       ),
               ),
@@ -55,7 +111,13 @@ class DiseaseDetailsScreen extends StatelessWidget {
     return scans.isEmpty ? null : scans.first;
   }
 
-  Widget _header(BuildContext context, LanguageProvider lang) {
+  Widget _header(
+    BuildContext context,
+    LanguageProvider lang,
+    String diseaseId,
+    bool isFav,
+    FavouritesProvider favourites,
+  ) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -76,14 +138,93 @@ class DiseaseDetailsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              lang.t('disease.overview'),
+              style: const TextStyle(
+                color: AppColors.primaryDark,
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          if (diseaseId.isNotEmpty)
+            GestureDetector(
+              onTap: () => favourites.toggle(diseaseId),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Icon(
+                  isFav ? Icons.star_rounded : Icons.star_border_rounded,
+                  size: 28,
+                  color: isFav
+                      ? const Color(0xFFFFC107)
+                      : AppColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _localInfoCard(LanguageProvider lang, LocalDisease d) {
+    final name = lang.isRTL ? d.nameAr : d.nameEn;
+    final symptoms = lang.isRTL ? d.symptomsAr : d.symptomsEn;
+    final treatment = lang.isRTL ? d.treatmentAr : d.treatmentEn;
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.menu_book_rounded,
+                  color: AppColors.primary, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  lang.isRTL
+                      ? 'معلومات محلية: $name'
+                      : 'Offline Info: $name',
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           Text(
-            lang.t('disease.overview'),
+            lang.isRTL ? 'الأعراض' : 'Symptoms',
             style: const TextStyle(
               color: AppColors.primaryDark,
-              fontSize: 20,
+              fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(height: 6),
+          Text(symptoms,
+              style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5)),
+          const SizedBox(height: 14),
+          Text(
+            lang.isRTL ? 'التوصية' : 'Basic Treatment',
+            style: const TextStyle(
+              color: AppColors.primaryDark,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(treatment,
+              style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  height: 1.5)),
         ],
       ),
     );

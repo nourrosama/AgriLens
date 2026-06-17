@@ -13,6 +13,9 @@ import 'package:agrilens/core/forum_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/core/crop_provider.dart';
+import 'package:agrilens/core/connectivity_provider.dart';
+import 'package:agrilens/core/favourites_provider.dart';
+import 'package:agrilens/widgets/connectivity_banner.dart';
 import 'package:agrilens/core/router.dart';
 import 'package:agrilens/core/fcm_service.dart';
 
@@ -73,6 +76,15 @@ class AgriLensApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => CommunityProvider()),
         ChangeNotifierProvider(create: (_) => WeatherProvider()),
         ChangeNotifierProvider(create: (_) => CropProvider()),
+        ChangeNotifierProvider(create: (_) => FavouritesProvider()),
+        // ConnectivityProvider wired to ScanHistoryProvider for auto-sync.
+        ChangeNotifierProxyProvider<ScanHistoryProvider, ConnectivityProvider>(
+          create: (_) => ConnectivityProvider(),
+          update: (_, scanHistory, connectivity) {
+            connectivity!.attachScanHistory(scanHistory);
+            return connectivity;
+          },
+        ),
       ],
       child: Consumer<LanguageProvider>(
         builder: (context, lang, _) {
@@ -100,10 +112,9 @@ class AgriLensApp extends StatelessWidget {
                 return const ColoredBox(color: Colors.white);
               }
               return Directionality(
-                textDirection: lang.isRTL
-                    ? TextDirection.rtl
-                    : TextDirection.ltr,
-                child: child!,
+                textDirection:
+                    lang.isRTL ? TextDirection.rtl : TextDirection.ltr,
+                child: ConnectivityBanner(child: child!),
               );
             },
           );

@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/api_client.dart';
+import 'package:agrilens/core/user_provider.dart';
 import 'package:agrilens/widgets/bottom_nav.dart';
 import 'package:agrilens/widgets/chatbot_button.dart';
+import 'package:agrilens/widgets/plan_gate.dart';
 
 class ForecastingScreen extends StatefulWidget {
   const ForecastingScreen({super.key});
@@ -54,6 +56,27 @@ class _ForecastingScreenState extends State<ForecastingScreen> {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+    final user = context.watch<UserProvider>();
+
+    // Plan gate — forecasting requires Premium or Professional
+    if (user.plan == 'free') {
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: GestureDetector(
+            onTap: () => context.pop(),
+            child: const Icon(Icons.arrow_back, color: AppColors.textSecondary),
+          ),
+          title: Text(
+            lang.t('forecast.title'),
+            style: const TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.bold),
+          ),
+        ),
+        body: PlanGateBody(requiredPlan: 'premium', isRTL: lang.isRTL),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,

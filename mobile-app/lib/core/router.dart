@@ -33,11 +33,23 @@ import 'package:agrilens/screens/create_post_screen.dart';
 import 'package:agrilens/screens/disease_articles_screen.dart';
 import 'package:agrilens/screens/feed_screen.dart';
 import 'package:agrilens/screens/question_screen.dart';
+import 'package:agrilens/screens/favourites_screen.dart';
+import 'package:agrilens/screens/subscription_plans_screen.dart';
+import 'package:agrilens/screens/subscription_payment_screen.dart';
+import 'package:agrilens/screens/subscription_confirmation_screen.dart';
 import 'package:agrilens/screens/terms_conditions_screen.dart';
 import 'package:agrilens/screens/user_registration_screen.dart';
 import 'package:agrilens/screens/auth_choice_screen.dart';
 import 'package:agrilens/screens/crop_select_screen.dart';
 import 'package:agrilens/screens/signup_screen.dart';
+import 'package:agrilens/screens/disease_history_screen.dart';
+import 'package:agrilens/screens/disease_trends_screen.dart';
+import 'package:agrilens/screens/batch_scan_screen.dart';
+import 'package:agrilens/screens/scan_annotation_screen.dart';
+import 'package:agrilens/screens/farm_team_screen.dart';
+import 'package:agrilens/screens/scheduled_reports_screen.dart';
+import 'package:agrilens/screens/disease_spread_map_screen.dart';
+import 'package:agrilens/screens/articles_browser_screen.dart';
 
 final GoRouter appRouter = GoRouter(
   initialLocation: '/',
@@ -181,8 +193,37 @@ final GoRouter appRouter = GoRouter(
       path: '/app-tutorial',
       builder: (ctx, state) => const AppTutorialScreen(),
     ),
-    GoRoute(path: '/subscription', redirect: (ctx, state) => '/profile'),
-    GoRoute(path: '/subscription-plans', redirect: (ctx, state) => '/profile'),
+    GoRoute(
+      path: '/favourites',
+      builder: (ctx, state) => const FavouritesScreen(),
+    ),
+    GoRoute(path: '/subscription', redirect: (ctx, state) => '/subscription-plans'),
+    GoRoute(
+      path: '/subscription-plans',
+      builder: (ctx, state) => const SubscriptionPlansScreen(),
+    ),
+    GoRoute(
+      path: '/subscription-payment',
+      builder: (ctx, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return SubscriptionPaymentScreen(
+          planKey: extra['planKey'] as String? ?? 'premium',
+          planName: extra['planName'] as String? ?? 'Premium Plan',
+          priceEgp: extra['priceEgp'] as int? ?? 499,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/subscription-confirmation',
+      builder: (ctx, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        return SubscriptionConfirmationScreen(
+          planKey: extra['planKey'] as String? ?? 'premium',
+          planName: extra['planName'] as String? ?? 'Premium Plan',
+          priceEgp: extra['priceEgp'] as int? ?? 499,
+        );
+      },
+    ),
     GoRoute(
       path: '/subscription-payment',
       redirect: (ctx, state) => '/profile',
@@ -192,5 +233,41 @@ final GoRouter appRouter = GoRouter(
       redirect: (ctx, state) => '/profile',
     ),
     GoRoute(path: '/active-subscription', redirect: (ctx, state) => '/profile'),
+
+    // ── Premium / Professional features ─────────────────────────────────────
+    GoRoute(
+      path: '/disease-history',
+      builder: (ctx, state) => const DiseaseHistoryScreen(),
+    ),
+    GoRoute(
+      path: '/disease-trends',
+      builder: (ctx, state) => const DiseaseTrendsScreen(),
+    ),
+    GoRoute(
+      path: '/batch-scan',
+      builder: (ctx, state) => const BatchScanScreen(),
+    ),
+    GoRoute(
+      path: '/scan-annotation/:id',
+      builder: (ctx, state) => ScanAnnotationScreen(
+        scanId: state.pathParameters['id'] ?? '',
+      ),
+    ),
+    GoRoute(
+      path: '/farm-team',
+      builder: (ctx, state) => const FarmTeamScreen(),
+    ),
+    GoRoute(
+      path: '/scheduled-reports',
+      builder: (ctx, state) => const ScheduledReportsScreen(),
+    ),
+    GoRoute(
+      path: '/disease-spread-map',
+      builder: (ctx, state) => const DiseaseSpreadMapScreen(),
+    ),
+    GoRoute(
+      path: '/articles-browser',
+      builder: (ctx, state) => const ArticlesBrowserScreen(),
+    ),
   ],
 );
