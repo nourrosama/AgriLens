@@ -89,8 +89,28 @@ def get_status() -> dict[str, Any]:
     }
 
 
+def _ensure_db_connected(uri: str) -> None:
+    """Lazily connect to MongoDB if the startup ping failed (race condition)."""
+    global _mongo_client, _db
+    if _db is not None:
+        return
+    try:
+        if _mongo_client is None:
+            _mongo_client = MongoClient(uri, **_mongo_kwargs(uri))
+        _mongo_client.admin.command('ping')
+        _db = _resolve_database(_mongo_client)
+        logger.info('MongoDB reconnected lazily: %s', _db.name)
+    except Exception as exc:
+        logger.warning('MongoDB lazy-connect failed: %s', exc)
+
+
 def get_user(user_id: str) -> dict | None:
+    # If startup race caused _db to be None, try connecting now.
+    mongo_uri = os.environ.get('MONGO_URI', '')
+    if _db is None and mongo_uri:
+        _ensure_db_connected(mongo_uri)
     if _db is None:
+        logger.warning('MongoDB not connected — cannot look up user %s', user_id)
         return None
     try:
         return _db['users'].find_one({'_id': ObjectId(user_id)})
@@ -137,8 +157,20 @@ def send_push(tokens: list[str], title: str, body: str, data: dict[str, str] | N
         try:
             message = messaging.Message(
                 notification=messaging.Notification(title=title, body=body),
+                android=messaging.AndroidConfig(
+                    priority='high',
+                    notification=messaging.AndroidNotification(
+                        channel_id='scan_alerts',
+                        sound='agrilens_alert',  # res/raw/agrilens_alert.mp3 in the Flutter app
+                    ),
+                ),
+                apns=messaging.APNSConfig(
+                    payload=messaging.APNSPayload(
+                        aps=messaging.Aps(sound='default'),
+                    ),
+                ),
                 token=token,
-                data=data or {},
+                data={k: str(v) for k, v in (data or {}).items()},
             )
             messaging.send(message)
             sent += 1

@@ -89,20 +89,37 @@ class FieldData {
 
 class FieldsProvider extends ChangeNotifier {
   FieldsProvider({ApiClient? apiClient})
-    : _apiClient = apiClient ?? ApiClient() {
-    loadFields();
-  }
+    : _apiClient = apiClient ?? ApiClient();
 
   final ApiClient _apiClient;
   final List<FieldData> _fields = [];
   List<Map<String, dynamic>> _farms = [];
   bool _isLoading = false;
   String? _errorMessage;
+  String _currentUserId = '';
 
   List<FieldData> get fields => List.unmodifiable(_fields);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   List<Map<String, dynamic>> get farms => List.unmodifiable(_farms);
+  String get currentUserId => _currentUserId;
+
+  void clear() {
+    _fields.clear();
+    _farms.clear();
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void onUserChanged(String userId) {
+    if (userId == _currentUserId) return;
+    _currentUserId = userId;
+    if (userId.isEmpty) {
+      clear();
+    } else {
+      loadFields();
+    }
+  }
 
   FieldData? getField(String id) {
     try {

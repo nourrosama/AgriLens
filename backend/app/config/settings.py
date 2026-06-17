@@ -48,6 +48,8 @@ class Config:
 
     # Inter-service URLs
     DETECTION_SERVICE_URL = os.getenv('DETECTION_SERVICE_URL', 'http://localhost:5001')
+    DETECTION_CONNECT_TIMEOUT = float(os.getenv('DETECTION_CONNECT_TIMEOUT', '5'))
+    DETECTION_REQUEST_TIMEOUT = float(os.getenv('DETECTION_REQUEST_TIMEOUT', '120'))
     FORECAST_SERVICE_URL = os.getenv('FORECAST_SERVICE_URL', 'http://localhost:5002')
     DETECTION_MOCK_FALLBACK = os.getenv('DETECTION_MOCK_FALLBACK', 'false').lower() == 'true'
 

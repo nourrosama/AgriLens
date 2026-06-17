@@ -3,6 +3,7 @@ Scan controller -- image/video upload and synchronous detection flow.
 """
 import os
 import tempfile
+import threading
 
 from flask import Blueprint, current_app, g, request
 
@@ -103,16 +104,25 @@ def upload_scan():
         'app_version': request.form.get('app_version', ''),
     }
 
-    try:
-        media_url = (
-            storage_service.upload_video(file)
-            if media_type == 'video'
-            else storage_service.upload_image(file)
-        )
-        storage_backend = storage_service.get_storage_backend()
-    except Exception as exc:
-        current_app.logger.exception('Failed to store uploaded scan media: %s', exc)
-        return error_response('Unable to store the uploaded file right now. Please try again.', 503)
+    # Video: read into memory immediately (werkzeug already has it buffered) so
+    # we can return 202 before touching the network. The background thread writes
+    # to /tmp, runs detection, then uploads to Cloudinary with no timeout pressure.
+    # Image: small enough to upload to Cloudinary synchronously.
+    _video_bytes: bytes | None = None
+    _vid_ext: str = 'mp4'
+    if media_type == 'video':
+        _vid_ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'mp4'
+        _video_bytes = file.stream.read()
+        media_url = ''
+        storage_backend = 'pending'
+    else:
+        try:
+            media_url = storage_service.upload_image(file)
+            storage_backend = storage_service.get_storage_backend()
+        except Exception as exc:
+            current_app.logger.exception('Failed to store uploaded image: %s', exc)
+            detail = str(exc) if current_app.debug else 'Please try again.'
+            return error_response(f'Unable to store the uploaded file: {detail}', 503)
 
     scan = scan_model.create_scan(
         user_id=user_id,
@@ -132,120 +142,113 @@ def upload_scan():
     if media_type == 'video':
         scan_model.update_status(scan_id, 'processing')
 
-        local_path = storage_service.resolve_local_path(media_url)
-        _tmp_video_path = None
+        # Capture request-context values before the thread is spawned — they are
+        # unavailable once the HTTP response is returned.
+        _app = current_app._get_current_object()
+        _remote_addr = request.remote_addr
 
-        if not (local_path and os.path.exists(local_path)):
-            if media_url.startswith('http'):
-                # Video is on Cloudinary (or another remote URL). Download it to a
-                # temp file so cv2.VideoCapture gets a reliable local file descriptor.
+        def _process_video():
+            _tmp_path = None
+            with _app.app_context():
+                # Write in-memory bytes to an OS temp file in /tmp (not uploads/).
+                # cv2.VideoCapture requires a file path — BytesIO is not accepted.
                 try:
-                    import requests as _req
-                    ext = media_url.rsplit('.', 1)[-1].split('?')[0].lower() or 'mp4'
-                    with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
-                        resp = _req.get(media_url, timeout=120, stream=True)
-                        resp.raise_for_status()
-                        for chunk in resp.iter_content(chunk_size=8 * 1024 * 1024):
-                            tmp.write(chunk)
-                        _tmp_video_path = tmp.name
-                    local_path = _tmp_video_path
-                except Exception as dl_exc:
-                    current_app.logger.warning('Could not download video for analysis: %s', dl_exc)
-                    local_path = media_url
-            else:
-                local_path = media_url
+                    with tempfile.NamedTemporaryFile(
+                        suffix=f'.{_vid_ext}', delete=False
+                    ) as tmp:
+                        tmp.write(_video_bytes)
+                        _tmp_path = tmp.name
+                except Exception as exc:
+                    _app.logger.exception(
+                        'Failed to write video temp file for %s: %s', scan_id, exc
+                    )
+                    scan_model.update_scan(scan_id, {'status': 'failed'})
+                    return
 
-        result = None
-        forecast_payload = None
-        _video_error = None
+                try:
+                    result = video_service.analyze_video(_tmp_path, crop_type)
 
-        try:
-            result = video_service.analyze_video(local_path, crop_type)
+                    if result is not None:
+                        scan_model.update_detection_result(scan_id, result)
+                        event_publisher.scan_completed(scan_id, result, user_id, media_type='video')
 
-            if result is not None:
-                scan_model.update_detection_result(scan_id, result)
-                event_publisher.scan_completed(scan_id, result)
+                        location = {}
+                        if farm_id:
+                            farm = farm_model.get_farm_by_id(farm_id)
+                            if farm:
+                                location = farm.get('location', {})
+                                if field_id:
+                                    for field in farm.get('fields', []):
+                                        if str(field.get('field_id')) == field_id:
+                                            location = field.get('location') or location
+                                            break
 
-                location = {}
-                if farm_id:
-                    farm = farm_model.get_farm_by_id(farm_id)
-                    if farm:
-                        location = farm.get('location', {})
-                        if field_id:
-                            for field in farm.get('fields', []):
-                                if str(field.get('field_id')) == field_id:
-                                    location = field.get('location') or location
-                                    break
+                        weather = insights_service.build_weather(location)
+                        scans = scan_model.get_scans_by_user(user_id, 1, 50)
+                        forecast_payload = insights_service.compute_forecast(scans, weather, 7)
+                        forecast_model.upsert_snapshot(
+                            user_id,
+                            {'farm_id': farm_id, 'field_id': field_id},
+                            forecast_payload,
+                        )
 
-                weather = insights_service.build_weather(location)
-                scans = scan_model.get_scans_by_user(user_id, 1, 50)
-                forecast_payload = insights_service.compute_forecast(scans, weather, 7)
-                forecast_model.upsert_snapshot(
+                        if not result.get('is_healthy', True):
+                            notification_model.create_notification(
+                                user_id,
+                                'Disease detected',
+                                f"{result.get('disease', 'Unknown disease')} detected with {result.get('severity', 'unknown')} severity.",
+                                category='disease',
+                                related_scan_id=scan_id,
+                                metadata={'scan_id': scan_id},
+                            )
+                            event_publisher.disease_detected(
+                                scan_id,
+                                result.get('disease', ''),
+                                result.get('severity', ''),
+                                user_id,
+                            )
+                    else:
+                        scan_model.update_scan(scan_id, {'status': 'failed'})
+
+                except Exception as exc:
+                    _app.logger.exception('Video analysis failed for %s: %s', scan_id, exc)
+                    scan_model.update_scan(scan_id, {'status': 'failed'})
+                finally:
+                    # Upload to Cloudinary after detection — user is already notified,
+                    # so this is best-effort with no timeout. Cleans up temp file either way.
+                    if _tmp_path:
+                        try:
+                            cloud_url = storage_service.upload_video_from_path(_tmp_path)
+                            scan_model.update_scan(scan_id, {
+                                'media_url': cloud_url,
+                                'image_url': cloud_url,
+                                'storage_backend': 'cloudinary',
+                            })
+                        except Exception as cloud_exc:
+                            _app.logger.warning(
+                                'Cloudinary upload failed for scan %s (result already saved): %s',
+                                scan_id, cloud_exc,
+                            )
+                        try:
+                            os.unlink(_tmp_path)
+                        except OSError:
+                            pass
+
+                audit_model.log_action(
                     user_id,
-                    {'farm_id': farm_id, 'field_id': field_id},
-                    forecast_payload,
+                    'scan_created',
+                    resource_id=scan_id,
+                    ip_address=_remote_addr,
+                    details={**device_info, 'media_type': media_type},
                 )
 
-                if not result.get('is_healthy', True):
-                    notification_model.create_notification(
-                        user_id,
-                        'Disease detected',
-                        f"{result.get('disease', 'Unknown disease')} detected with {result.get('severity', 'unknown')} severity.",
-                        category='disease',
-                        related_scan_id=scan_id,
-                        metadata={'scan_id': scan_id},
-                    )
-                    event_publisher.disease_detected(
-                        scan_id,
-                        result.get('disease', ''),
-                        result.get('severity', ''),
-                        user_id,
-                    )
-
-                if forecast_payload and forecast_payload.get('risk_level') in ('high', 'critical'):
-                    notification_model.create_notification(
-                        user_id,
-                        'High risk alert',
-                        f"Forecast risk is {forecast_payload.get('risk_level')} for the next few days.",
-                        category='forecast',
-                        related_scan_id=scan_id,
-                        metadata={'scan_id': scan_id},
-                    )
-                    event_publisher.risk_high(
-                        scan_id,
-                        forecast_payload.get('risk_level', 'high'),
-                        user_id,
-                    )
-            else:
-                scan_model.update_scan(scan_id, {'status': 'failed'})
-
-        except Exception as exc:
-            _video_error = str(exc)
-            current_app.logger.exception('Video analysis failed for %s: %s', scan_id, exc)
-            scan_model.update_scan(scan_id, {'status': 'failed'})
-        finally:
-            if _tmp_video_path:
-                try:
-                    os.unlink(_tmp_video_path)
-                except OSError:
-                    pass
-
-        audit_model.log_action(
-            user_id,
-            'scan_created',
-            resource_id=scan_id,
-            ip_address=request.remote_addr,
-            details={**device_info, 'media_type': media_type},
-        )
-
-        if result is None:
-            return error_response(_video_error or 'Video analysis failed.', 422)
+        threading.Thread(target=_process_video, daemon=True).start()
 
         stored = scan_model.get_scan_by_id(scan_id)
         return success_response(
-            {'scan': scan_model.serialize(stored), 'forecast': forecast_payload},
-            'Video scan processed successfully',
-            201,
+            {'scan': scan_model.serialize(stored)},
+            'Video uploaded. You will be notified when analysis is complete.',
+            202,
         )
 
     scan_model.update_status(scan_id, 'processing')
@@ -267,7 +270,7 @@ def upload_scan():
             # It will be re-injected into the one-time 201 response below.
             gradcam_overlay = detection.pop('gradcam_overlay', None)
             scan_model.update_detection_result(scan_id, detection)
-            event_publisher.scan_completed(scan_id, detection)
+            event_publisher.scan_completed(scan_id, detection, user_id, media_type='image')
 
             location = {}
             if farm_id:
@@ -302,21 +305,6 @@ def upload_scan():
                     scan_id,
                     detection.get('disease', ''),
                     detection.get('severity', ''),
-                    user_id,
-                )
-
-            if forecast_payload and forecast_payload.get('risk_level') in ('high', 'critical'):
-                notification_model.create_notification(
-                    user_id,
-                    'High risk alert',
-                    f"Forecast risk is {forecast_payload.get('risk_level')} for the next few days.",
-                    category='forecast',
-                    related_scan_id=scan_id,
-                    metadata={'scan_id': scan_id},
-                )
-                event_publisher.risk_high(
-                    scan_id,
-                    forecast_payload.get('risk_level', 'high'),
                     user_id,
                 )
         else:

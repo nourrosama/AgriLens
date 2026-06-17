@@ -106,13 +106,41 @@ def get_db_status() -> dict:
 def get_db():
     """Return the MongoDB database instance.
 
-    Raises a Flask 503 (not a raw RuntimeError) when MongoDB is unreachable so
-    the caller gets a clean JSON error instead of an unhandled 500 traceback.
+    If startup init failed (e.g. MongoDB was not yet ready), attempts a lazy
+    reconnect on the first request that needs the database.  This lets the
+    backend self-heal after a temporary MongoDB restart without requiring a
+    manual container restart.
     """
-    if _db is None:
-        from flask import abort
-        abort(503, description='Database unavailable — MongoDB connection failed on startup.')
-    return _db
+    global _client, _db
+    if _db is not None:
+        return _db
+
+    # Lazy reconnect — try once without blocking the request too long.
+    try:
+        from flask import current_app
+        uri = (current_app.config.get('MONGO_URI', '') or '').strip()
+        if uri:
+            for allow_invalid in (False, True):
+                try:
+                    client = MongoClient(uri, **_mongo_kwargs(uri, allow_invalid_certs=allow_invalid))
+                    client.admin.command('ping')
+                    _client = client
+                    _db = _resolve_database(_client)
+                    current_app.logger.info('MongoDB reconnected lazily: %s', _db.name)
+                    _ensure_indexes(current_app)
+                    return _db
+                except Exception:
+                    if allow_invalid:
+                        raise
+    except Exception as exc:
+        try:
+            from flask import current_app
+            current_app.logger.warning('MongoDB lazy-reconnect failed: %s', exc)
+        except RuntimeError:
+            pass
+
+    from flask import abort
+    abort(503, description='Database unavailable — MongoDB is not reachable.')
 
 
 def users_col():

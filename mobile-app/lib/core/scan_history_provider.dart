@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
 import 'app_config.dart';
+import 'fcm_service.dart';
 import 'offline_queue_store.dart';
 
 class ScanPrediction {
@@ -153,9 +154,19 @@ class ScanResult {
       confidence: (detection['confidence'] as num?)?.toDouble() ?? 0,
       severity: detection['severity']?.toString() ?? 'none',
       status: json['status']?.toString() ?? 'pending',
-      scannedAt:
-          DateTime.tryParse(json['created_at']?.toString() ?? '') ??
-          DateTime.now(),
+      scannedAt: () {
+        // Server returns UTC without a Z suffix (e.g. "2025-06-16T10:00:00").
+        // Without the Z, Dart treats it as local time, so Egypt (UTC+3) scans
+        // appear 3 hours older than they are. Same fix as notifications_provider.
+        String ts = json['created_at']?.toString() ?? '';
+        if (ts.isNotEmpty &&
+            !ts.endsWith('Z') &&
+            !RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(ts)) {
+          ts += 'Z';
+        }
+        return (ts.isEmpty ? null : DateTime.tryParse(ts)?.toLocal()) ??
+            DateTime.now();
+      }(),
       isHealthy: detection['is_healthy'] == true,
       riskLevel: detection['risk_level']?.toString() ?? 'low',
       recommendation: detection['recommendation']?.toString() ?? '',
@@ -177,20 +188,37 @@ class ScanResult {
 class ScanHistoryProvider extends ChangeNotifier {
   ScanHistoryProvider({ApiClient? apiClient, OfflineQueueStore? queueStore})
     : _apiClient = apiClient ?? ApiClient(),
-      _queueStore = queueStore ?? OfflineQueueStore() {
-    loadScans();
-  }
+      _queueStore = queueStore ?? OfflineQueueStore();
 
   final ApiClient _apiClient;
   final OfflineQueueStore _queueStore;
   final List<ScanResult> _scans = [];
   bool _isLoading = false;
   String? _errorMessage;
+  String _currentUserId = '';
 
   List<ScanResult> get scans => List.unmodifiable(_scans);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   int get totalScans => _scans.length;
+  String get currentUserId => _currentUserId;
+
+  void clear() {
+    _scans.clear();
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// Called by the proxy provider in main.dart whenever the logged-in user changes.
+  void onUserChanged(String userId) {
+    if (userId == _currentUserId) return;
+    _currentUserId = userId;
+    if (userId.isEmpty) {
+      clear();
+    } else {
+      loadScans();
+    }
+  }
   int get activeDiseasesCount => _scans
       .where(
         (scan) =>
@@ -316,9 +344,8 @@ class ScanHistoryProvider extends ChangeNotifier {
         auth: true,
         fieldName: mediaType == 'video' ? 'video' : 'image',
         file: file,
-        timeout: mediaType == 'video'
-            ? const Duration(seconds: 300)
-            : const Duration(seconds: 90),
+        timeout: const Duration(seconds: 90), // upload only; video processing is async
+
         fields: {
           'crop_type': cropType,
           ...?(farmId == null ? null : {'farm_id': farmId}),
@@ -346,14 +373,14 @@ class ScanHistoryProvider extends ChangeNotifier {
       notifyListeners();
       return scan;
     } catch (error) {
-      if (mediaType == 'image') {
-        await _queueStore.enqueueScan(
-          imageFile: file,
-          cropType: cropType,
-          farmId: farmId,
-          fieldId: fieldId,
-        );
-      }
+      // Queue both images and videos for retry when connectivity returns.
+      await _queueStore.enqueueScan(
+        mediaFile: file,
+        mediaType: mediaType,
+        cropType: cropType,
+        farmId: farmId,
+        fieldId: fieldId,
+      );
       _errorMessage = error.toString();
       notifyListeners();
       return null;
@@ -365,19 +392,43 @@ class ScanHistoryProvider extends ChangeNotifier {
   Future<void> syncQueuedScans() async {
     final queued = await _queueStore.listQueuedScans();
     for (final item in queued) {
-      final file = io.File(item.imagePath);
+      final file = io.File(item.mediaPath);
       if (!file.existsSync()) {
         await _queueStore.removeQueuedScan(item.id);
         continue;
       }
-      final scan = await submitScan(
-        imageFile: file,
-        cropType: item.cropType,
-        farmId: item.farmId,
-        fieldId: item.fieldId,
-      );
+
+      ScanResult? scan;
+      if (item.mediaType == 'video') {
+        scan = await submitVideoScan(
+          videoFile: file,
+          cropType: item.cropType,
+          farmId: item.farmId,
+          fieldId: item.fieldId,
+        );
+      } else {
+        scan = await submitScan(
+          imageFile: file,
+          cropType: item.cropType,
+          farmId: item.farmId,
+          fieldId: item.fieldId,
+        );
+      }
+
       if (scan != null) {
         await _queueStore.removeQueuedScan(item.id);
+        // For images: result is ready now → show local notification.
+        // For videos: backend returns 202 and processes async → FCM push
+        // fires later, so we skip the local notification here.
+        if (scan.mediaType != 'video') {
+          await FcmService.showLocalNotification(
+            title: 'Scan Complete ✓',
+            body: scan.isHealthy
+                ? 'Your crop looks healthy! No disease detected.'
+                : '${scan.diseaseNameEn} detected. Tap to view details.',
+            scanId: scan.id,
+          );
+        }
       }
     }
   }

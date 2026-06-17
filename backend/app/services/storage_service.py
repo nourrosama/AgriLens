@@ -110,6 +110,44 @@ def upload_video(file_obj, filename: str = None) -> str:
     )
 
 
+def upload_video_from_path(file_path: str) -> str:
+    """Upload a video that is already on disk to Cloudinary and return the URL.
+
+    Designed for background-thread calls where a 300 s timeout is acceptable.
+    Avoids Docker SSL write-timeout issues that occur when uploading large files
+    on the main request thread.
+    """
+    if not _cloudinary_ready:
+        raise RuntimeError('Cloudinary storage is not ready')
+
+    public_id = f'agrilens/scans/videos/{uuid.uuid4().hex}'
+    file_size = os.path.getsize(file_path)
+
+    if file_size < 95 * 1024 * 1024:
+        result = cloudinary.uploader.upload(
+            file_path,
+            public_id=public_id,
+            resource_type='video',
+            overwrite=True,
+            timeout=None,  # background thread — no user waiting
+        )
+    else:
+        result = cloudinary.uploader.upload_large(
+            file_path,
+            public_id=public_id,
+            resource_type='video',
+            overwrite=True,
+            chunk_size=4 * 1024 * 1024,
+            timeout=None,  # background thread — no user waiting
+        )
+
+    url = result.get('secure_url') or result.get('url')
+    if not url:
+        raise RuntimeError('Cloudinary upload did not return a public URL')
+    logger.info('Uploaded video to Cloudinary (background): %s', url)
+    return url
+
+
 def delete_image(url: str) -> bool:
     """Delete stored media by URL/path."""
     if not url:
@@ -176,7 +214,8 @@ def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, f
 
     try:
         if resource_type == 'video':
-            # upload_large needs a real file path for reliable chunked transfer
+            # Write to a temp file first so we know the exact size.
+            video_timeout = current_app.config.get('CLOUDINARY_VIDEO_UPLOAD_TIMEOUT', 120)
             with tempfile.NamedTemporaryFile(suffix=f'.{ext}', delete=False) as tmp:
                 tmp_path = tmp.name
                 if hasattr(stream, 'read'):
@@ -184,15 +223,27 @@ def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, f
                 else:
                     tmp.write(stream)
             try:
-                result = cloudinary.uploader.upload_large(
-                    tmp_path,
-                    public_id=public_id,
-                    resource_type='video',
-                    overwrite=False,
-                    format=ext,
-                    chunk_size=6 * 1024 * 1024,  # 6 MB chunks
-                    timeout=60,
-                )
+                file_size = os.path.getsize(tmp_path)
+                # Under 95 MB: use a single-request upload to avoid Docker NAT
+                # dropping the SSL connection between upload_large chunks.
+                # Over 95 MB: chunked upload with smaller 4 MB chunks.
+                if file_size < 95 * 1024 * 1024:
+                    result = cloudinary.uploader.upload(
+                        tmp_path,
+                        public_id=public_id,
+                        resource_type='video',
+                        overwrite=True,
+                        timeout=video_timeout,
+                    )
+                else:
+                    result = cloudinary.uploader.upload_large(
+                        tmp_path,
+                        public_id=public_id,
+                        resource_type='video',
+                        overwrite=True,
+                        chunk_size=4 * 1024 * 1024,  # 4 MB to reduce NAT idle gaps
+                        timeout=video_timeout,
+                    )
             finally:
                 try:
                     os.unlink(tmp_path)

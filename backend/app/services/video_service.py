@@ -291,8 +291,18 @@ def _aggregate_results(
     )
     risk_level = max_risk_frame.get("risk_level", risk_level)
 
-    # --- Healthy only if unanimous ---
-    is_healthy = all(r.get("is_healthy", False) for r in clean)
+    # --- Healthy if majority of frames agree (>50% threshold) ---
+    # Using unanimous `all()` was too strict: a single noisy frame would flip a
+    # healthy video to "diseased" while the majority-vote disease name stayed
+    # "Healthy", producing a contradictory result with max severity attached.
+    healthy_votes = sum(1 for r in clean if r.get("is_healthy", False))
+    is_healthy = healthy_votes / len(clean) > 0.5
+
+    # When the majority says healthy, noisy-frame severity/risk must be reset so
+    # the scan controller does not fire a disease-detected notification.
+    if is_healthy:
+        severity = "none"
+        risk_level = "low"
 
     # --- Recommendation from the highest-severity winning frame ---
     recommendation = (

@@ -9,14 +9,22 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      MONGO_URI: mongodb://mongodb:27017/agrilens
       DETECTION_SERVICE_URL: http://detection-service:5001
+      DETECTION_CONNECT_TIMEOUT: "5"
+      DETECTION_REQUEST_TIMEOUT: "120"
       FORECAST_SERVICE_URL: http://forecast-service:5002
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       REDIS_URL: redis://redis:6379/0
     depends_on:
-      - rabbitmq
-      - redis
-      - detection-service
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      detection-service:
+        condition: service_started
     volumes:
       - ./backend:/app
       - ./secrets:/app/secrets:ro
@@ -53,10 +61,14 @@ services:
     env_file:
       - ./backend/.env
     environment:
+      MONGO_URI: mongodb://mongodb:27017/agrilens
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       FIREBASE_CREDENTIALS_PATH: /app/secrets/firebase-service-account.json
     depends_on:
-      - rabbitmq
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     volumes:
       - ./notification-service:/app
       - ./secrets:/app/secrets:ro
@@ -69,11 +81,28 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_ERLANG_COOKIE: "agrilens-dev-cookie"
+      # Raise the memory threshold so RabbitMQ doesn't fire a high-watermark
+      # alarm on a dev machine with limited RAM.  0.6 = 60 % of total RAM.
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbit vm_memory_high_watermark 0.6"
+    tmpfs:
+      - /var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec '</dev/tcp/127.0.0.1/5672'"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   mongodb:
     image: mongo:7
@@ -82,6 +111,12 @@ services:
     volumes:
       - mongo_data:/data/db
       - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -ec '</dev/tcp/127.0.0.1/27017'"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
 volumes:
   backend_uploads:

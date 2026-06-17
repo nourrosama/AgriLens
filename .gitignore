@@ -47,6 +47,8 @@ datasets/
 
 # ==== Firebase credentials (never commit private keys) ====
 notification-service/secrets/firebase-service-account.json
+secrets/firebase-service-account.json
+secrets/*.json
 
 # ==== Uploaded scan media (local storage) ====
 backend/uploads/*

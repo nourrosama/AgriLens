@@ -11,8 +11,6 @@ class NotificationData {
     required this.titleAr,
     required this.messageEn,
     required this.messageAr,
-    required this.timeEn,
-    required this.timeAr,
     required this.icon,
     required this.color,
     required this.bgColor,
@@ -25,17 +23,28 @@ class NotificationData {
   final String titleAr;
   final String messageEn;
   final String messageAr;
-  final String timeEn;
-  final String timeAr;
   final IconData icon;
   final Color color;
   final Color bgColor;
   bool isRead;
   final DateTime createdAt;
 
+  /// Computes a human-readable relative time label at call time so it always
+  /// reflects the current moment (never frozen at "Just now").
+  String timeLabel(bool arabic) => _timeLabel(createdAt, arabic);
+
   factory NotificationData.fromJson(Map<String, dynamic> json) {
     final category = json['category']?.toString() ?? 'info';
-    final createdAt = DateTime.tryParse(json['created_at']?.toString() ?? '');
+    // Server returns UTC timestamps without a Z marker — append Z so Dart
+    // treats them as UTC, then convert to local time. Without this fix the
+    // difference is exactly the user's UTC offset (e.g. +3 h for Egypt).
+    String ts = json['created_at']?.toString() ?? '';
+    if (ts.isNotEmpty &&
+        !ts.endsWith('Z') &&
+        !RegExp(r'[+-]\d{2}:\d{2}$').hasMatch(ts)) {
+      ts += 'Z';
+    }
+    final createdAt = ts.isEmpty ? null : DateTime.tryParse(ts)?.toLocal();
     final title = json['title']?.toString() ?? 'Notification';
     final message = json['message']?.toString() ?? '';
     return NotificationData(
@@ -44,8 +53,6 @@ class NotificationData {
       titleAr: title,
       messageEn: message,
       messageAr: message,
-      timeEn: _timeLabel(createdAt, false),
-      timeAr: _timeLabel(createdAt, true),
       icon: _iconFor(category),
       color: _colorFor(category),
       bgColor: _bgColorFor(category),
@@ -59,13 +66,19 @@ class NotificationData {
       return arabic ? 'الآن' : 'Just now';
     }
     final diff = DateTime.now().difference(createdAt);
-    if (diff.inHours < 1) {
+    if (diff.inSeconds < 60) {
       return arabic ? 'الآن' : 'Just now';
     }
-    if (diff.inHours < 24) {
-      return arabic ? 'منذ ${diff.inHours} ساعة' : '${diff.inHours}h ago';
+    if (diff.inMinutes < 60) {
+      final m = diff.inMinutes;
+      return arabic ? 'منذ $m دقيقة' : '${m}m ago';
     }
-    return arabic ? 'منذ ${diff.inDays} يوم' : '${diff.inDays}d ago';
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return arabic ? 'منذ $h ساعة' : '${h}h ago';
+    }
+    final d = diff.inDays;
+    return arabic ? 'منذ $d يوم' : '${d}d ago';
   }
 
   static IconData _iconFor(String category) {
@@ -105,7 +118,6 @@ class NotificationData {
 class NotificationsProvider extends ChangeNotifier {
   NotificationsProvider({ApiClient? apiClient})
     : _apiClient = apiClient ?? ApiClient() {
-    loadNotifications();
     FcmService.onForegroundMessage = _handlePushMessage;
   }
 
@@ -113,6 +125,7 @@ class NotificationsProvider extends ChangeNotifier {
   final List<NotificationData> _notifications = [];
   bool _isLoading = false;
   String? _errorMessage;
+  String _currentUserId = '';
 
   List<NotificationData> get notifications => List.unmodifiable(_notifications);
   List<NotificationData> get todayNotifications => _notifications
@@ -124,6 +137,23 @@ class NotificationsProvider extends ChangeNotifier {
   int get unreadCount => _notifications.where((item) => !item.isRead).length;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String get currentUserId => _currentUserId;
+
+  void clear() {
+    _notifications.clear();
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  void onUserChanged(String userId) {
+    if (userId == _currentUserId) return;
+    _currentUserId = userId;
+    if (userId.isEmpty) {
+      clear();
+    } else {
+      loadNotifications();
+    }
+  }
 
   Future<void> loadNotifications() async {
     _setLoading(true);
@@ -184,8 +214,6 @@ class NotificationsProvider extends ChangeNotifier {
       titleAr: notification.title ?? 'إشعار',
       messageEn: notification.body ?? '',
       messageAr: notification.body ?? '',
-      timeEn: 'Just now',
-      timeAr: 'الآن',
       icon: NotificationData._iconFor(category),
       color: NotificationData._colorFor(category),
       bgColor: NotificationData._bgColorFor(category),

@@ -336,11 +336,25 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     );
     if (!mounted) return;
     setState(() => _scanning = false);
-    if (result != null) {
-      context.push('/scan-result', extra: result);
-    } else {
+    if (result == null) {
+      // Upload failed or was queued offline — either way, inform user.
       _showError(scanProvider.errorMessage ?? 'Video upload failed');
+      return;
     }
+    // Backend accepted the upload and is processing in the background (202).
+    // Don't navigate to the result screen — show a snackbar and go back.
+    final isAr = context.read<LanguageProvider>().isRTL;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isAr
+              ? 'تم رفع الفيديو. ستصلك إشعار عند اكتمال التحليل.'
+              : "Video uploaded! We'll notify you when analysis is complete.",
+        ),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+    if (context.canPop()) context.pop();
   }
 
   void _showError(String message) {

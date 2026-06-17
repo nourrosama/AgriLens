@@ -70,7 +70,7 @@ class ProfileScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
-                        _userInfo(lang, user, fieldsProvider, scanProvider),
+                        _userInfo(context, lang, user, fieldsProvider, scanProvider),
                         const SizedBox(height: 24),
                         _accountSummary(lang, user),
                         const SizedBox(height: 24),
@@ -93,6 +93,7 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _userInfo(
+    BuildContext context,
     LanguageProvider lang,
     UserData user,
     FieldsProvider fieldsProvider,
@@ -162,7 +163,10 @@ class ProfileScreen extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
+                child: GestureDetector(
+                  onTap: () => context.push('/scan-history'),
+                  child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
+                ),
               ),
               Expanded(
                 child: _stat(

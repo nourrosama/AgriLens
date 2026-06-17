@@ -23,6 +23,7 @@ import 'package:agrilens/screens/notifications_screen.dart';
 import 'package:agrilens/screens/onboarding_screen.dart';
 import 'package:agrilens/screens/profile_screen.dart';
 import 'package:agrilens/screens/reports_screen.dart';
+import 'package:agrilens/screens/scan_history_screen.dart';
 import 'package:agrilens/screens/scan_result_screen.dart';
 import 'package:agrilens/screens/settings_screen.dart';
 import 'package:agrilens/screens/splash_screen.dart';
@@ -93,6 +94,10 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/scan-result',
       builder: (ctx, state) => const ScanResultScreen(),
+    ),
+    GoRoute(
+      path: '/scan-history',
+      builder: (ctx, state) => const ScanHistoryScreen(),
     ),
     GoRoute(
       path: '/disease-details',
