@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/theme.dart';
+import 'package:agrilens/core/user_provider.dart';
 
 class ScanHistoryScreen extends StatelessWidget {
   const ScanHistoryScreen({super.key});
@@ -69,16 +70,104 @@ class ScanHistoryScreen extends StatelessWidget {
               : RefreshIndicator(
                   color: AppColors.primary,
                   onRefresh: scanProvider.loadScans,
-                  child: ListView.separated(
+                  child: ListView(
                     padding: const EdgeInsets.all(16),
-                    itemCount: scans.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      final scan = scans[index];
-                      return _ScanTile(scan: scan, lang: lang);
-                    },
+                    children: [
+                      if (scanProvider.historyLimited)
+                        _HistoryLimitBanner(reason: scanProvider.historyLimitReason),
+                      ...scans.asMap().entries.map((entry) {
+                        return Padding(
+                          padding: EdgeInsets.only(
+                            top: entry.key == 0 && !scanProvider.historyLimited ? 0 : 12,
+                          ),
+                          child: _ScanTile(scan: entry.value, lang: lang),
+                        );
+                      }),
+                    ],
                   ),
                 ),
+    );
+  }
+}
+
+class _HistoryLimitBanner extends StatelessWidget {
+  const _HistoryLimitBanner({required this.reason});
+  final String reason;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<UserProvider>();
+    const rankMap = {'free': 0, 'premium': 1, 'professional': 2};
+    final currentRank = rankMap[user.plan] ?? 0;
+    final highestRank = rankMap.values.reduce((a, b) => a > b ? a : b);
+    final canUpgrade = currentRank < highestRank;
+
+    // Label for the upgrade button depends on current plan
+    String upgradeLabel;
+    if (user.plan == 'premium') {
+      upgradeLabel = 'Upgrade to Professional';
+    } else {
+      upgradeLabel = 'Upgrade to Premium';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFFFB300), width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lock_outline, color: Color(0xFFFFB300), size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Limited History',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF6D4C00),
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  reason.isNotEmpty
+                      ? reason
+                      : 'Free plan: showing your last 3 scans this week.',
+                  style: const TextStyle(color: Color(0xFF6D4C00), fontSize: 13),
+                ),
+                if (canUpgrade) ...[
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => context.push('/subscription-plans'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFFB300),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        upgradeLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

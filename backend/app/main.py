@@ -19,6 +19,13 @@ def create_app():
     app.logger.setLevel(logging.INFO)
     CORS(app)
 
+    # Allow the Flask admin panel to be embedded in an iframe from Flutter Web
+    @app.after_request
+    def _allow_iframe(response):
+        response.headers.pop('X-Frame-Options', None)
+        response.headers['Content-Security-Policy'] = "frame-ancestors *"
+        return response
+
     from app.config.settings import Config
     app.config.from_object(Config)
 
@@ -95,6 +102,7 @@ def create_app():
     from app.controllers.admin_controller import admin_bp
     from app.controllers.article_controller import article_bp
     from app.controllers.subscription_controller import subscription_bp
+    from app.controllers.support_controller import support_bp
 
     app.register_blueprint(health_bp)
     app.register_blueprint(auth_bp)
@@ -111,11 +119,63 @@ def create_app():
     app.register_blueprint(admin_bp)
     app.register_blueprint(article_bp)
     app.register_blueprint(subscription_bp)
+    app.register_blueprint(support_bp)
+
+    from app.services.push_service import init_push_service
+    init_push_service(app)
 
     import os
 
     admin_static = os.path.join(os.path.dirname(__file__), 'static', 'admin')
     user_static  = os.path.join(os.path.dirname(__file__), 'static', 'user')
+
+    @app.route('/admin/auto-login')
+    def admin_auto_login():
+        """
+        Called by the Flutter mobile app after the user has already
+        authenticated via the normal OTP flow.  Accepts the JWT token as a
+        query parameter, validates it, and returns a tiny HTML page that
+        writes the token into localStorage then redirects straight to the
+        admin dashboard — skipping the web login screen entirely.
+        """
+        import jwt as _jwt
+        from flask import request as _req, make_response
+
+        token = _req.args.get('token', '').strip()
+        error_html = lambda msg: (
+            f'<html><body style="font-family:sans-serif;text-align:center;padding:60px">'
+            f'<h2 style="color:#c62828">Access Denied</h2><p>{msg}</p></body></html>'
+        )
+
+        if not token:
+            return make_response(error_html('No token provided.'), 400)
+
+        try:
+            payload = _jwt.decode(
+                token,
+                app.config['JWT_SECRET'],
+                algorithms=['HS256'],
+            )
+            from app.models.user_model import find_by_id
+            user = find_by_id(payload['sub'])
+            if not user or user.get('role') != 'admin':
+                return make_response(error_html('Admin access only.'), 403)
+        except Exception:
+            return make_response(error_html('Invalid or expired token.'), 401)
+
+        # Return HTML that sets the token in localStorage (same origin as the
+        # admin panel) and immediately redirects to the dashboard.
+        html = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>Signing in…</title></head>
+<body>
+<script>
+  localStorage.setItem('admin_token', {repr(token)});
+  window.location.replace('/admin/dashboard.html');
+</script>
+<p style="font-family:sans-serif;text-align:center;padding:40px">Signing in…</p>
+</body></html>"""
+        return make_response(html, 200)
 
     @app.route('/admin/', defaults={'filename': 'login.html'})
     @app.route('/admin/<path:filename>')

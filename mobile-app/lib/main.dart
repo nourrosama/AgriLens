@@ -15,6 +15,7 @@ import 'package:agrilens/core/weather_provider.dart';
 import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/connectivity_provider.dart';
 import 'package:agrilens/core/favourites_provider.dart';
+import 'package:agrilens/core/support_provider.dart';
 import 'package:agrilens/widgets/connectivity_banner.dart';
 import 'package:agrilens/core/router.dart';
 import 'package:agrilens/core/fcm_service.dart';
@@ -66,6 +67,13 @@ class AgriLensApp extends StatelessWidget {
         ),
         ChangeNotifierProxyProvider<UserProvider, ScanHistoryProvider>(
           create: (_) => ScanHistoryProvider(),
+          update: (_, user, prev) {
+            prev!.onUserChanged(user.isLoggedIn ? user.userId : '');
+            return prev;
+          },
+        ),
+        ChangeNotifierProxyProvider<UserProvider, SupportProvider>(
+          create: (_) => SupportProvider(),
           update: (_, user, prev) {
             prev!.onUserChanged(user.isLoggedIn ? user.userId : '');
             return prev;

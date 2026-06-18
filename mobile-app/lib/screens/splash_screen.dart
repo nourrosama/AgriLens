@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:agrilens/core/theme.dart';
 import 'package:provider/provider.dart';
+import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/user_provider.dart';
 
@@ -40,6 +40,11 @@ class _SplashScreenState extends State<SplashScreen>
         return;
       }
       if (userProvider.isLoggedIn) {
+        // Admins bypass the regular user flow entirely.
+        if (userProvider.isAdmin) {
+          context.go('/admin');
+          return;
+        }
         context.read<ScanHistoryProvider>().syncQueuedScans();
         // Enforce trial gate: expired trial → subscription plans screen
         if (userProvider.isTrialExpired) {

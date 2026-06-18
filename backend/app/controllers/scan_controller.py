@@ -435,20 +435,55 @@ def upload_scan():
 @scan_bp.route('/api/scans', methods=['GET'])
 @require_auth
 def list_scans():
-    """List scans for the current user, optionally filtered by farm, field, or crop."""
+    """List scans for the current user, optionally filtered by farm, field, or crop.
+
+    Free-plan users: limited to the last 3 scans from the current week.
+    Paid plans: full paginated history.
+    """
+    from datetime import datetime, timedelta, timezone
+    from bson import ObjectId
+    from app.models.db import scans_col
+    from app.services.subscription_service import has_feature
+
     page = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 20, type=int), 100)
     farm_id = request.args.get('farm_id')
     field_id = request.args.get('field_id')
     crop_type = request.args.get('crop_type', '').strip()
 
-    if farm_id:
-        if not is_valid_object_id(farm_id):
-            return error_response('Invalid farm_id', 400)
-    if field_id:
-        if not is_valid_object_id(field_id):
-            return error_response('Invalid field_id', 400)
+    if farm_id and not is_valid_object_id(farm_id):
+        return error_response('Invalid farm_id', 400)
+    if field_id and not is_valid_object_id(field_id):
+        return error_response('Invalid field_id', 400)
 
+    is_paid = has_feature(g.current_user, 'unlimited_scans')
+
+    if not is_paid:
+        # Free plan: last 3 scans from this calendar week (Mon–Sun)
+        now = datetime.now(timezone.utc)
+        week_start = now - timedelta(days=now.weekday())
+        week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        scans = list(
+            scans_col().find({
+                'user_id': ObjectId(str(g.current_user['_id'])),
+                'created_at': {'$gte': week_start},
+            })
+            .sort('created_at', -1)
+            .limit(3)
+        )
+        return success_response({
+            'scans': [scan_model.serialize(s) for s in scans],
+            'page': 1,
+            'per_page': 3,
+            'history_limited': True,
+            'history_limit_reason': (
+                'Free plan: showing your last 3 scans this week. '
+                'Upgrade to Premium to see your full scan history.'
+            ),
+        })
+
+    # Paid plans — full history
     scans = scan_model.get_scans_filtered(
         str(g.current_user['_id']),
         farm_id=farm_id,
@@ -457,14 +492,12 @@ def list_scans():
         page=page,
         per_page=per_page,
     )
-
-    return success_response(
-        {
-            'scans': [scan_model.serialize(scan) for scan in scans],
-            'page': page,
-            'per_page': per_page,
-        }
-    )
+    return success_response({
+        'scans': [scan_model.serialize(scan) for scan in scans],
+        'page': page,
+        'per_page': per_page,
+        'history_limited': False,
+    })
 
 
 @scan_bp.route('/api/scans/<scan_id>', methods=['GET'])

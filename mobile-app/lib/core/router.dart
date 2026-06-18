@@ -12,7 +12,6 @@ import 'package:agrilens/screens/edit_field_screen.dart';
 import 'package:agrilens/screens/edit_profile_screen.dart';
 import 'package:agrilens/screens/faq_screen.dart';
 import 'package:agrilens/screens/field_overview_screen.dart';
-import 'package:agrilens/screens/forecasting_screen.dart';
 import 'package:agrilens/screens/home_screen.dart';
 import 'package:agrilens/screens/language_selection_screen.dart';
 import 'package:agrilens/screens/login_otp_screen.dart';
@@ -42,6 +41,7 @@ import 'package:agrilens/screens/user_registration_screen.dart';
 import 'package:agrilens/screens/auth_choice_screen.dart';
 import 'package:agrilens/screens/crop_select_screen.dart';
 import 'package:agrilens/screens/signup_screen.dart';
+import 'package:agrilens/screens/admin_dashboard_screen.dart';
 import 'package:agrilens/screens/articles_browser_screen.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -81,6 +81,7 @@ final GoRouter appRouter = GoRouter(
       builder: (ctx, state) => const LoginSuccessScreen(),
     ),
     GoRoute(path: '/home', builder: (ctx, state) => const HomeScreen()),
+    GoRoute(path: '/admin', builder: (ctx, state) => const AdminDashboardScreen()),
     GoRoute(
       path: '/crop-select',
       builder: (ctx, state) => CropSelectScreen(
@@ -126,10 +127,6 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/disease-map',
       builder: (ctx, state) => const DiseaseMapScreen(),
-    ),
-    GoRoute(
-      path: '/forecasting',
-      builder: (ctx, state) => const ForecastingScreen(),
     ),
     GoRoute(path: '/reports', builder: (ctx, state) => const ReportsScreen()),
     GoRoute(

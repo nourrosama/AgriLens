@@ -18,6 +18,7 @@ class UserData {
     this.profilePhotoPath,
     this.language = 'en',
     this.plan = 'free',
+    this.role = 'farmer',
     this.profileCompleted = false,
     this.isLoggedIn = false,
   });
@@ -30,6 +31,8 @@ class UserData {
   final String? profilePhotoPath;
   final String language;
   final String plan;
+  /// User role: 'farmer' | 'researcher' | 'admin'
+  final String role;
   final bool profileCompleted;
   final bool isLoggedIn;
 
@@ -42,6 +45,7 @@ class UserData {
     String? profilePhotoPath,
     String? language,
     String? plan,
+    String? role,
     bool? profileCompleted,
     bool? isLoggedIn,
   }) {
@@ -54,6 +58,7 @@ class UserData {
       profilePhotoPath: profilePhotoPath ?? this.profilePhotoPath,
       language: language ?? this.language,
       plan: plan ?? this.plan,
+      role: role ?? this.role,
       profileCompleted: profileCompleted ?? this.profileCompleted,
       isLoggedIn: isLoggedIn ?? this.isLoggedIn,
     );
@@ -69,6 +74,7 @@ class UserData {
       profilePhotoPath: json['photo_url']?.toString(),
       language: json['language']?.toString() ?? 'en',
       plan: json['plan']?.toString() ?? 'free',
+      role: json['role']?.toString() ?? 'farmer',
       profileCompleted: json['profile_completed'] == true,
       isLoggedIn: true,
     );
@@ -84,6 +90,7 @@ class UserData {
       'photo_url': profilePhotoPath ?? '',
       'language': language,
       'plan': plan,
+      'role': role,
       'profile_completed': profileCompleted,
     };
   }
@@ -120,6 +127,10 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool _isHydrated = false;
   String? _errorMessage;
   String? _pendingPhone;
+  String? _pendingEmail;
+  /// Non-null only in mock/dev mode when Gmail SMTP is not configured.
+  /// Contains the OTP code so it can be displayed directly in the UI.
+  String? devEmailOtp;
   DateTime? _registeredAt;
 
   static const int trialDays = 7;
@@ -136,12 +147,17 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
   bool get profileCompleted => _user.profileCompleted;
   String? get errorMessage => _errorMessage;
   String? get pendingPhone => _pendingPhone;
+  String? get pendingEmail => _pendingEmail;
   String? get fullName => _user.fullName.isNotEmpty ? _user.fullName : null;
   String? get phone => _user.phone.isNotEmpty ? _user.phone : null;
   String? get email => _user.email.isNotEmpty ? _user.email : null;
   String? get country => _user.country.isNotEmpty ? _user.country : null;
   String? get photoPath => _user.profilePhotoPath;
   String get plan => _user.plan;
+  String get role => _user.role;
+
+  /// Whether the logged-in user has admin privileges.
+  bool get isAdmin => _user.role == 'admin';
 
   /// Whether the user has an active paid subscription.
   bool get isSubscribed => _user.plan != 'free';
@@ -258,6 +274,91 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
       // On mobile platforms, use actual OTP
       await _apiClient.post('/api/auth/send-otp', body: {'phone': phone});
       _pendingPhone = phone;
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Email signup — stash profile data, send OTP (with name so backend can
+  /// pre-check for duplicate email before actually sending the code).
+  Future<bool> signupWithEmail({
+    required String fullName,
+    required String country,
+    required String email,
+  }) async {
+    _pendingSignupName = fullName;
+    _pendingSignupCountry = country;
+    _setLoading(true);
+    try {
+      final res = await _apiClient.post('/api/auth/send-email-otp', body: {
+        'email': email,
+        'name': fullName, // tells backend this is a signup — enables pre-check
+      });
+      _pendingEmail = email;
+      // Dev mode: backend returns the code directly when Gmail isn't configured.
+      devEmailOtp = (res['data'] as Map<String, dynamic>?)?['dev_code']?.toString();
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Email login — send a 6-digit OTP to the given email via Gmail SMTP.
+  Future<bool> sendEmailOtp(String email) async {
+    _setLoading(true);
+    try {
+      final res = await _apiClient.post('/api/auth/send-email-otp', body: {'email': email});
+      _pendingEmail = email;
+      // Dev mode: backend returns the code directly when Gmail isn't configured.
+      devEmailOtp = (res['data'] as Map<String, dynamic>?)?['dev_code']?.toString();
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Verify the email OTP. Works for both login and signup flows.
+  Future<bool> verifyEmailOtp(String otp, {String? email}) async {
+    _setLoading(true);
+    try {
+      final resolvedEmail = email ?? _pendingEmail ?? '';
+      final body = <String, dynamic>{
+        'email': resolvedEmail,
+        'code': otp,
+        ...?(_pendingSignupName == null ? null : {'name': _pendingSignupName!}),
+        ...?(_pendingSignupCountry == null ? null : {'country': _pendingSignupCountry!}),
+      };
+
+      final response = await _apiClient.post('/api/auth/verify-email-otp', body: body);
+      final data = response['data'] as Map<String, dynamic>;
+      final token = data['token']?.toString() ?? '';
+      final userJson = data['user'] as Map<String, dynamic>;
+      await _sessionStorage.saveToken(token);
+      await _sessionStorage.saveUser(userJson);
+
+      await _sessionStorage.saveRegisteredAtIfAbsent(DateTime.now());
+      _registeredAt ??= await _sessionStorage.readRegisteredAt();
+
+      _user = UserData.fromJson(userJson);
+      _pendingEmail = _user.email;
+      _pendingSignupName = null;
+      _pendingSignupCountry = null;
+
+      unawaited(_registerFcmToken());
+
       _errorMessage = null;
       return true;
     } catch (error) {
@@ -415,10 +516,102 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  // ── Contact linking ──────────────────────────────────────────────────────────
+
+  /// Send OTP to a phone number the user wants to link to their account.
+  Future<bool> sendLinkPhoneOtp(String phone) async {
+    _setLoading(true);
+    try {
+      await _apiClient.post('/api/auth/link-phone', body: {'phone': phone}, auth: true);
+      _pendingPhone = phone;
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Verify OTP and attach the phone to the current account.
+  Future<bool> verifyLinkPhone(String otp) async {
+    _setLoading(true);
+    try {
+      final phone = _pendingPhone ?? '';
+      final response = await _apiClient.post(
+        '/api/auth/verify-link-phone',
+        body: {'phone': phone, 'code': otp},
+        auth: true,
+      );
+      final userJson = (response['data'] as Map<String, dynamic>)['user'] as Map<String, dynamic>;
+      _user = UserData.fromJson(userJson);
+      await _sessionStorage.saveUser(userJson);
+      _pendingPhone = null;
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Send OTP to an email the user wants to link to their account.
+  Future<bool> sendLinkEmailOtp(String email) async {
+    _setLoading(true);
+    try {
+      await _apiClient.post('/api/auth/link-email', body: {'email': email}, auth: true);
+      _pendingEmail = email;
+      _errorMessage = null;
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Verify OTP and attach the email to the current account.
+  Future<bool> verifyLinkEmail(String otp) async {
+    _setLoading(true);
+    try {
+      final email = _pendingEmail ?? '';
+      final response = await _apiClient.post(
+        '/api/auth/verify-link-email',
+        body: {'email': email, 'code': otp},
+        auth: true,
+      );
+      final userJson = (response['data'] as Map<String, dynamic>)['user'] as Map<String, dynamic>;
+      _user = UserData.fromJson(userJson);
+      await _sessionStorage.saveUser(userJson);
+      _pendingEmail = null;
+      _errorMessage = null;
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _errorMessage = error.toString();
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
   Future<void> logout() async {
     await _sessionStorage.clearSession();
     _pendingPhone = null;
+    _pendingEmail = null;
     _user = const UserData();
+    notifyListeners();
+  }
+
+  /// Called when the user navigates back from the OTP screen to re-choose a method.
+  void clearPendingContact() {
+    _pendingPhone = null;
+    _pendingEmail = null;
     notifyListeners();
   }
 

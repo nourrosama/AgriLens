@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -20,22 +21,74 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
   );
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
+  /// Guards against cascade calls when we set controller.text programmatically.
+  bool _isPasting = false;
+
   bool get _isComplete => _controllers.every((c) => c.text.isNotEmpty);
 
   @override
+  void initState() {
+    super.initState();
+    // Listen to each focus node so we select-all when a box gains focus —
+    // makes it easy to overwrite a single digit without pressing backspace first.
+    for (int i = 0; i < 6; i++) {
+      final ctrl = _controllers[i];
+      _focusNodes[i].addListener(() {
+        if (_focusNodes[i].hasFocus) {
+          ctrl.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: ctrl.text.length,
+          );
+        }
+      });
+    }
+  }
+
+  @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    for (final c in _controllers) c.dispose();
+    for (final f in _focusNodes) f.dispose();
     super.dispose();
   }
 
   void _onDigitChanged(int index, String value) {
-    if (value.isNotEmpty && index < 5) {
-      _focusNodes[index + 1].requestFocus();
+    if (_isPasting) return;
+
+    // Strip everything that isn't a digit.
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digits.length > 1) {
+      // ── Paste detected ────────────────────────────────────────────────────
+      _isPasting = true;
+      for (int j = 0; j < 6; j++) {
+        _controllers[j].text = j < digits.length ? digits[j] : '';
+      }
+      _isPasting = false;
+
+      // Move focus to the last filled box (or box 5 if all 6 were pasted).
+      final lastIdx = (digits.length - 1).clamp(0, 5);
+      _focusNodes[lastIdx].requestFocus();
+      setState(() {});
+      return;
+    }
+
+    // ── Single character typed ─────────────────────────────────────────────
+    // If the raw value contained a non-digit, replace it with the cleaned form.
+    if (value != digits) {
+      _isPasting = true;
+      _controllers[index].text = digits;
+      _controllers[index].selection = TextSelection.fromPosition(
+        TextPosition(offset: digits.length),
+      );
+      _isPasting = false;
+    }
+
+    if (digits.isNotEmpty) {
+      // Advance to next box.
+      if (index < 5) _focusNodes[index + 1].requestFocus();
+    } else {
+      // Digit cleared (backspace) — retreat to previous box.
+      if (index > 0) _focusNodes[index - 1].requestFocus();
     }
     setState(() {});
   }
@@ -84,7 +137,9 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${lang.t('login.otpSubtitle')} ${userProvider.pendingPhone ?? '+20'}',
+                    userProvider.pendingEmail != null
+                        ? '${lang.isRTL ? 'تم إرسال الرمز إلى' : 'Code sent to'} ${userProvider.pendingEmail}'
+                        : '${lang.t('login.otpSubtitle')} ${userProvider.pendingPhone ?? '+20'}',
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.textPrimary,
                     ),
@@ -105,7 +160,11 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
                             focusNode: _focusNodes[i],
                             keyboardType: TextInputType.number,
                             textAlign: TextAlign.center,
-                            maxLength: 1,
+                            // No maxLength — handled in _onDigitChanged so
+                            // pasting a 6-digit code works correctly.
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
                             style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w600,
@@ -137,6 +196,34 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
                   ),
                   const SizedBox(height: 24),
 
+                  // Dev-mode banner: shown when Gmail is not configured
+                  if (userProvider.devEmailOtp != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF9C4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFF9A825)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.developer_mode, size: 18, color: Color(0xFFF57F17)),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Dev code: ${userProvider.devEmailOtp}',
+                            style: const TextStyle(
+                              color: Color(0xFFF57F17),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 16,
+                              letterSpacing: 2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
                   // Resend
                   Center(
                     child: TextButton(
@@ -164,9 +251,13 @@ class _LoginOtpScreenState extends State<LoginOtpScreen> {
                                   .map((controller) => controller.text)
                                   .join();
                               final messenger = ScaffoldMessenger.of(context);
-                              final ok = await context
-                                  .read<UserProvider>()
-                                  .verifyOtp(otp);
+                              final up = context.read<UserProvider>();
+                              final bool ok;
+                              if (up.pendingEmail != null) {
+                                ok = await up.verifyEmailOtp(otp);
+                              } else {
+                                ok = await up.verifyOtp(otp);
+                              }
                               if (!context.mounted) {
                                 return;
                               }

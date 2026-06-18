@@ -189,6 +189,11 @@ class ActiveSubscriptionScreen extends StatelessWidget {
     final meta = _kPlans[user.plan] ?? _kPlans['free']!;
     final isPaid = meta.priceEgp > 0;
     final planName = lang.isRTL ? meta.nameAr : meta.nameEn;
+    // Only offer an upgrade if a higher-tier plan exists
+    const _planRank = {'free': 0, 'premium': 1, 'professional': 2};
+    final currentRank = _planRank[user.plan] ?? 0;
+    final highestRank = _planRank.values.reduce((a, b) => a > b ? a : b);
+    final canUpgrade = currentRank < highestRank;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -269,11 +274,12 @@ class ActiveSubscriptionScreen extends StatelessWidget {
                     _UsageCard(lang: lang, items: meta.usageItems),
                     const SizedBox(height: 24),
 
-                    // Action
-                    if (isPaid)
-                      _CancelButton(lang: lang)
-                    else
+                    // Action buttons
+                    if (isPaid) _CancelButton(lang: lang),
+                    if (canUpgrade && !isPaid) ...[
+                      if (isPaid) const SizedBox(height: 12),
                       _UpgradeButton(lang: lang),
+                    ],
                   ],
                 ),
               ),

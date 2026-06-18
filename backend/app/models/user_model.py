@@ -17,11 +17,10 @@ def create_user(
 ) -> dict:
     """Insert a new user. Returns the created document."""
     doc = {
-        'phone': phone,
         'name': name,
         'language': language,
         'role': role,            # farmer | researcher | admin
-        'email': email,
+        'email': email.lower() if email else '',
         'country': country,
         'photo_url': photo_url,
         'plan': 'free',
@@ -31,14 +30,25 @@ def create_user(
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
     }
+    # Store phone only when provided — the sparse unique index skips null/missing
+    # values, so email-only users (phone='') don't collide with each other.
+    if phone:
+        doc['phone'] = phone
     result = users_col().insert_one(doc)
     doc['_id'] = result.inserted_id
     return doc
 
 
 def find_by_phone(phone: str) -> dict | None:
-    """Find user by phone number."""
+    """Find user by phone number. Returns None for empty/blank phone."""
+    if not phone:
+        return None
     return users_col().find_one({'phone': phone})
+
+
+def find_by_email(email: str) -> dict | None:
+    """Find user by email address (case-insensitive)."""
+    return users_col().find_one({'email': email.lower()})
 
 
 def find_by_id(user_id: str) -> dict | None:
