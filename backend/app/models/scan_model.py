@@ -1,6 +1,6 @@
 """
 Scan model -- MongoDB CRUD for image/video scans and detection results.
-Status lifecycle: pending -> processing -> completed | failed | expired
+Status lifecycle: pending -> processing -> completed | validation_failed | failed | expired
 """
 from datetime import datetime, timezone
 
@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from app.models.db import scans_col
 
-VALID_STATUSES = ('pending', 'processing', 'completed', 'failed', 'expired')
+VALID_STATUSES = ('pending', 'processing', 'completed', 'validation_failed', 'failed', 'expired')
 
 
 def create_scan(

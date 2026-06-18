@@ -2,6 +2,7 @@ import 'package:agrilens/core/app_config.dart';
 import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/fields_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
+import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/session_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -104,19 +105,61 @@ void main() {
 
       final values = CropProvider.crops.map((crop) => crop.value).toSet();
 
-      expect(values, containsAll(['grape', 'wheat', 'mushroom', 'sugarCane']));
+      expect(
+        values,
+        containsAll(['grape', 'wheat', 'corn', 'sugarcane', 'cotton']),
+      );
+      expect(values, isNot(contains('mushroom')));
       expect(CropProvider.crops.every((crop) => crop.emoji.isNotEmpty), isTrue);
       expect(
         CropProvider.crops
-            .firstWhere((crop) => crop.value == 'sugarCane')
+            .firstWhere((crop) => crop.value == 'sugarcane')
             .scanEnabled,
-        isFalse,
+        isTrue,
       );
 
-      await provider.selectCrop('mushroom');
+      await provider.selectCrop('sugarCane');
 
-      expect(provider.selectedCrop, 'mushroom');
-      expect(provider.selectedCropInfo?.labelEn, 'Mushroom');
+      expect(provider.selectedCrop, 'sugarcane');
+      expect(provider.selectedCropInfo?.labelEn, 'Sugar Cane');
+    });
+  });
+
+  group('ScanResult', () {
+    test('parses selected video frame artifact urls', () {
+      final scan = ScanResult.fromJson({
+        'id': 'scan-1',
+        'media_type': 'video',
+        'media_url': 'https://cdn.example/video.mp4',
+        'storage_backend': 'cloudinary',
+        'status': 'completed',
+        'detection_result': {
+          'disease': 'Early blight',
+          'confidence': 0.91,
+          'severity': 'medium',
+          'risk_level': 'medium',
+          'is_healthy': false,
+          'selected_frames': [
+            {
+              'frame_index': 4,
+              'keyframe_score': 0.88,
+              'frame_url': 'https://cdn.example/frame.jpg',
+              'gradcam_url': 'https://cdn.example/gradcam.jpg',
+              'display_url': 'https://cdn.example/gradcam.jpg',
+              'disease': 'Early blight',
+              'confidence': 0.91,
+              'severity': 'medium',
+              'risk_level': 'medium',
+              'is_healthy': false,
+            }
+          ],
+        },
+      });
+
+      expect(scan.isVideo, isTrue);
+      expect(scan.selectedFrames, hasLength(1));
+      expect(scan.selectedFrames.first.hasGradcam, isTrue);
+      expect(scan.selectedFrames.first.displayUrl, 'https://cdn.example/gradcam.jpg');
     });
   });
 

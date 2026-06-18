@@ -222,13 +222,21 @@ def test_scan_video_list_get_and_callback_routes(client_for, auth_headers, curre
         "media_type": "video",
         "scan_type": "video",
     }
+    monkeypatch.setattr(scan_controller, "can_scan", lambda user: (True, ""))
     monkeypatch.setattr(scan_controller.storage_service, "upload_video", lambda file_obj: "/uploads/clip.mp4")
     monkeypatch.setattr(scan_controller.storage_service, "get_storage_backend", lambda: "local")
+    monkeypatch.setattr(scan_controller.storage_service, "resolve_local_path", lambda url: None)
     monkeypatch.setattr(scan_controller.scan_model, "create_scan", lambda **kwargs: stored)
+    monkeypatch.setattr(scan_controller.scan_model, "update_status", lambda _id, status: stored.update(status=status) or True)
     monkeypatch.setattr(scan_controller.scan_model, "update_scan", lambda _id, updates: stored.update(updates) or True)
     monkeypatch.setattr(scan_controller.scan_model, "get_scan_by_id", lambda _id: stored)
+    monkeypatch.setattr(scan_controller.scan_model, "get_scans_by_user", lambda *args, **kwargs: [stored])
     monkeypatch.setattr(scan_controller.scan_model, "get_scans_filtered", lambda *args, **kwargs: [stored])
     monkeypatch.setattr(scan_controller.scan_model, "update_detection_result", lambda _id, detection: stored.update(detection_result=detection) or True)
+    monkeypatch.setattr(scan_controller.video_service, "analyze_video", lambda *args, **kwargs: {"disease": "Healthy", "severity": "none", "is_healthy": True, "risk_level": "low", "confidence": 0.9})
+    monkeypatch.setattr(scan_controller.insights_service, "build_weather", lambda location: {"forecast": []})
+    monkeypatch.setattr(scan_controller.insights_service, "compute_forecast", lambda scans, weather, days: {"risk_level": "low", "forecast": []})
+    monkeypatch.setattr(scan_controller.forecast_model, "upsert_snapshot", lambda *args, **kwargs: {})
     monkeypatch.setattr(scan_controller.audit_model, "log_action", lambda *args, **kwargs: None)
     monkeypatch.setattr(scan_controller.event_publisher, "scan_created", lambda *args: None)
     monkeypatch.setattr(scan_controller.event_publisher, "scan_completed", lambda *args: None)
@@ -246,7 +254,7 @@ def test_scan_video_list_get_and_callback_routes(client_for, auth_headers, curre
     detail = client.get(f"/api/scans/{scan_id}", headers=auth_headers)
     callback = client.post(f"/api/scans/{scan_id}/result", json={"risk_level": "critical", "is_healthy": False})
 
-    assert upload.status_code == 201
+    assert upload.status_code == 202
     assert listed.get_json()["data"]["per_page"] == 100
     assert detail.status_code == 200
     assert callback.status_code == 200

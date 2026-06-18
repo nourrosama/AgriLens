@@ -16,6 +16,8 @@ services:
       FORECAST_SERVICE_URL: http://forecast-service:5002
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       REDIS_URL: redis://redis:6379/0
+      VIDEO_KEYFRAME_MODEL_ENABLED: "true"
+      VIDEO_KEYFRAME_TARGET_FPS: "10"
     depends_on:
       mongodb:
         condition: service_healthy
@@ -32,6 +34,7 @@ services:
 
   detection-service:
     build: ./detection-service
+    command: ["flask", "run", "--host=0.0.0.0", "--port=5001"]
     ports:
       - "5001:5001"
     environment:
@@ -41,7 +44,26 @@ services:
       APPLE_MODEL_PATH: /models/apple_model.pth
       GRAPE_MODEL_PATH: /models/grape_effb3_best.pth
       WHEAT_MODEL_PATH: /models/wheat_disease_detector.pth
-      MUSHROOM_MODEL_PATH: /models/mushroom_disease_classifier.pth
+      CORN_MODEL_PATH: /models/corn_model.pth
+      CORN_LABELS_PATH: /models/corn_labels.json
+      SUGARCANE_MODEL_PATH: /models/sugarcane_model.pt
+      SUGARCANE_LABELS_PATH: /models/sugarcane_labels.json
+      COTTON_MODEL_PATH: /models/cotton_model.keras
+      COTTON_TFLITE_MODEL_PATH: /models/cotton_model.tflite
+      COTTON_LABELS_PATH: /models/cotton_label_mapping.json
+      CROP_VALIDATOR_MODEL_PATH: /models/crop_validator.pt
+      CROP_VALIDATOR_LABELS_PATH: /models/crop_validator_labels.json
+      CROP_VALIDATOR_ENABLED: "true"
+      CROP_VALIDATOR_NOT_PLANT_THRESHOLD: "0.35"
+      CROP_VALIDATOR_SUPPORTED_THRESHOLD: "0.65"
+      VIDEO_MODEL_PATH: /models/video_model_tl.pth
+      VIDEO_KEYFRAME_TARGET_FPS: "10"
+      VIDEO_KEYFRAME_WINDOW: "64"
+      VIDEO_KEYFRAME_STRIDE: "32"
+      VIDEO_KEYFRAME_THRESHOLD: "0.5"
+      VIDEO_KEYFRAME_MIN_DISTANCE: "5"
+      VIDEO_KEYFRAME_MAX_SOURCE_FRAMES: "600"
+      VIDEO_KEYFRAME_MAX_SELECTED: "20"
       MODEL_FORCE_CPU: "true"
     volumes:
       - ./detection-service:/app

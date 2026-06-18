@@ -64,21 +64,28 @@ class CropProvider extends ChangeNotifier {
       color: Color(0xFFD4A017),
     ),
     CropInfo(
-      value: 'mushroom',
-      labelEn: 'Mushroom',
-      labelAr: 'فطر',
-      emoji: '🍄',
-      icon: Icons.spa_rounded,
-      color: Color(0xFF6D4C41),
+      value: 'corn',
+      labelEn: 'Corn',
+      labelAr: 'ذرة',
+      emoji: '🌽',
+      icon: Icons.grass_rounded,
+      color: Color(0xFFF9A825),
     ),
     CropInfo(
-      value: 'sugarCane',
+      value: 'sugarcane',
       labelEn: 'Sugar Cane',
       labelAr: 'قصب السكر',
       emoji: '🎋',
       icon: Icons.grass_rounded,
       color: Color(0xFF43A047),
-      scanEnabled: false,
+    ),
+    CropInfo(
+      value: 'cotton',
+      labelEn: 'Cotton',
+      labelAr: 'قطن',
+      emoji: '🌿',
+      icon: Icons.eco_rounded,
+      color: Color(0xFF607D8B),
     ),
   ];
 
@@ -101,19 +108,29 @@ class CropProvider extends ChangeNotifier {
     _loadSaved();
   }
 
+  static String normalizeCropValue(String cropValue) {
+    final normalized = cropValue.trim();
+    if (normalized == 'sugarCane') return 'sugarcane';
+    return normalized;
+  }
+
   Future<void> _loadSaved() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedCrop = prefs.getString('selected_crop') ?? crops.first.value;
+    final savedCrop = normalizeCropValue(
+      prefs.getString('selected_crop') ?? crops.first.value,
+    );
     _selectedCrop = crops.any((crop) => crop.value == savedCrop)
         ? savedCrop
         : crops.first.value;
+    await prefs.setString('selected_crop', _selectedCrop);
     _isLoaded = true;
     notifyListeners();
   }
 
   Future<void> selectCrop(String cropValue) async {
-    _selectedCrop = crops.any((crop) => crop.value == cropValue)
-        ? cropValue
+    final normalized = normalizeCropValue(cropValue);
+    _selectedCrop = crops.any((crop) => crop.value == normalized)
+        ? normalized
         : crops.first.value;
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
@@ -126,8 +143,9 @@ class CropProvider extends ChangeNotifier {
   }
 
   String getLabel(String cropValue, {bool isRTL = false}) {
+    final normalized = normalizeCropValue(cropValue);
     final crop = crops.firstWhere(
-      (c) => c.value == cropValue,
+      (c) => c.value == normalized,
       orElse: () => crops.first,
     );
     return isRTL ? crop.labelAr : crop.labelEn;

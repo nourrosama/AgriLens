@@ -39,9 +39,18 @@ def _get_target_layer(model: torch.nn.Module) -> torch.nn.Module:
             return sub_blocks[-1]
         return last_stage
 
+    if hasattr(model, 'features'):
+        conv_layers = [
+            module
+            for module in model.features.modules()
+            if isinstance(module, torch.nn.Conv2d)
+        ]
+        if conv_layers:
+            return conv_layers[-1]
+
     raise RuntimeError(
         'Could not locate a suitable Grad-CAM target layer in this model. '
-        'Expected model.conv_head or model.blocks[-1][-1] (timm EfficientNet).'
+        'Expected model.conv_head, model.blocks[-1][-1], or convolutional features.'
     )
 
 

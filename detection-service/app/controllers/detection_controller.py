@@ -5,6 +5,9 @@ Accepts image bytes or a remote image URL and returns a crop disease prediction.
 Pass include_gradcam=true (form field or JSON key) to receive a base64 PNG
 Grad-CAM overlay in the response under the key ``gradcam_overlay``.
 """
+import os
+import tempfile
+
 from flask import Blueprint, jsonify, request
 
 from app.utils import model_loader
@@ -36,12 +39,7 @@ def detect_disease():
     )
     if not model_loader.is_supported_crop(crop_type):
         return (
-            jsonify(
-                {
-                    'error': f'Unsupported crop type: {crop_type}',
-                    'supported_crops': model_loader.supported_crops(),
-                }
-            ),
+            jsonify(model_loader.unsupported_crop_payload(crop_type)),
             422,
         )
 
@@ -63,6 +61,8 @@ def detect_disease():
                 else model_loader.predict_from_url(image_url, crop_type)
             )
         return jsonify(prediction), 200
+    except model_loader.ValidationFailure as exc:
+        return jsonify(exc.payload), 422
     except ValueError as exc:
         message = str(exc)
         if message.startswith('NOT_A_PLANT:'):
@@ -81,3 +81,44 @@ def detect_disease():
         )
     except Exception as exc:  # pragma: no cover - runtime safety
         return jsonify({'error': f'Inference failed: {exc}'}), 500
+
+
+@detection_bp.route('/api/video/keyframes', methods=['POST'])
+def select_video_keyframes():
+    """Return representative frame indices from the local video keyframe model."""
+    if 'video' not in request.files or not request.files['video'].filename:
+        return jsonify({'error': 'No video provided'}), 400
+
+    max_frames = request.form.get('max_frames', '').strip()
+    try:
+        max_frames_int = int(max_frames) if max_frames else None
+    except ValueError:
+        return jsonify({'error': 'max_frames must be an integer'}), 400
+    if max_frames_int is not None and max_frames_int <= 0:
+        return jsonify({'error': 'max_frames must be greater than zero'}), 400
+
+    suffix = os.path.splitext(request.files['video'].filename)[1] or '.mp4'
+    temp_path = ''
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as temp_file:
+            temp_path = temp_file.name
+            request.files['video'].save(temp_file)
+        result = model_loader.select_video_keyframes(temp_path, max_frames=max_frames_int)
+        return jsonify(result), 200
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    except RuntimeError as exc:
+        return (
+            jsonify(
+                {
+                    'error': str(exc),
+                    'model_status': model_loader.get_model_status().get('special_models', {}).get('video_model'),
+                }
+            ),
+            503,
+        )
+    except Exception as exc:  # pragma: no cover - runtime safety
+        return jsonify({'error': f'Video keyframe selection failed: {exc}'}), 500
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)

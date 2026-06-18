@@ -2,6 +2,8 @@
 Scan media storage service.
 Supports Cloudinary or explicit local-disk storage.
 """
+from contextlib import contextmanager
+from io import BytesIO
 import logging
 import os
 import re
@@ -12,6 +14,7 @@ from urllib.parse import urlparse
 import cloudinary
 import cloudinary.uploader
 from flask import current_app
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +151,28 @@ def upload_video_from_path(file_path: str) -> str:
     return url
 
 
+def upload_scan_frame_bytes(data: bytes, scan_id: str, frame_index: int) -> str:
+    """Persist a generated selected video frame and return its URL/path."""
+    return _upload_bytes(
+        data,
+        folder=f'agrilens/scans/frames/{scan_id}',
+        default_ext='jpg',
+        resource_type='image',
+        filename=f'frame_{frame_index:04d}',
+    )
+
+
+def upload_scan_gradcam_bytes(data: bytes, scan_id: str, frame_index: int) -> str:
+    """Persist a generated Grad-CAM frame image and return its URL/path."""
+    return _upload_bytes(
+        data,
+        folder=f'agrilens/scans/gradcam/{scan_id}',
+        default_ext='jpg',
+        resource_type='image',
+        filename=f'frame_{frame_index:04d}_gradcam',
+    )
+
+
 def delete_image(url: str) -> bool:
     """Delete stored media by URL/path."""
     if not url:
@@ -185,6 +210,39 @@ def resolve_local_path(url: str) -> str | None:
         return None
     filename = url.split('/')[-1]
     return os.path.join(current_app.config.get('UPLOAD_FOLDER', 'uploads'), filename)
+
+
+@contextmanager
+def materialize_media(media_url: str, default_ext: str = ''):
+    """Yield a local file path for local or remote media, deleting temp downloads."""
+    local_path = resolve_local_path(media_url)
+    if local_path and os.path.exists(local_path):
+        yield local_path
+        return
+
+    if not (media_url.startswith('http://') or media_url.startswith('https://')):
+        yield media_url
+        return
+
+    parsed = urlparse(media_url)
+    ext = os.path.splitext(parsed.path)[1] or default_ext
+    temp_path = ''
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_file:
+            temp_path = temp_file.name
+            with requests.get(
+                media_url,
+                stream=True,
+                timeout=current_app.config.get('CLOUDINARY_UPLOAD_TIMEOUT', 30),
+            ) as response:
+                response.raise_for_status()
+                for chunk in response.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        temp_file.write(chunk)
+        yield temp_path
+    finally:
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
 
 
 def _get_extension(filename: str) -> str:
@@ -270,6 +328,43 @@ def _upload_media(file_obj, folder: str, default_ext: str, resource_type: str, f
     return url
 
 
+def _upload_bytes(
+    data: bytes,
+    folder: str,
+    default_ext: str,
+    resource_type: str,
+    filename: str = None,
+) -> str:
+    if uses_local_storage():
+        return _save_bytes_locally(data, default_ext=default_ext)
+
+    if not _cloudinary_ready:
+        raise RuntimeError('Cloudinary storage is not ready')
+
+    ext = _get_extension(filename or '') or default_ext
+    public_id = f'{folder}/{os.path.splitext(filename)[0]}' if filename else f'{folder}/{uuid.uuid4().hex}'
+
+    try:
+        result = cloudinary.uploader.upload(
+            BytesIO(data),
+            public_id=public_id,
+            resource_type=resource_type,
+            overwrite=True,
+            format=ext,
+            folder=None,
+            timeout=current_app.config.get('CLOUDINARY_UPLOAD_TIMEOUT', 30),
+        )
+    except Exception as exc:  # pragma: no cover - runtime safety
+        logger.warning('Cloudinary generated %s upload failed: %s', resource_type, exc)
+        raise
+
+    url = result.get('secure_url') or result.get('url')
+    if not url:
+        raise RuntimeError('Cloudinary upload did not return a public URL')
+    logger.info('Uploaded generated %s media to Cloudinary: %s', resource_type, url)
+    return url
+
+
 def _cloudinary_public_id(url: str) -> tuple[str | None, str]:
     parsed = urlparse(url)
     parts = [part for part in parsed.path.split('/') if part]
@@ -298,4 +393,15 @@ def _save_locally(file_obj, default_ext: str) -> str:
         file_obj.stream.seek(0)
     file_obj.save(path)
     logger.info('Saved locally: %s', path)
+    return f'/uploads/{local_name}'
+
+
+def _save_bytes_locally(data: bytes, default_ext: str) -> str:
+    upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+    local_name = f'{uuid.uuid4().hex}.{default_ext}'
+    path = os.path.join(upload_dir, local_name)
+    with open(path, 'wb') as file_obj:
+        file_obj.write(data)
+    logger.info('Saved generated media locally: %s', path)
     return f'/uploads/{local_name}'

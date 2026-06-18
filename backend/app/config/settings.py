@@ -45,11 +45,18 @@ class Config:
     VIDEO_BLUR_THRESHOLD = float(os.getenv('VIDEO_BLUR_THRESHOLD', 80.0))
     VIDEO_MIN_FRAMES_REQUIRED = int(os.getenv('VIDEO_MIN_FRAMES_REQUIRED', 1))
     VIDEO_SAVE_DEBUG_FRAMES = os.getenv('VIDEO_SAVE_DEBUG_FRAMES', 'false').lower() == 'true'
+    VIDEO_KEYFRAME_MODEL_ENABLED = os.getenv('VIDEO_KEYFRAME_MODEL_ENABLED', 'true').lower() == 'true'
+    VIDEO_KEYFRAME_TARGET_FPS = float(os.getenv('VIDEO_KEYFRAME_TARGET_FPS', 10))
 
     # Inter-service URLs
+    DETECTION_PROVIDER = os.getenv('DETECTION_PROVIDER', 'local').strip().lower()
     DETECTION_SERVICE_URL = os.getenv('DETECTION_SERVICE_URL', 'http://localhost:5001')
     DETECTION_CONNECT_TIMEOUT = float(os.getenv('DETECTION_CONNECT_TIMEOUT', '5'))
     DETECTION_REQUEST_TIMEOUT = float(os.getenv('DETECTION_REQUEST_TIMEOUT', '120'))
+    SAGEMAKER_REGION = os.getenv('SAGEMAKER_REGION', os.getenv('AWS_REGION', 'us-east-1')).strip()
+    SAGEMAKER_ENDPOINT_NAME = os.getenv('SAGEMAKER_ENDPOINT_NAME', '').strip()
+    SAGEMAKER_ENDPOINTS = os.getenv('SAGEMAKER_ENDPOINTS', '').strip()
+    SAGEMAKER_PROFILE = os.getenv('SAGEMAKER_PROFILE', '').strip()
     FORECAST_SERVICE_URL = os.getenv('FORECAST_SERVICE_URL', 'http://localhost:5002')
     DETECTION_MOCK_FALLBACK = os.getenv('DETECTION_MOCK_FALLBACK', 'false').lower() == 'true'
 

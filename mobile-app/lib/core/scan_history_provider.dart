@@ -1,5 +1,4 @@
 import 'dart:io' as io;
-
 import 'package:flutter/foundation.dart';
 
 import 'api_client.dart';
@@ -30,6 +29,57 @@ class ScanPrediction {
   }
 }
 
+class SelectedVideoFrame {
+  SelectedVideoFrame({
+    required this.frameIndex,
+    required this.frameUrl,
+    required this.displayUrl,
+    required this.disease,
+    required this.confidence,
+    required this.severity,
+    required this.riskLevel,
+    required this.isHealthy,
+    this.gradcamUrl,
+    this.keyframeScore,
+  });
+
+  final int frameIndex;
+  final String frameUrl;
+  final String displayUrl;
+  final String disease;
+  final double confidence;
+  final String severity;
+  final String riskLevel;
+  final bool isHealthy;
+  final String? gradcamUrl;
+  final double? keyframeScore;
+
+  bool get hasGradcam => gradcamUrl != null && gradcamUrl!.isNotEmpty;
+
+  factory SelectedVideoFrame.fromJson(Map<String, dynamic> json) {
+    final frameUrl = AppConfig.resolveMediaUrl(json['frame_url']?.toString() ?? '');
+    final gradcamRaw = json['gradcam_url']?.toString() ?? '';
+    final gradcamUrl = gradcamRaw.isEmpty ? null : AppConfig.resolveMediaUrl(gradcamRaw);
+    final displayRaw = json['display_url']?.toString() ?? '';
+    final displayUrl = displayRaw.isNotEmpty
+        ? AppConfig.resolveMediaUrl(displayRaw)
+        : (gradcamUrl ?? frameUrl);
+
+    return SelectedVideoFrame(
+      frameIndex: (json['frame_index'] as num?)?.toInt() ?? 0,
+      keyframeScore: (json['keyframe_score'] as num?)?.toDouble(),
+      frameUrl: frameUrl,
+      gradcamUrl: gradcamUrl,
+      displayUrl: displayUrl,
+      disease: json['disease']?.toString() ?? '',
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
+      severity: json['severity']?.toString() ?? 'none',
+      riskLevel: json['risk_level']?.toString() ?? 'low',
+      isHealthy: json['is_healthy'] == true,
+    );
+  }
+}
+
 class ScanResult {
   ScanResult({
     required this.id,
@@ -54,6 +104,7 @@ class ScanResult {
     this.cropType = '',
     this.remoteMediaUrl,
     this.topPredictions = const [],
+    this.selectedFrames = const [],
     this.gradcamOverlay,
     this.diseaseReport,
     this.localImageBytes,
@@ -81,6 +132,8 @@ class ScanResult {
   final bool hasDetection;
   final String storageBackend;
   final List<ScanPrediction> topPredictions;
+  final List<SelectedVideoFrame> selectedFrames;
+
   /// Base64-encoded PNG of the Grad-CAM heatmap overlay.
   /// Only present in the immediate scan creation response; null for history.
   final String? gradcamOverlay;
@@ -99,32 +152,33 @@ class ScanResult {
 
   /// Returns a copy of this scan with [bytes] attached as [localImageBytes].
   ScanResult withLocalImageBytes(Uint8List bytes) => ScanResult(
-        id: id,
-        farmId: farmId,
-        fieldId: fieldId,
-        imagePath: imagePath,
-        diseaseNameEn: diseaseNameEn,
-        diseaseNameAr: diseaseNameAr,
-        scientificName: scientificName,
-        confidence: confidence,
-        severity: severity,
-        status: status,
-        scannedAt: scannedAt,
-        isHealthy: isHealthy,
-        riskLevel: riskLevel,
-        recommendation: recommendation,
-        modelVersion: modelVersion,
-        mediaType: mediaType,
-        hasDetection: hasDetection,
-        storageBackend: storageBackend,
-        fieldName: fieldName,
-        cropType: cropType,
-        remoteMediaUrl: remoteMediaUrl,
-        topPredictions: topPredictions,
-        gradcamOverlay: gradcamOverlay,
-        diseaseReport: diseaseReport,
-        localImageBytes: bytes,
-      );
+    id: id,
+    farmId: farmId,
+    fieldId: fieldId,
+    imagePath: imagePath,
+    diseaseNameEn: diseaseNameEn,
+    diseaseNameAr: diseaseNameAr,
+    scientificName: scientificName,
+    confidence: confidence,
+    severity: severity,
+    status: status,
+    scannedAt: scannedAt,
+    isHealthy: isHealthy,
+    riskLevel: riskLevel,
+    recommendation: recommendation,
+    modelVersion: modelVersion,
+    mediaType: mediaType,
+    hasDetection: hasDetection,
+    storageBackend: storageBackend,
+    fieldName: fieldName,
+    cropType: cropType,
+    remoteMediaUrl: remoteMediaUrl,
+    topPredictions: topPredictions,
+    selectedFrames: selectedFrames,
+    gradcamOverlay: gradcamOverlay,
+    diseaseReport: diseaseReport,
+    localImageBytes: bytes,
+  );
 
   factory ScanResult.fromJson(Map<String, dynamic> json) {
     final detection =
@@ -180,7 +234,60 @@ class ScanResult {
           .whereType<Map<String, dynamic>>()
           .map(ScanPrediction.fromJson)
           .toList(),
+      selectedFrames: ((detection['selected_frames'] as List<dynamic>?) ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(SelectedVideoFrame.fromJson)
+          .toList(),
       gradcamOverlay: detection['gradcam_overlay']?.toString(),
+    );
+  }
+}
+
+class ScanValidationFailure {
+  ScanValidationFailure({
+    required this.errorCode,
+    required this.message,
+    required this.selectedCrop,
+    required this.detectedCrop,
+    required this.supportedCrops,
+    this.scan,
+  });
+
+  final String errorCode;
+  final String message;
+  final String selectedCrop;
+  final String detectedCrop;
+  final List<String> supportedCrops;
+  final ScanResult? scan;
+
+  bool get canUseDetectedCrop {
+    return errorCode == 'CROP_MISMATCH' &&
+        detectedCrop.isNotEmpty &&
+        detectedCrop != 'unknown_plant' &&
+        supportedCrops.contains(detectedCrop);
+  }
+
+  factory ScanValidationFailure.fromApiException(ApiException error) {
+    final validation = error.validation ?? error.body ?? <String, dynamic>{};
+    final data = error.data ?? <String, dynamic>{};
+    final scanJson = data['scan'];
+    return ScanValidationFailure(
+      errorCode:
+          validation['error_code']?.toString() ??
+          error.errorCode ??
+          'VALIDATION_FAILED',
+      message:
+          validation['message']?.toString() ??
+          validation['error']?.toString() ??
+          error.message,
+      selectedCrop: validation['selected_crop']?.toString() ?? '',
+      detectedCrop: validation['detected_crop']?.toString() ?? '',
+      supportedCrops: ((validation['supported_crops'] as List<dynamic>?) ?? [])
+          .map((item) => item.toString())
+          .toList(),
+      scan: scanJson is Map<String, dynamic>
+          ? ScanResult.fromJson(scanJson)
+          : null,
     );
   }
 }
@@ -196,10 +303,12 @@ class ScanHistoryProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   String _currentUserId = '';
+  ScanValidationFailure? _validationFailure;
 
   List<ScanResult> get scans => List.unmodifiable(_scans);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  ScanValidationFailure? get validationFailure => _validationFailure;
   int get totalScans => _scans.length;
   String get currentUserId => _currentUserId;
 
@@ -218,6 +327,7 @@ class ScanHistoryProvider extends ChangeNotifier {
     } else {
       loadScans();
     }
+  }
 
   // Number of scans waiting to be synced while offline.
   int _queuedCount = 0;
@@ -290,6 +400,7 @@ class ScanHistoryProvider extends ChangeNotifier {
         }
       }
       _errorMessage = null;
+      _validationFailure = null;
     } catch (error) {
       _errorMessage = error.toString();
     } finally {
@@ -379,8 +490,23 @@ class ScanHistoryProvider extends ChangeNotifier {
       }
       _upsertScan(scan);
       _errorMessage = null;
+      _validationFailure = null;
       notifyListeners();
       return scan;
+    } on ApiException catch (error) {
+      if (_captureValidationFailure(error)) {
+        return null;
+      }
+      await _queueStore.enqueueScan(
+        mediaFile: file,
+        mediaType: mediaType,
+        cropType: cropType,
+        farmId: farmId,
+        fieldId: fieldId,
+      );
+      _errorMessage = error.toString();
+      notifyListeners();
+      return null;
     } catch (error) {
       // Queue both images and videos for retry when connectivity returns.
       await _queueStore.enqueueScan(
@@ -390,15 +516,7 @@ class ScanHistoryProvider extends ChangeNotifier {
         farmId: farmId,
         fieldId: fieldId,
       );
-      if (mediaType == 'image') {
-        await _queueStore.enqueueScan(
-          imageFile: file,
-          cropType: cropType,
-          farmId: farmId,
-          fieldId: fieldId,
-        );
-        await _refreshQueuedCount();
-      }
+      await _refreshQueuedCount();
       _errorMessage = error.toString();
       notifyListeners();
       return null;
@@ -516,8 +634,16 @@ class ScanHistoryProvider extends ChangeNotifier {
       final scan = ScanResult.fromJson(scanJson).withLocalImageBytes(bytes);
       _upsertScan(scan);
       _errorMessage = null;
+      _validationFailure = null;
       notifyListeners();
       return scan;
+    } on ApiException catch (error) {
+      if (_captureValidationFailure(error)) {
+        return null;
+      }
+      _errorMessage = error.toString();
+      notifyListeners();
+      return null;
     } catch (error) {
       _errorMessage = error.toString();
       notifyListeners();
@@ -525,5 +651,27 @@ class ScanHistoryProvider extends ChangeNotifier {
     } finally {
       _setLoading(false);
     }
+  }
+
+  bool _captureValidationFailure(ApiException error) {
+    final code = error.errorCode ?? error.validation?['error_code']?.toString();
+    if (error.statusCode != 422 ||
+        !{'NOT_A_PLANT', 'UNSUPPORTED_CROP', 'CROP_MISMATCH'}.contains(code)) {
+      return false;
+    }
+
+    final failure = ScanValidationFailure.fromApiException(error);
+    _validationFailure = failure;
+    _errorMessage = failure.message;
+    if (failure.scan != null) {
+      _upsertScan(failure.scan!);
+    }
+    notifyListeners();
+    return true;
+  }
+
+  void clearValidationFailure() {
+    _validationFailure = null;
+    notifyListeners();
   }
 }
