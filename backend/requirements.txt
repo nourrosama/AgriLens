@@ -16,6 +16,7 @@ cloudinary==1.41.0
 requests==2.32.3
 certifi==2025.1.31
 opencv-python-headless==4.10.0.84
-groq>=0.4.1
-gunicorn
 reportlab>=4.0.0
+boto3==1.43.29
+gunicorn==23.0.0
+groq==1.4.0

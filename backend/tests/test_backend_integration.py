@@ -167,6 +167,63 @@ def test_scan_upload_rejects_missing_and_invalid_files(client_for, auth_headers)
     assert invalid.status_code == 400
 
 
+def test_scan_upload_returns_validation_failure(
+    client_for,
+    auth_headers,
+    current_user,
+    monkeypatch,
+):
+    from app.controllers.scan_controller import scan_bp
+    from app.controllers import scan_controller
+
+    scan_id = ObjectId()
+    stored = {
+        "_id": scan_id,
+        "user_id": current_user["_id"],
+        "media_url": "/uploads/leaf.jpg",
+        "image_url": "/uploads/leaf.jpg",
+        "status": "pending",
+        "crop_type": "potato",
+        "detection_result": None,
+    }
+    validation = {
+        "error_code": "CROP_MISMATCH",
+        "selected_crop": "potato",
+        "detected_crop": "tomato",
+        "message": "This appears to be Tomato, not Potato.",
+    }
+
+    monkeypatch.setattr(scan_controller.storage_service, "upload_image", lambda file_obj: "/uploads/leaf.jpg")
+    monkeypatch.setattr(scan_controller.storage_service, "get_storage_backend", lambda: "local")
+    monkeypatch.setattr(scan_controller.storage_service, "resolve_local_path", lambda url: None)
+    monkeypatch.setattr(scan_controller.scan_model, "create_scan", lambda **kwargs: stored)
+    monkeypatch.setattr(scan_controller.scan_model, "update_status", lambda _id, status: stored.update(status=status) or True)
+    monkeypatch.setattr(scan_controller.scan_model, "update_scan", lambda _id, updates: stored.update(updates) or True)
+    monkeypatch.setattr(scan_controller.scan_model, "get_scan_by_id", lambda _id: stored)
+    monkeypatch.setattr(
+        scan_controller.detection_proxy_service,
+        "detect",
+        lambda *args: (_ for _ in ()).throw(
+            scan_controller.detection_proxy_service.DetectionValidationError(validation)
+        ),
+    )
+    monkeypatch.setattr(scan_controller.audit_model, "log_action", lambda *args, **kwargs: None)
+    monkeypatch.setattr(scan_controller.event_publisher, "scan_created", lambda *args: None)
+
+    response = client_for(scan_bp).post(
+        "/api/scans",
+        data={"image": (BytesIO(b"fake image"), "leaf.jpg"), "crop_type": "potato"},
+        content_type="multipart/form-data",
+        headers=auth_headers,
+    )
+
+    body = response.get_json()
+    assert response.status_code == 422
+    assert body["error_code"] == "CROP_MISMATCH"
+    assert body["data"]["scan"]["status"] == "validation_failed"
+    assert body["data"]["validation"]["detected_crop"] == "tomato"
+
+
 def test_forecast_route_clamps_days_and_rejects_invalid_farm(
     client_for,
     auth_headers,

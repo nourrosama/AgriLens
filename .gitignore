@@ -36,9 +36,11 @@ Thumbs.db
 # ==== Logs ====
 *.log
 logs/
+.runtime-logs/
 
 # ==== Data / Models ====
 *.h5
+*.keras
 *.pt
 *.pth
 *.onnx

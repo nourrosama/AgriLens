@@ -6,7 +6,7 @@ import os
 import tempfile
 import threading
 
-from flask import Blueprint, current_app, g, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from app.middleware.auth_middleware import require_auth
 from app.models import audit_model, farm_model, forecast_model, notification_model, scan_model
@@ -23,6 +23,35 @@ scan_bp = Blueprint('scans', __name__)
 
 ALLOWED_IMAGE_EXT = {'jpg', 'jpeg', 'png', 'webp'}
 ALLOWED_VIDEO_EXT = {'mp4', 'mov', 'avi', 'mkv'}
+
+
+def _store_validation_failure(scan_id: str, validation: dict) -> None:
+    scan_model.update_scan(
+        scan_id,
+        {
+            'status': 'validation_failed',
+            'detection_result': validation,
+        },
+    )
+
+
+def _validation_failure_response(scan_id: str, validation: dict):
+    stored = scan_model.get_scan_by_id(scan_id)
+    return (
+        jsonify(
+            {
+                'status': 'error',
+                'message': validation.get('message', 'Scan validation failed'),
+                'error_code': validation.get('error_code'),
+                'data': {
+                    'scan': scan_model.serialize(stored),
+                    'validation': validation,
+                    'suggested_crop': validation.get('detected_crop'),
+                },
+            }
+        ),
+        422,
+    )
 
 
 def _allowed_file(filename: str, allowed: set = None) -> bool:
@@ -159,6 +188,8 @@ def upload_scan():
 
         def _process_video():
             _tmp_path = None
+            result = None
+            forecast_payload = None
             with _app.app_context():
                 # Write in-memory bytes to an OS temp file in /tmp (not uploads/).
                 # cv2.VideoCapture requires a file path — BytesIO is not accepted.
@@ -166,7 +197,7 @@ def upload_scan():
                     with tempfile.NamedTemporaryFile(
                         suffix=f'.{_vid_ext}', delete=False
                     ) as tmp:
-                        tmp.write(_video_bytes)
+                        tmp.write(_video_bytes or b'')
                         _tmp_path = tmp.name
                 except Exception as exc:
                     _app.logger.exception(
@@ -176,7 +207,7 @@ def upload_scan():
                     return
 
                 try:
-                    result = video_service.analyze_video(_tmp_path, crop_type)
+                    result = video_service.analyze_video(_tmp_path, crop_type, scan_id=scan_id)
 
                     if result is not None:
                         scan_model.update_detection_result(scan_id, result)
@@ -217,9 +248,26 @@ def upload_scan():
                                 result.get('severity', ''),
                                 user_id,
                             )
+
+                        if forecast_payload and forecast_payload.get('risk_level') in ('high', 'critical'):
+                            notification_model.create_notification(
+                                user_id,
+                                'High risk alert',
+                                f"Forecast risk is {forecast_payload.get('risk_level')} for the next few days.",
+                                category='forecast',
+                                related_scan_id=scan_id,
+                                metadata={'scan_id': scan_id},
+                            )
+                            event_publisher.risk_high(
+                                scan_id,
+                                forecast_payload.get('risk_level', 'high'),
+                                user_id,
+                            )
                     else:
                         scan_model.update_scan(scan_id, {'status': 'failed'})
 
+                except detection_proxy_service.DetectionValidationError as exc:
+                    _store_validation_failure(scan_id, exc.payload)
                 except Exception as exc:
                     _app.logger.exception('Video analysis failed for %s: %s', scan_id, exc)
                     scan_model.update_scan(scan_id, {'status': 'failed'})
@@ -271,6 +319,7 @@ def upload_scan():
     detection = None
     gradcam_overlay = None   # held in memory only — never written to MongoDB
     forecast_payload = None
+    validation_payload = None
 
     try:
         detection = detection_proxy_service.detect(image_reference, crop_type)
@@ -319,12 +368,9 @@ def upload_scan():
                 )
         else:
             scan_model.update_scan(scan_id, {'status': 'failed'})
-    except ValueError as exc:
-        # Detection service rejected the image (e.g. not a plant).
-        # Mark the scan record as invalid so it does not pollute history,
-        # then surface the reason to the caller immediately.
-        scan_model.update_scan(scan_id, {'status': 'invalid_image'})
-        return error_response(str(exc), 422)
+    except detection_proxy_service.DetectionValidationError as exc:
+        validation_payload = exc.payload
+        _store_validation_failure(scan_id, validation_payload)
     except Exception as exc:
         current_app.logger.exception('Scan processing failed for %s: %s', scan_id, exc)
         scan_model.update_scan(scan_id, {'status': 'failed'})
@@ -339,6 +385,9 @@ def upload_scan():
 
     stored = scan_model.get_scan_by_id(scan_id)
     serialized_scan = scan_model.serialize(stored)
+
+    if validation_payload:
+        return _validation_failure_response(scan_id, validation_payload)
 
     # Re-inject the Grad-CAM overlay into the creation response only.
     # It is intentionally absent from subsequent GET /api/scans responses.

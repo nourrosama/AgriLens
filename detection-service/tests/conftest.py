@@ -1,13 +1,14 @@
 import os
 import sys
 import types
+import importlib.util
 
 
 SERVICE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if SERVICE_ROOT not in sys.path:
     sys.path.insert(0, SERVICE_ROOT)
 
-if "cv2" not in sys.modules:
+if "cv2" not in sys.modules and importlib.util.find_spec("cv2") is None:
     cv2 = types.ModuleType("cv2")
     cv2.IMREAD_COLOR = 1
     cv2.COLOR_BGR2RGB = 1
@@ -17,7 +18,7 @@ if "cv2" not in sys.modules:
     cv2.resize = lambda image, size, interpolation=None: image
     sys.modules["cv2"] = cv2
 
-if "numpy" not in sys.modules:
+if "numpy" not in sys.modules and importlib.util.find_spec("numpy") is None:
     numpy = types.ModuleType("numpy")
     numpy.float32 = "float32"
     numpy.uint8 = "uint8"
@@ -27,12 +28,12 @@ if "numpy" not in sys.modules:
     numpy.transpose = lambda value, axes: value
     sys.modules["numpy"] = numpy
 
-if "timm" not in sys.modules:
+if "timm" not in sys.modules and importlib.util.find_spec("timm") is None:
     timm = types.ModuleType("timm")
     timm.create_model = lambda *args, **kwargs: None
     sys.modules["timm"] = timm
 
-if "torch" not in sys.modules:
+if "torch" not in sys.modules and importlib.util.find_spec("torch") is None:
     torch = types.ModuleType("torch")
 
     class _Cuda:
@@ -59,7 +60,9 @@ if "torch" not in sys.modules:
         Module=_Module,
         Dropout=_Layer,
         Linear=_Layer,
+        BatchNorm1d=_Layer,
         ReLU=_Layer,
+        AdaptiveAvgPool2d=_Layer,
         Sequential=lambda *layers: list(layers),
     )
     torch.Tensor = object
@@ -72,14 +75,18 @@ if "torch" not in sys.modules:
     torch.topk = lambda values, k: types.SimpleNamespace(indices=[], values=[])
     sys.modules["torch"] = torch
 
-if "torchvision" not in sys.modules:
+if "torchvision" not in sys.modules and importlib.util.find_spec("torchvision") is None:
     torchvision = types.ModuleType("torchvision")
     models = types.ModuleType("torchvision.models")
 
     class _FakeVisionModel:
-        classifier = None
+        def __init__(self):
+            self.classifier = [None, None, types.SimpleNamespace(in_features=768)]
+            self.features = []
 
     models.efficientnet_b3 = lambda weights=None: _FakeVisionModel()
+    models.convnext_tiny = lambda weights=None: _FakeVisionModel()
+    models.vgg16 = lambda weights=None: _FakeVisionModel()
     torchvision.models = models
     sys.modules["torchvision"] = torchvision
     sys.modules["torchvision.models"] = models

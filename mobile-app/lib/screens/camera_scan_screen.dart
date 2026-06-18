@@ -244,6 +244,12 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     setState(() => _scanning = false);
     if (result != null) {
       context.push('/scan-result', extra: result);
+    } else if (scanProvider.validationFailure != null) {
+      await _showValidationFailure(
+        failure: scanProvider.validationFailure!,
+        webImageBytes: bytes,
+        webImageName: filename,
+      );
     } else {
       _showError(scanProvider.errorMessage ?? 'Scan failed');
     }
@@ -319,6 +325,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     setState(() => _scanning = false);
     if (result != null) {
       context.push('/scan-result', extra: result);
+    } else if (scanProvider.validationFailure != null) {
+      await _showValidationFailure(
+        failure: scanProvider.validationFailure!,
+        imageFile: imageFile,
+      );
     } else {
       _showError(scanProvider.errorMessage ?? 'Scan failed');
     }
@@ -355,6 +366,87 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       ),
     );
     if (context.canPop()) context.pop();
+  }
+
+  String _cropLabel(String cropValue) {
+    final cropProvider = context.read<CropProvider>();
+    final lang = context.read<LanguageProvider>();
+    return cropProvider.getLabel(cropValue, isRTL: lang.isRTL);
+  }
+
+  String _validationTitle(ScanValidationFailure failure) {
+    switch (failure.errorCode) {
+      case 'NOT_A_PLANT':
+        return 'Not a plant';
+      case 'UNSUPPORTED_CROP':
+        return 'Crop not supported';
+      case 'CROP_MISMATCH':
+        return 'Wrong crop selected';
+      default:
+        return 'Scan validation failed';
+    }
+  }
+
+  Future<void> _showValidationFailure({
+    required ScanValidationFailure failure,
+    io.File? imageFile,
+    io.File? videoFile,
+    Uint8List? webImageBytes,
+    String? webImageName,
+  }) async {
+    final scanProvider = context.read<ScanHistoryProvider>();
+    final detectedLabel = failure.canUseDetectedCrop
+        ? _cropLabel(failure.detectedCrop)
+        : '';
+
+    final action = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text(_validationTitle(failure)),
+          content: Text(failure.message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop('upload'),
+              child: const Text('Upload another scan'),
+            ),
+            if (failure.errorCode == 'UNSUPPORTED_CROP')
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop('choose'),
+                child: const Text('Choose supported crop'),
+              ),
+            if (failure.canUseDetectedCrop)
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop('use'),
+                child: Text('Use $detectedLabel model'),
+              ),
+          ],
+        );
+      },
+    );
+
+    scanProvider.clearValidationFailure();
+    if (!mounted) return;
+
+    if (action == 'choose') {
+      _goToCropSelect();
+      return;
+    }
+
+    if (action != 'use' || !failure.canUseDetectedCrop) {
+      return;
+    }
+
+    await context.read<CropProvider>().selectCrop(failure.detectedCrop);
+    if (!mounted) return;
+
+    if (webImageBytes != null) {
+      await _submitScanWeb(webImageBytes, webImageName ?? 'scan.jpg');
+    } else if (imageFile != null) {
+      await _submitScan(imageFile);
+    } else if (videoFile != null) {
+      await _submitVideo(videoFile);
+    }
   }
 
   void _showError(String message) {

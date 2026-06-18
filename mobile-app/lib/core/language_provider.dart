@@ -15,6 +15,7 @@ class LanguageProvider extends ChangeNotifier {
   Locale _locale = const Locale('en');
   Map<String, String> _strings = {};
   bool _isReady = false;
+  int _loadGeneration = 0;
 
   Locale get locale => _locale;
   bool get isRTL => _locale.languageCode == 'ar';
@@ -22,14 +23,18 @@ class LanguageProvider extends ChangeNotifier {
   bool get isReady => _isReady;
 
   Future<void> _init() async {
+    final generation = ++_loadGeneration;
     final stored = await _sessionStorage.readLanguage();
     final code = (stored != null && stored.isNotEmpty) ? stored : 'en';
-    await _loadLocale(code);
+    await _loadLocale(code, generation: generation);
   }
 
-  Future<void> _loadLocale(String code) async {
+  Future<void> _loadLocale(String code, {int? generation}) async {
     final raw = await rootBundle.loadString('assets/l10n/$code.arb');
     final decoded = jsonDecode(raw) as Map<String, dynamic>;
+    if (generation != null && generation != _loadGeneration) {
+      return;
+    }
     _strings = {
       for (final e in decoded.entries)
         if (!e.key.startsWith('@')) e.key: e.value.toString(),
@@ -40,7 +45,8 @@ class LanguageProvider extends ChangeNotifier {
   }
 
   Future<void> setLanguage(String code) async {
-    await _loadLocale(code);
+    final generation = ++_loadGeneration;
+    await _loadLocale(code, generation: generation);
     await _sessionStorage.saveLanguage(code);
   }
 

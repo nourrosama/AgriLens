@@ -12,11 +12,25 @@ class ApiException implements Exception {
     this.message, {
     this.statusCode,
     this.isConnectivityError = false,
+    this.errorCode,
+    this.body,
   });
 
   final String message;
   final int? statusCode;
   final bool isConnectivityError;
+  final String? errorCode;
+  final Map<String, dynamic>? body;
+
+  Map<String, dynamic>? get data {
+    final value = body?['data'];
+    return value is Map<String, dynamic> ? value : null;
+  }
+
+  Map<String, dynamic>? get validation {
+    final value = data?['validation'] ?? body?['validation'];
+    return value is Map<String, dynamic> ? value : null;
+  }
 
   @override
   String toString() => message;
@@ -229,6 +243,8 @@ class ApiClient {
       throw ApiException(
         decoded['message']?.toString() ?? 'Request failed',
         statusCode: response.statusCode,
+        errorCode: decoded['error_code']?.toString(),
+        body: decoded,
       );
     }
     return decoded;

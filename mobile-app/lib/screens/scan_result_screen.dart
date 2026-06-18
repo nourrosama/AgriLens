@@ -170,6 +170,10 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                           _GradCamCard(result: result, lang: lang),
                           const SizedBox(height: 16),
                         ],
+                        if (result.isVideo && result.selectedFrames.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          _SelectedVideoFramesCard(result: result),
+                        ],
 
                         // 2. Summary (disease name, badges, bars)
                         const SizedBox(height: 16),
@@ -1207,6 +1211,7 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _MediaPreview extends StatelessWidget {
   const _MediaPreview({required this.result});
   final ScanResult result;
@@ -1231,6 +1236,42 @@ class _MediaPreview extends StatelessWidget {
   }
 
   Widget _buildVideoPlaceholder() {
+    if (result.selectedFrames.isNotEmpty) {
+      final firstFrame = result.selectedFrames.first;
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(
+            firstFrame.displayUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => _fallbackImage(),
+          ),
+          Positioned(
+            left: 12,
+            top: 12,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.videocam_rounded, color: Colors.white, size: 16),
+                  SizedBox(width: 6),
+                  Text(
+                    'Video scan',
+                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Container(
       color: const Color(0xFF102A43),
       child: const Column(
@@ -1263,7 +1304,7 @@ class _MediaPreview extends StatelessWidget {
       return Image.network(
         url,
         fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => _fallbackImage(),
+        errorBuilder: (_, _, _) => _fallbackImage(),
       );
     }
     return _fallbackImage();
@@ -1280,6 +1321,144 @@ class _MediaPreview extends StatelessWidget {
       ),
       child: const Center(
         child: Icon(Icons.local_florist_rounded, size: 64, color: Color(0xFF2E7D32)),
+      ),
+    );
+  }
+}
+class _SelectedVideoFramesCard extends StatelessWidget {
+  const _SelectedVideoFramesCard({required this.result});
+  final ScanResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    final frames = result.selectedFrames;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.photo_library_outlined, color: Color(0xFF2E7D32), size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Selected analyzed frames',
+                style: TextStyle(
+                  color: Color(0xFF2E7D32),
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: frames.length,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.88,
+            ),
+            itemBuilder: (context, index) {
+              return _SelectedVideoFrameTile(frame: frames[index]);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectedVideoFrameTile extends StatelessWidget {
+  const _SelectedVideoFrameTile({required this.frame});
+  final SelectedVideoFrame frame;
+
+  @override
+  Widget build(BuildContext context) {
+    final showGradcam = !frame.isHealthy && frame.hasGradcam;
+    final imageUrl = showGradcam ? frame.gradcamUrl! : frame.displayUrl;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        color: const Color(0xFFF5F5F5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const Center(
+                      child: Icon(Icons.image_not_supported_outlined, color: Color(0xFF9E9E9E)),
+                    ),
+                  ),
+                  if (showGradcam)
+                    Positioned(
+                      left: 8,
+                      top: 8,
+                      child: _FrameBadge(label: 'Grad-CAM', color: const Color(0xFFD84315)),
+                    ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    frame.isHealthy ? 'Healthy frame' : frame.disease,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Color(0xFF424242),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${(frame.confidence * 100).round()}% confidence',
+                    style: const TextStyle(color: Color(0xFF757575), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FrameBadge extends StatelessWidget {
+  const _FrameBadge({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1414,9 +1593,9 @@ class _GradCamCard extends StatelessWidget {
       return Image.network(
         url,
         fit: BoxFit.cover,
-        frameBuilder: (_, child, frame, __) =>
+        frameBuilder: (_, child, frame, _) =>
             frame == null ? _placeholder() : child,
-        errorBuilder: (_, __, ___) => _placeholder(),
+        errorBuilder: (_, _, _) => _placeholder(),
       );
     }
 
@@ -1704,25 +1883,3 @@ class _PrimaryButton extends StatelessWidget {
     );
   }
 }
-
-class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF4CAF50), width: 2),
-      ),
-      child: Text(label,
-          style: const TextStyle(color: Color(0xFF4CAF50), fontSize: 17, fontWeight: FontWeight.w600),
-          textAlign: TextAlign.center),
-    );
-  }
-}
-

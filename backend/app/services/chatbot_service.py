@@ -12,6 +12,12 @@ logger = logging.getLogger(__name__)
 _client = None
 
 
+def _fallback_response(message: str, lang: str) -> dict:
+    from app.services.insights_service import build_chat_response
+
+    return build_chat_response(message, lang)
+
+
 def _get_client():
     global _client
     if _client is None:
@@ -68,16 +74,7 @@ def get_ai_response(message: str, lang: str = 'en') -> dict:
 
     client = _get_client()
     if client is None:
-        reply = (
-            'عذراً، خدمة الذكاء الاصطناعي غير متاحة حالياً. تحقق من إعداد GROQ_API_KEY.'
-            if is_arabic else
-            'Sorry, AI service is unavailable. Please check GROQ_API_KEY configuration.'
-        )
-        return {
-            'reply': reply,
-            'suggestions': suggestions_ar if is_arabic else suggestions_en,
-            'generated_at': datetime.now(timezone.utc).isoformat(),
-        }
+        return _fallback_response(message, lang)
 
     try:
         completion = client.chat.completions.create(
@@ -92,11 +89,7 @@ def get_ai_response(message: str, lang: str = 'en') -> dict:
         reply = completion.choices[0].message.content.strip()
     except Exception as e:
         logger.error('Groq API error: %s', e)
-        reply = (
-            'عذراً، حدث خطأ في الاتصال بخدمة الذكاء الاصطناعي. حاول مرة أخرى.'
-            if is_arabic else
-            'Sorry, an error occurred connecting to the AI service. Please try again.'
-        )
+        return _fallback_response(message, lang)
 
     return {
         'reply': reply,
