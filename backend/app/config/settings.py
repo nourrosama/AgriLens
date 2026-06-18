@@ -81,3 +81,13 @@ class Config:
     OTP_RATE_LIMIT_WINDOW = int(os.getenv('OTP_RATE_LIMIT_WINDOW', '600'))
     VERIFY_RATE_LIMIT_MAX = int(os.getenv('VERIFY_RATE_LIMIT_MAX', '5'))
     VERIFY_RATE_LIMIT_WINDOW = int(os.getenv('VERIFY_RATE_LIMIT_WINDOW', '600'))
+
+    # Gmail SMTP (email OTP + support notifications)
+    GMAIL_USER = os.getenv('GMAIL_USER', '')
+    GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', '')
+
+    # Support — where user messages are emailed
+    SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', '')
+
+    # Firebase (FCM push notifications)
+    FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '')

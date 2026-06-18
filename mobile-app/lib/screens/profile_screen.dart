@@ -142,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          _userInfo(lang, user, fieldsProvider, scanProvider),
+                          _userInfo(context, lang, user, fieldsProvider, scanProvider),
                           const SizedBox(height: 24),
                           _accountSummary(lang, user),
                           const SizedBox(height: 24),
@@ -235,24 +235,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => context.push('/scan-history'),
-                  child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
-                ),
-              ),
-              Expanded(
-                child: _stat(
-                  '${fieldsProvider.fields.length}',
-                  lang.t('nav.fields'),
-                ),
-              ),
-              Expanded(
-                child: _stat(
-                  '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
-                  lang.t('fields.healthScore'),
           scanProvider.isLoading
               ? const SizedBox(
                   height: 40,
@@ -270,8 +252,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : Row(
                   children: [
                     Expanded(
-                      child: _stat(
-                          '${scanProvider.totalScans}', lang.t('nav.scan')),
+                      child: GestureDetector(
+                        onTap: () => context.push('/scan-history'),
+                        child: _stat(
+                            '${scanProvider.totalScans}', lang.t('nav.scan')),
+                      ),
                     ),
                     Expanded(
                       child: _stat(

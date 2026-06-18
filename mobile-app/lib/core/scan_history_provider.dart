@@ -304,11 +304,15 @@ class ScanHistoryProvider extends ChangeNotifier {
   String? _errorMessage;
   String _currentUserId = '';
   ScanValidationFailure? _validationFailure;
+  bool _historyLimited = false;
+  String _historyLimitReason = '';
 
   List<ScanResult> get scans => List.unmodifiable(_scans);
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   ScanValidationFailure? get validationFailure => _validationFailure;
+  bool get historyLimited => _historyLimited;
+  String get historyLimitReason => _historyLimitReason;
   int get totalScans => _scans.length;
   String get currentUserId => _currentUserId;
 
@@ -383,6 +387,9 @@ class ScanHistoryProvider extends ChangeNotifier {
               .whereType<Map<String, dynamic>>()
               .toList();
       final loadedScans = items.map(ScanResult.fromJson).toList();
+      final data = response['data'] as Map<String, dynamic>;
+      _historyLimited = data['history_limited'] == true;
+      _historyLimitReason = data['history_limit_reason']?.toString() ?? '';
       if (farmId == null &&
           fieldId == null &&
           (cropType == null || cropType.isEmpty)) {

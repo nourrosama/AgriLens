@@ -5,75 +5,247 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AgriLens Admin — Dashboard</title>
 <link rel="stylesheet" href="_layout.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  .section-label {
+    font-size: 11px; font-weight: 700; color: #9aa3b0;
+    text-transform: uppercase; letter-spacing: .8px;
+    margin: 22px 0 12px;
+  }
+  .disease-bar { height: 6px; background: #eef1f6; border-radius: 3px; overflow: hidden; }
+  .disease-bar-fill { height: 100%; background: linear-gradient(90deg,#2e7d32,#66bb6a); border-radius: 3px; transition: width .6s ease; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+</style>
 </head>
 <body>
 
 <nav class="sidebar">
   <div class="sidebar-logo"><h1>🌿 AgriLens</h1><p>Admin Panel</p></div>
   <div class="nav">
-    <a class="nav-link" href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
+    <a class="nav-link active" href="dashboard.html"><span class="icon">📊</span> Dashboard</a>
     <a class="nav-link" href="users.html"><span class="icon">👥</span> Users</a>
     <a class="nav-link" href="scans.html"><span class="icon">🔬</span> Scans</a>
     <a class="nav-link" href="articles.html"><span class="icon">📰</span> Articles</a>
     <a class="nav-link" href="notifications.html"><span class="icon">🔔</span> Broadcast</a>
+    <a class="nav-link" href="support.html"><span class="icon">💬</span> Support</a>
     <a class="nav-link" href="audit.html"><span class="icon">📋</span> Audit Logs</a>
-  </div>
-  <div class="sidebar-footer">
-    <span id="admin-name"></span>
-    <button class="logout-btn" onclick="logout()">Logout</button>
   </div>
 </nav>
 
 <div class="main">
   <div class="topbar">Dashboard</div>
   <div class="content">
-    <div class="stat-grid" id="stats">
-      <div class="stat-card"><div class="label">Total Users</div><div class="value" id="s-users">—</div><div class="sub" id="s-users-new"></div></div>
-      <div class="stat-card"><div class="label">Total Scans</div><div class="value" id="s-scans">—</div></div>
-      <div class="stat-card"><div class="label">Completed Scans</div><div class="value" id="s-completed">—</div></div>
-      <div class="stat-card"><div class="label">Failed Scans</div><div class="value" id="s-failed" style="color:#c62828">—</div></div>
-      <div class="stat-card"><div class="label">Total Farms</div><div class="value" id="s-farms">—</div></div>
-      <div class="stat-card"><div class="label">Articles</div><div class="value" id="s-articles">—</div><div class="sub" id="s-articles-pub"></div></div>
+
+    <!-- ── KPI Row ──────────────────────────────────────────────────────── -->
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-icon green">👥</div>
+        <div class="stat-body">
+          <div class="label">Total Users</div>
+          <div class="value" id="s-users">—</div>
+          <div class="sub" id="s-users-new"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">🔬</div>
+        <div class="stat-body">
+          <div class="label">Total Scans</div>
+          <div class="value" id="s-scans">—</div>
+          <div class="sub" id="s-completed-sub"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">⚠️</div>
+        <div class="stat-body">
+          <div class="label">Failed Scans</div>
+          <div class="value" id="s-failed" style="color:#c62828">—</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon orange">🌾</div>
+        <div class="stat-body">
+          <div class="label">Total Farms</div>
+          <div class="value" id="s-farms">—</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple">📰</div>
+        <div class="stat-body">
+          <div class="label">Articles</div>
+          <div class="value" id="s-articles">—</div>
+          <div class="sub" id="s-articles-pub"></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon teal">💬</div>
+        <div class="stat-body">
+          <div class="label">Open Tickets</div>
+          <div class="value" id="s-tickets">—</div>
+          <div class="sub">Support requests</div>
+        </div>
+      </div>
     </div>
 
-    <div class="table-card">
-      <div class="table-header"><h2>Top Detected Diseases</h2></div>
+    <!-- ── Charts row ───────────────────────────────────────────────────── -->
+    <div class="grid-2 mt-4">
+
+      <!-- Crop bar chart -->
+      <div class="card">
+        <div class="card-header">
+          <h2>Top Detected Crops</h2>
+          <span class="card-badge" id="disease-total-badge">—</span>
+        </div>
+        <div style="padding:20px 24px">
+          <canvas id="disease-chart" style="max-height:220px"></canvas>
+          <p class="empty" id="disease-empty" style="display:none;padding:32px 0">No scans yet</p>
+        </div>
+      </div>
+
+      <!-- Scan status donut -->
+      <div class="card">
+        <div class="card-header"><h2>Scan Status</h2></div>
+        <div style="padding:20px 24px;display:flex;flex-direction:column;align-items:center;gap:16px">
+          <canvas id="status-chart" style="max-height:200px"></canvas>
+          <div id="status-legend" style="display:flex;gap:20px;flex-wrap:wrap;justify-content:center;font-size:13px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Disease breakdown table ──────────────────────────────────────── -->
+    <div class="table-card mt-6">
+      <div class="table-header">
+        <h2>Crop Breakdown</h2>
+        <a class="card-link" href="scans.html">View all scans →</a>
+      </div>
       <table>
-        <thead><tr><th>#</th><th>Disease</th><th>Detections</th></tr></thead>
-        <tbody id="diseases-body"></tbody>
+        <thead><tr><th>#</th><th>Crop</th><th>Scans</th><th style="width:180px">Share</th></tr></thead>
+        <tbody id="diseases-body"><tr><td colspan="4" class="empty">Loading…</td></tr></tbody>
       </table>
     </div>
+
   </div>
 </div>
 
+<div class="toast" id="toast"></div>
 <script src="_base.js"></script>
 <script>
-async function load() {
+async function loadStats() {
   const r = await apiFetch('/api/admin/stats');
   if (!r) return;
   const { data } = await r.json();
   if (!data) return;
 
-  document.getElementById('s-users').textContent     = data.users.total;
-  document.getElementById('s-users-new').textContent = `+${data.users.new_last_30_days} last 30 days`;
-  document.getElementById('s-scans').textContent     = data.scans.total;
-  document.getElementById('s-completed').textContent = data.scans.completed;
-  document.getElementById('s-failed').textContent    = data.scans.failed;
-  document.getElementById('s-farms').textContent     = data.farms.total;
-  document.getElementById('s-articles').textContent  = data.articles.total;
+  document.getElementById('s-users').textContent       = data.users.total;
+  document.getElementById('s-users-new').textContent   = `+${data.users.new_last_30_days} in 30 days`;
+  document.getElementById('s-scans').textContent       = data.scans.total;
+  document.getElementById('s-completed-sub').textContent = `${data.scans.completed} completed`;
+  document.getElementById('s-failed').textContent      = data.scans.failed;
+  document.getElementById('s-farms').textContent       = data.farms.total;
+  document.getElementById('s-articles').textContent    = data.articles.total;
   document.getElementById('s-articles-pub').textContent = `${data.articles.published} published`;
 
-  const tbody = document.getElementById('diseases-body');
-  if (!data.top_diseases.length) {
-    tbody.innerHTML = '<tr><td colspan="3" class="empty">No detections yet</td></tr>';
-    return;
+  // ── Top Crops bar chart ──────────────────────────────────────────────────
+  const crops = data.top_crops || [];
+  const totalCropScans = crops.reduce((s, d) => s + d.count, 0);
+  document.getElementById('disease-total-badge').textContent = totalCropScans + ' total';
+
+  if (crops.length) {
+    const ctx1 = document.getElementById('disease-chart').getContext('2d');
+    new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: crops.map(d => d.crop),
+        datasets: [{
+          label: 'Scans',
+          data: crops.map(d => d.count),
+          backgroundColor: crops.map((_, i) => `hsl(${128 - i * 14}, 50%, ${50 + i * 3}%)`),
+          borderRadius: 6,
+          borderWidth: 0,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { color: '#f0f3f7' }, ticks: { precision: 0, font: { size: 11 } } },
+          x: { grid: { display: false }, ticks: { font: { size: 11 } } }
+        }
+      }
+    });
+
+    // Table
+    const tbody = document.getElementById('diseases-body');
+    tbody.innerHTML = crops.map((d, i) => {
+      const pct = totalCropScans ? Math.round(d.count / totalCropScans * 100) : 0;
+      return `<tr>
+        <td style="color:#b0bac6;font-weight:700;width:36px">${i + 1}</td>
+        <td><strong style="color:#222">${d.crop}</strong></td>
+        <td><span style="font-weight:700;color:#1b5e20">${d.count}</span></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="disease-bar" style="flex:1">
+              <div class="disease-bar-fill" style="width:${pct}%"></div>
+            </div>
+            <span style="font-size:12px;color:#9aa3b0;width:30px;text-align:right">${pct}%</span>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } else {
+    document.getElementById('disease-chart').style.display = 'none';
+    document.getElementById('disease-empty').style.display = 'block';
+    document.getElementById('diseases-body').innerHTML = '<tr><td colspan="4" class="empty">No scans yet</td></tr>';
   }
-  tbody.innerHTML = data.top_diseases.map((d, i) =>
-    `<tr><td>${i + 1}</td><td>${d.disease}</td><td>${d.count}</td></tr>`
-  ).join('');
+
+  // ── Scan status donut ────────────────────────────────────────────────────
+  const completed = data.scans.completed;
+  const failed    = data.scans.failed;
+  const pending   = Math.max(0, data.scans.total - completed - failed);
+
+  const ctx2 = document.getElementById('status-chart').getContext('2d');
+  new Chart(ctx2, {
+    type: 'doughnut',
+    data: {
+      labels: ['Completed', 'Failed', 'Pending'],
+      datasets: [{
+        data: [completed || 0, failed || 0, pending],
+        backgroundColor: ['#2e7d32', '#c62828', '#ffb300'],
+        borderWidth: 0,
+        hoverOffset: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      cutout: '72%',
+      plugins: { legend: { display: false }, tooltip: { callbacks: {
+        label: ctx => ` ${ctx.label}: ${ctx.parsed}`
+      }}}
+    }
+  });
+
+  document.getElementById('status-legend').innerHTML = [
+    ['#2e7d32', 'Completed', completed],
+    ['#c62828', 'Failed',    failed],
+    ['#ffb300', 'Pending',   pending],
+  ].map(([c, l, v]) => `
+    <div style="display:flex;align-items:center;gap:6px">
+      <span class="legend-dot" style="background:${c}"></span>
+      <span style="color:#666">${l}: <strong style="color:#222">${v}</strong></span>
+    </div>
+  `).join('');
 }
 
-load();
+async function loadTickets() {
+  const r = await apiFetch('/api/admin/support/tickets?status=open');
+  if (!r) return;
+  const d = await r.json();
+  if (d?.data?.tickets) {
+    document.getElementById('s-tickets').textContent = d.data.tickets.length;
+  }
+}
+
+loadStats();
+loadTickets();
 </script>
 </body>
 </html>
