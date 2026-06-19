@@ -1,5 +1,5 @@
 """
-Weather controller for mobile dashboard and forecasting.
+Weather controller for mobile dashboard weather.
 """
 from flask import Blueprint, request, g
 from app.middleware.auth_middleware import require_auth

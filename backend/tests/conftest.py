@@ -23,6 +23,20 @@ if "cloudinary" not in sys.modules:
     sys.modules["cloudinary"] = cloudinary
     sys.modules["cloudinary.uploader"] = uploader
 
+if "groq" not in sys.modules:
+    groq = types.ModuleType("groq")
+
+    class _Groq:
+        def __init__(self, *args, **kwargs):
+            pass
+
+    groq.Groq = _Groq
+    sys.modules["groq"] = groq
+
+if "cv2" not in sys.modules:
+    cv2 = types.ModuleType("cv2")
+    sys.modules["cv2"] = cv2
+
 
 @pytest.fixture
 def user_id():
@@ -69,7 +83,10 @@ def flask_app(monkeypatch, current_user):
         MEDIA_STORAGE_PROVIDER="local",
         DETECTION_MOCK_FALLBACK=True,
         OPENWEATHER_API_KEY="",
+        RATELIMIT_ENABLED=False,
     )
+    from app.extensions import limiter
+    limiter.init_app(app)
     return app
 
 

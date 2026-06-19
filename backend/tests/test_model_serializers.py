@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from bson import ObjectId
 
-from app.models import farm_model, forecast_model, notification_model, scan_model, user_model
+from app.models import farm_model, notification_model, scan_model, user_model
 
 
 def test_user_serializer_is_json_safe():
@@ -70,7 +70,7 @@ def test_scan_update_status_rejects_invalid_status():
         scan_model.update_status(str(ObjectId()), "queued")
 
 
-def test_notification_and_forecast_serializers_handle_optional_ids():
+def test_notification_serializer_handles_optional_ids():
     notification = notification_model.serialize(
         {
             "_id": ObjectId(),
@@ -80,17 +80,6 @@ def test_notification_and_forecast_serializers_handle_optional_ids():
             "is_read": False,
         }
     )
-    snapshot = forecast_model.serialize(
-        {
-            "_id": ObjectId(),
-            "user_id": ObjectId(),
-            "farm_id": None,
-            "field_id": None,
-            "payload": {"risk_level": "high"},
-        }
-    )
 
     assert notification["related_scan_id"] is None
     assert notification["is_read"] is False
-    assert snapshot["farm_id"] is None
-    assert snapshot["payload"]["risk_level"] == "high"

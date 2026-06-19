@@ -563,53 +563,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           // Forecasting — Premium+ only
                           Expanded(
                             child: GestureDetector(
-                              onTap: () {
-                                if (user.plan == 'premium' ||
-                                    user.plan == 'professional') {
-                                  context.push('/forecasting');
-                                } else {
-                                  showPlanGateSheet(
-                                    context,
-                                    requiredPlan: 'premium',
-                                    isRTL: lang.isRTL,
-                                  );
-                                }
-                              },
+                              onTap: () => context.push('/reports'),
                               child: _buildCard(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Icon(
-                                          Icons.trending_up_rounded,
-                                          size: 40,
-                                          color: (user.plan == 'premium' ||
-                                                  user.plan == 'professional')
-                                              ? const Color(0xFF4CAF50)
-                                              : const Color(0xFFBDBDBD),
-                                        ),
-                                        if (user.plan == 'free')
-                                          const Positioned(
-                                            right: -4,
-                                            top: -4,
-                                            child: Icon(
-                                              Icons.lock_rounded,
-                                              size: 16,
-                                              color: Color(0xFF9E9E9E),
-                                            ),
-                                          ),
-                                      ],
+                                    const Icon(
+                                      Icons.assessment_rounded,
+                                      size: 40,
+                                      color: Color(0xFF4CAF50),
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
-                                      lang.t('home.forecasting'),
-                                      style: TextStyle(
-                                        color: (user.plan == 'premium' ||
-                                                user.plan == 'professional')
-                                            ? const Color(0xFF2E7D32)
-                                            : const Color(0xFF9E9E9E),
+                                      lang.t('reports.title'),
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E7D32),
                                         fontSize: 18,
                                         fontWeight: FontWeight.w500,
                                       ),

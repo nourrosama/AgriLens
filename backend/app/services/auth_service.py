@@ -36,6 +36,14 @@ def _should_use_mock_fallback() -> bool:
     )
 
 
+def _is_strict_auth_env(config) -> bool:
+    """Return True when startup should reject mock/missing Twilio OTP config."""
+    return (
+        str(config.get('APP_ENV', '')).lower() in {'staging', 'production'}
+        and not config.get('TESTING', False)
+    )
+
+
 def _mock_otp_response(phone: str) -> dict:
     """Return the standard mock OTP response and log the code."""
     logger.info(f'[MOCK OTP] Phone: {phone}. Use code "123456" to verify.')
@@ -57,6 +65,14 @@ def init_auth_service(app):
     sid = app.config.get('TWILIO_ACCOUNT_SID', '')
     token = app.config.get('TWILIO_AUTH_TOKEN', '')
     _verify_sid = app.config.get('TWILIO_VERIFY_SERVICE_SID', '')
+    strict_auth = _is_strict_auth_env(app.config)
+
+    if strict_auth and app.config.get('TWILIO_MOCK_MODE', True):
+        raise RuntimeError('TWILIO_MOCK_MODE must be false in staging/production.')
+    if strict_auth and not (sid and token and _verify_sid):
+        raise RuntimeError(
+            'Twilio Verify credentials are required in staging/production.'
+        )
 
     if sid and token and _verify_sid and not app.config.get('TWILIO_MOCK_MODE', True):
         try:
@@ -65,10 +81,13 @@ def init_auth_service(app):
             _twilio_client = Client(sid, token)
             app.logger.info('Twilio Verify initialized')
         except Exception as e:
-            app.logger.warning(f'Twilio init failed: {e}. Using mock mode.')
+            app.logger.warning(f'Twilio init failed: {e}')
             _twilio_client = None
     else:
-        app.logger.info('Twilio mock mode enabled. OTP will be logged to the console.')
+        if app.config.get('TWILIO_MOCK_MODE', True):
+            app.logger.info('Twilio mock mode enabled. OTP will be logged to the console.')
+        else:
+            app.logger.warning('Twilio Verify is not configured; OTP delivery is disabled.')
 
 
 def _check_rate_limit(key: str, max_attempts: int, window_seconds: int) -> bool:
@@ -133,7 +152,12 @@ def send_otp(phone: str) -> dict:
                 502,
             ) from e
 
-    return _mock_otp_response(phone)
+    if _should_use_mock_fallback():
+        return _mock_otp_response(phone)
+    raise OtpDeliveryError(
+        'OTP delivery is not configured. Please try again later.',
+        503,
+    )
 
 
 def verify_otp(phone: str, code: str) -> bool:
@@ -153,7 +177,7 @@ def verify_otp(phone: str, code: str) -> bool:
                 return code == '123456'
             return False
 
-    return code == '123456'
+    return _should_use_mock_fallback() and code == '123456'
 
 
 def generate_token(user_id: str) -> str:

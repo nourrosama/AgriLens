@@ -42,7 +42,6 @@ def _ensure_indexes(app):
         _db['notifications'].create_index([('user_id', ASCENDING), ('is_read', ASCENDING)])
         _db['farms'].create_index('user_id')
         _db['forum_posts'].create_index([('created_at', DESCENDING)])
-        _db['forecasts'].create_index([('farm_id', ASCENDING), ('created_at', DESCENDING)])
         _db['audit_logs'].create_index('timestamp', expireAfterSeconds=7776000)
         _db['articles'].create_index([('published', ASCENDING), ('created_at', DESCENDING)])
         app.logger.info('MongoDB indexes created/verified')
@@ -162,10 +161,6 @@ def audit_col():
 
 def notifications_col():
     return get_db()['notifications']
-
-
-def forecasts_col():
-    return get_db()['forecasts']
 
 
 # ── Forum collections ──────────────────────────────────────────────────────────

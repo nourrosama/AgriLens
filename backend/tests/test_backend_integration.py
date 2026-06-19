@@ -13,13 +13,18 @@ def test_auth_verify_otp_creates_user_and_returns_token(client_for, monkeypatch)
     monkeypatch.setattr(auth_controller.auth_service, "check_verify_rate_limit", lambda phone: True)
     monkeypatch.setattr(auth_controller.auth_service, "verify_otp", lambda phone, code: True)
     monkeypatch.setattr(auth_controller.user_model, "find_by_phone", lambda phone: None)
-    monkeypatch.setattr(auth_controller.user_model, "create_user", lambda phone: created_user)
+    monkeypatch.setattr(auth_controller.user_model, "create_user", lambda **kwargs: created_user)
     monkeypatch.setattr(auth_controller.audit_model, "log_action", lambda *args, **kwargs: None)
 
     client = client_for(auth_bp)
     response = client.post(
         "/api/auth/verify-otp",
-        json={"phone": "01001234567", "code": "123456"},
+        json={
+            "phone": "01001234567",
+            "code": "123456",
+            "name": "QA Farmer",
+            "country": "egypt",
+        },
     )
 
     assert response.status_code == 200
@@ -99,6 +104,7 @@ def test_scan_upload_processes_unhealthy_detection_and_alerts(
     monkeypatch.setattr(scan_controller.storage_service, "upload_image", lambda file_obj: "/uploads/leaf.jpg")
     monkeypatch.setattr(scan_controller.storage_service, "get_storage_backend", lambda: "local")
     monkeypatch.setattr(scan_controller.storage_service, "resolve_local_path", lambda url: None)
+    monkeypatch.setattr(scan_controller, "can_scan", lambda user: (True, ""))
     monkeypatch.setattr(scan_controller.scan_model, "create_scan", lambda **kwargs: stored)
     monkeypatch.setattr(scan_controller.scan_model, "update_status", lambda _id, status: stored.update(status=status) or True)
     monkeypatch.setattr(
@@ -109,7 +115,6 @@ def test_scan_upload_processes_unhealthy_detection_and_alerts(
     monkeypatch.setattr(scan_controller.scan_model, "update_scan", lambda _id, updates: stored.update(updates) or True)
     monkeypatch.setattr(scan_controller.scan_model, "get_scan_by_id", lambda _id: stored)
     monkeypatch.setattr(scan_controller.scan_model, "get_scans_by_user", lambda *args, **kwargs: [stored])
-    monkeypatch.setattr(scan_controller.farm_model, "get_farm_by_id", lambda _id: None)
     monkeypatch.setattr(
         scan_controller.detection_proxy_service,
         "detect",
@@ -120,17 +125,10 @@ def test_scan_upload_processes_unhealthy_detection_and_alerts(
             "risk_level": "high",
         },
     )
-    monkeypatch.setattr(scan_controller.insights_service, "build_weather", lambda location: {"humidity": 90, "condition": "Rainy", "forecast": []})
-    monkeypatch.setattr(
-        scan_controller.insights_service,
-        "compute_forecast",
-        lambda scans, weather, days: {"risk_level": "high", "risk_score": 0.7, "forecast": []},
-    )
-    monkeypatch.setattr(scan_controller.forecast_model, "upsert_snapshot", lambda *args, **kwargs: {})
     monkeypatch.setattr(scan_controller.notification_model, "create_notification", lambda *args, **kwargs: notifications.append(args) or {})
     monkeypatch.setattr(scan_controller.audit_model, "log_action", lambda *args, **kwargs: None)
     monkeypatch.setattr(scan_controller.event_publisher, "scan_created", lambda *args: events.append(("created", args)))
-    monkeypatch.setattr(scan_controller.event_publisher, "scan_completed", lambda *args: events.append(("completed", args)))
+    monkeypatch.setattr(scan_controller.event_publisher, "scan_completed", lambda *args, **kwargs: events.append(("completed", args)))
     monkeypatch.setattr(scan_controller.event_publisher, "disease_detected", lambda *args: events.append(("disease", args)))
     monkeypatch.setattr(scan_controller.event_publisher, "risk_high", lambda *args: events.append(("risk", args)))
 
@@ -146,12 +144,15 @@ def test_scan_upload_processes_unhealthy_detection_and_alerts(
     body = response.get_json()
     assert body["data"]["scan"]["status"] == "completed"
     assert body["data"]["scan"]["detection_result"]["disease"] == "Tomato Late Blight"
-    assert len(notifications) == 2
-    assert {event[0] for event in events} >= {"created", "completed", "disease", "risk"}
+    assert len(notifications) == 1
+    assert {event[0] for event in events} >= {"created", "completed", "disease"}
 
 
-def test_scan_upload_rejects_missing_and_invalid_files(client_for, auth_headers):
+def test_scan_upload_rejects_missing_and_invalid_files(client_for, auth_headers, monkeypatch):
     from app.controllers.scan_controller import scan_bp
+    from app.controllers import scan_controller
+
+    monkeypatch.setattr(scan_controller, "can_scan", lambda user: (True, ""))
 
     client = client_for(scan_bp)
 
@@ -196,6 +197,7 @@ def test_scan_upload_returns_validation_failure(
     monkeypatch.setattr(scan_controller.storage_service, "upload_image", lambda file_obj: "/uploads/leaf.jpg")
     monkeypatch.setattr(scan_controller.storage_service, "get_storage_backend", lambda: "local")
     monkeypatch.setattr(scan_controller.storage_service, "resolve_local_path", lambda url: None)
+    monkeypatch.setattr(scan_controller, "can_scan", lambda user: (True, ""))
     monkeypatch.setattr(scan_controller.scan_model, "create_scan", lambda **kwargs: stored)
     monkeypatch.setattr(scan_controller.scan_model, "update_status", lambda _id, status: stored.update(status=status) or True)
     monkeypatch.setattr(scan_controller.scan_model, "update_scan", lambda _id, updates: stored.update(updates) or True)
@@ -222,47 +224,6 @@ def test_scan_upload_returns_validation_failure(
     assert body["error_code"] == "CROP_MISMATCH"
     assert body["data"]["scan"]["status"] == "validation_failed"
     assert body["data"]["validation"]["detected_crop"] == "tomato"
-
-
-def test_forecast_route_clamps_days_and_rejects_invalid_farm(
-    client_for,
-    auth_headers,
-    current_user,
-    monkeypatch,
-):
-    from app.controllers.forecast_controller import forecast_bp
-    from app.controllers import forecast_controller
-
-    farm_id = str(ObjectId())
-    monkeypatch.setattr(
-        forecast_controller.farm_model,
-        "get_farm_by_id",
-        lambda _id: {"_id": ObjectId(farm_id), "owner_id": current_user["_id"], "location": {}},
-    )
-    monkeypatch.setattr(forecast_controller.scan_model, "get_scans_by_farm", lambda *args: [])
-    monkeypatch.setattr(forecast_controller.insights_service, "build_weather", lambda location, days: {"days": days, "forecast": []})
-    monkeypatch.setattr(
-        forecast_controller.insights_service,
-        "compute_forecast",
-        lambda scans, weather, days: {"risk_level": "low", "days": days, "forecast": []},
-    )
-    monkeypatch.setattr(
-        forecast_controller.forecast_model,
-        "upsert_snapshot",
-        lambda user_id, scope, payload: {"_id": ObjectId(), "user_id": ObjectId(user_id), "payload": payload},
-    )
-
-    client = client_for(forecast_bp)
-    invalid = client.post("/api/forecast", json={"farm_id": "bad"}, headers=auth_headers)
-    good = client.post(
-        "/api/forecast",
-        json={"farm_id": farm_id, "days_ahead": 99},
-        headers=auth_headers,
-    )
-
-    assert invalid.status_code == 400
-    assert good.status_code == 200
-    assert good.get_json()["data"]["forecast"]["days"] == 14
 
 
 def test_notifications_device_token_validation_and_registration(

@@ -234,12 +234,9 @@ def test_scan_video_list_get_and_callback_routes(client_for, auth_headers, curre
     monkeypatch.setattr(scan_controller.scan_model, "get_scans_filtered", lambda *args, **kwargs: [stored])
     monkeypatch.setattr(scan_controller.scan_model, "update_detection_result", lambda _id, detection: stored.update(detection_result=detection) or True)
     monkeypatch.setattr(scan_controller.video_service, "analyze_video", lambda *args, **kwargs: {"disease": "Healthy", "severity": "none", "is_healthy": True, "risk_level": "low", "confidence": 0.9})
-    monkeypatch.setattr(scan_controller.insights_service, "build_weather", lambda location: {"forecast": []})
-    monkeypatch.setattr(scan_controller.insights_service, "compute_forecast", lambda scans, weather, days: {"risk_level": "low", "forecast": []})
-    monkeypatch.setattr(scan_controller.forecast_model, "upsert_snapshot", lambda *args, **kwargs: {})
     monkeypatch.setattr(scan_controller.audit_model, "log_action", lambda *args, **kwargs: None)
     monkeypatch.setattr(scan_controller.event_publisher, "scan_created", lambda *args: None)
-    monkeypatch.setattr(scan_controller.event_publisher, "scan_completed", lambda *args: None)
+    monkeypatch.setattr(scan_controller.event_publisher, "scan_completed", lambda *args, **kwargs: None)
     monkeypatch.setattr(scan_controller.event_publisher, "disease_detected", lambda *args: None)
     monkeypatch.setattr(scan_controller.event_publisher, "risk_high", lambda *args: None)
 
@@ -268,6 +265,7 @@ def test_scan_upload_handles_storage_and_detection_failures(client_for, auth_hea
     stored = {"_id": ObjectId(scan_id), "user_id": current_user["_id"], "media_url": "/uploads/leaf.jpg", "status": "pending"}
 
     client = client_for(scan_bp)
+    monkeypatch.setattr(scan_controller, "can_scan", lambda user: (True, ""))
     monkeypatch.setattr(
         scan_controller.storage_service,
         "upload_image",
@@ -377,9 +375,10 @@ def test_notifications_list_mark_read_mark_all_and_unregister(client_for, auth_h
     assert client.put("/api/notifications/bad/read", headers=auth_headers).status_code == 400
 
 
-def test_chatbot_authenticated_endpoint(client_for, auth_headers):
+def test_chatbot_authenticated_endpoint(client_for, auth_headers, current_user):
     from app.controllers.chatbot_controller import chatbot_bp
 
+    current_user["plan"] = "premium"
     response = client_for(chatbot_bp).post(
         "/api/chatbot",
         json={"message": "watering schedule"},
@@ -462,7 +461,7 @@ def test_db_status_and_collection_helpers(monkeypatch):
 
 
 def test_model_crud_functions_use_expected_collection_operations(monkeypatch):
-    from app.models import audit_model, farm_model, forecast_model, notification_model, scan_model, user_model
+    from app.models import audit_model, farm_model, notification_model, scan_model, user_model
 
     user_id = str(ObjectId())
     farm_id = str(ObjectId())
@@ -473,14 +472,12 @@ def test_model_crud_functions_use_expected_collection_operations(monkeypatch):
     farm_col = FakeCollection([{"_id": ObjectId(farm_id), "owner_id": ObjectId(user_id), "fields": [{"field_id": ObjectId(field_id)}]}])
     scan_col = FakeCollection([{"_id": ObjectId(scan_id), "user_id": ObjectId(user_id), "farm_id": ObjectId(farm_id)}])
     notification_col = FakeCollection([{"_id": ObjectId(notification_id), "user_id": ObjectId(user_id), "is_read": False}])
-    forecast_col = FakeCollection([{"_id": ObjectId(), "user_id": ObjectId(user_id), "farm_id": None, "field_id": None, "payload": {}}])
     audit_col = FakeCollection()
 
     monkeypatch.setattr(user_model, "users_col", lambda: user_col)
     monkeypatch.setattr(farm_model, "farms_col", lambda: farm_col)
     monkeypatch.setattr(scan_model, "scans_col", lambda: scan_col)
     monkeypatch.setattr(notification_model, "notifications_col", lambda: notification_col)
-    monkeypatch.setattr(forecast_model, "forecasts_col", lambda: forecast_col)
     monkeypatch.setattr(audit_model, "audit_col", lambda: audit_col)
 
     assert user_model.create_user("+201001234567")["_id"]
@@ -518,7 +515,5 @@ def test_model_crud_functions_use_expected_collection_operations(monkeypatch):
     assert notification_model.mark_all_as_read(user_id) == 3
     assert notification_model.unread_count(user_id) == 2
 
-    assert forecast_model.upsert_snapshot(user_id, {}, {"risk": "low"})["payload"] == {}
-    assert forecast_model.latest_for_user(user_id)
     audit_model.log_action(user_id, "login", resource_id=scan_id, ip_address="127.0.0.1")
     assert audit_model.get_logs_for_user(user_id) == []

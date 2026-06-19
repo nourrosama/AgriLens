@@ -12,7 +12,6 @@ import 'package:agrilens/screens/edit_field_screen.dart';
 import 'package:agrilens/screens/edit_profile_screen.dart';
 import 'package:agrilens/screens/faq_screen.dart';
 import 'package:agrilens/screens/field_overview_screen.dart';
-import 'package:agrilens/screens/forecasting_screen.dart';
 import 'package:agrilens/screens/home_screen.dart';
 import 'package:agrilens/screens/language_selection_screen.dart';
 import 'package:agrilens/screens/login_otp_screen.dart';
@@ -126,10 +125,6 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/disease-map',
       builder: (ctx, state) => const DiseaseMapScreen(),
-    ),
-    GoRoute(
-      path: '/forecasting',
-      builder: (ctx, state) => const ForecastingScreen(),
     ),
     GoRoute(path: '/reports', builder: (ctx, state) => const ReportsScreen()),
     GoRoute(

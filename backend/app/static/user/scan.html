@@ -96,8 +96,8 @@
                   <option value="corn">Corn</option>
                   <option value="wheat">Wheat</option>
                   <option value="grape">Grape</option>
-                  <option value="sweetpotato">Sweet Potato</option>
-                  <option value="mushroom">Mushroom</option>
+                  <option value="sugarcane">Sugarcane</option>
+                  <option value="cotton">Cotton</option>
                 </select>
               </div>
 
@@ -245,7 +245,7 @@ btnScan.addEventListener('click', async () => {
     return;
   }
 
-  renderResult(r, res.data.data?.scan, res.data.data?.forecast);
+  renderResult(r, res.data.data?.scan);
 
   // Refresh history
   const histRes2 = await apiFetch('/api/scans?per_page=8');
@@ -253,7 +253,7 @@ btnScan.addEventListener('click', async () => {
 });
 
 // ── Result renderer ────────────────────────────────────────────────────────────
-function renderResult(r, scan, forecast) {
+function renderResult(r, scan) {
   const resultPanel = document.getElementById('result-panel');
   const isHealthy   = r.is_healthy;
   const pct         = r.confidence_score || 0;

@@ -437,6 +437,25 @@ ALIASES = {
     'sugarcaneplants': 'sugarcane',
     'tomatoes': 'tomato',
 }
+VALIDATOR_NOT_PLANT_LABEL_KEYS = {
+    'background',
+    'noobject',
+    'noplant',
+    'nonplant',
+    'notaplant',
+    'notplant',
+}
+VALIDATOR_UNSUPPORTED_PLANT_LABEL_KEYS = {
+    'other',
+    'othercrop',
+    'otherplant',
+    'unknown',
+    'unknowncrop',
+    'unknownplant',
+    'unsupported',
+    'unsupportedcrop',
+    'unsupportedplant',
+}
 
 _states: dict[str, ModelState] = {}
 _state_errors: dict[str, str] = {}
@@ -457,6 +476,32 @@ def supported_crops() -> list[str]:
 def normalize_crop(crop_type: str | None) -> str:
     normalized = (crop_type or 'tomato').strip().lower().replace('_', '').replace(' ', '')
     return ALIASES.get(normalized, normalized)
+
+
+def _validator_label_key(label: str | None) -> str:
+    return ''.join(ch for ch in (label or '').strip().lower() if ch.isalnum())
+
+
+def _validate_crop_validator_label_contract(labels: list[str]) -> list[str]:
+    label_keys = {_validator_label_key(label) for label in labels}
+    crop_labels = {normalize_crop(label) for label in labels}
+    missing_crops = sorted(set(CROP_CONFIGS) - crop_labels)
+    problems = []
+
+    if missing_crops:
+        problems.append(f'missing supported crop labels: {", ".join(missing_crops)}')
+    if not (label_keys & VALIDATOR_NOT_PLANT_LABEL_KEYS):
+        problems.append('missing a not-plant label')
+    if not (label_keys & VALIDATOR_UNSUPPORTED_PLANT_LABEL_KEYS):
+        problems.append('missing an unsupported/other-plant label')
+
+    if problems:
+        raise RuntimeError(
+            'Crop validator labels do not satisfy the validation contract: '
+            + '; '.join(problems)
+        )
+
+    return [normalize_crop(label) for label in labels]
 
 
 def is_supported_crop(crop_type: str | None) -> bool:
@@ -1030,6 +1075,7 @@ def _special_model_status() -> dict[str, Any]:
             'error': _validator_error,
             'model_path': validator_path,
             'labels': _validator_state.labels if _validator_state else None,
+            'enabled': bool(_app_config.get('CROP_VALIDATOR_ENABLED', False)),
         },
         'video_model': {
             'ready': video_exists and _video_model_error is None,
@@ -1355,6 +1401,7 @@ def _load_validator_state() -> ValidatorState:
         labels, _ = _labels_from_file(label_path, [])
     if not labels:
         raise RuntimeError('Crop validator labels were not found in checkpoint or label file')
+    normalized_labels = _validate_crop_validator_label_contract(labels)
 
     state_dict = _extract_state_dict(checkpoint)
     num_classes, classifier_key = _infer_num_classes(state_dict)
@@ -1370,10 +1417,15 @@ def _load_validator_state() -> ValidatorState:
     model.eval()
     _validator_state = ValidatorState(
         model=model,
-        labels=[normalize_crop(label) for label in labels],
+        labels=normalized_labels,
         device=dev,
         model_path=model_path,
-        metadata={'classifier_key': classifier_key, 'num_classes': num_classes, 'img_size': 224},
+        metadata={
+            'classifier_key': classifier_key,
+            'num_classes': num_classes,
+            'img_size': 224,
+            'raw_labels': labels,
+        },
     )
     _validator_error = None
     return _validator_state
@@ -1413,7 +1465,7 @@ def validate_image_bgr(image_bgr: np.ndarray, crop_type: str | None) -> dict[str
     if selected_crop not in CROP_CONFIGS:
         raise ValidationFailure(unsupported_crop_payload(crop_type))
 
-    if not bool(_app_config.get('CROP_VALIDATOR_ENABLED', True)):
+    if not bool(_app_config.get('CROP_VALIDATOR_ENABLED', False)):
         return {
             'valid': True,
             'plant_status': 'validator_disabled',
@@ -1449,15 +1501,20 @@ def validate_image_bgr(image_bgr: np.ndarray, crop_type: str | None) -> dict[str
     predicted_id = int(np.argmax(probabilities))
     confidence = float(probabilities[predicted_id])
     detected_crop = normalize_crop(state.labels[predicted_id])
+    detected_key = _validator_label_key(detected_crop)
     not_plant_threshold = float(_app_config.get('CROP_VALIDATOR_NOT_PLANT_THRESHOLD', 0.35))
     supported_threshold = float(_app_config.get('CROP_VALIDATOR_SUPPORTED_THRESHOLD', 0.65))
 
-    if confidence < not_plant_threshold:
+    if detected_key in VALIDATOR_NOT_PLANT_LABEL_KEYS or confidence < not_plant_threshold:
         raise ValidationFailure(
             _validation_payload('NOT_A_PLANT', selected_crop, detected_crop, confidence)
         )
 
-    if confidence < supported_threshold or detected_crop not in CROP_CONFIGS:
+    if (
+        detected_key in VALIDATOR_UNSUPPORTED_PLANT_LABEL_KEYS
+        or confidence < supported_threshold
+        or detected_crop not in CROP_CONFIGS
+    ):
         raise ValidationFailure(
             _validation_payload('UNSUPPORTED_CROP', selected_crop, 'unknown_plant', confidence)
         )
@@ -1484,6 +1541,19 @@ def _predict_validated(image_bgr: np.ndarray, crop_type: str | None, include_gra
         if include_gradcam
         else _predict_from_bgr(image_bgr, crop_type)
     )
+    if (
+        validation.get('plant_status') == 'validator_unavailable'
+        and float(result.get('confidence') or 0.0)
+        < float(_app_config.get('MIN_PLANT_CONFIDENCE', MIN_PLANT_CONFIDENCE))
+    ):
+        raise ValidationFailure(
+            _validation_payload(
+                'NOT_A_PLANT',
+                normalize_crop(crop_type),
+                None,
+                float(result.get('confidence') or 0.0),
+            )
+        )
     result.pop('_predicted_id', None)
     result['validation'] = validation
     return result

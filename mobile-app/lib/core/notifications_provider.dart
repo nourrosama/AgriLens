@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'api_client.dart';
 import 'fcm_service.dart';
+import 'offline_sync_notification.dart';
 
 class NotificationData {
   NotificationData({
@@ -15,6 +16,7 @@ class NotificationData {
     required this.color,
     required this.bgColor,
     this.isRead = false,
+    this.scanId,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -27,6 +29,7 @@ class NotificationData {
   final Color color;
   final Color bgColor;
   bool isRead;
+  final String? scanId;
   final DateTime createdAt;
 
   /// Computes a human-readable relative time label at call time so it always
@@ -47,6 +50,10 @@ class NotificationData {
     final createdAt = ts.isEmpty ? null : DateTime.tryParse(ts)?.toLocal();
     final title = json['title']?.toString() ?? 'Notification';
     final message = json['message']?.toString() ?? '';
+    final metadata = json['metadata'];
+    final scanId =
+        json['related_scan_id']?.toString() ??
+        (metadata is Map ? metadata['scan_id']?.toString() : null);
     return NotificationData(
       id: json['id']?.toString() ?? '',
       titleEn: title,
@@ -57,6 +64,7 @@ class NotificationData {
       color: _colorFor(category),
       bgColor: _bgColorFor(category),
       isRead: json['is_read'] == true,
+      scanId: scanId,
       createdAt: createdAt,
     );
   }
@@ -85,8 +93,8 @@ class NotificationData {
     switch (category) {
       case 'disease':
         return Icons.eco;
-      case 'forecast':
-        return Icons.trending_up;
+      case 'sync':
+        return Icons.sync_rounded;
       default:
         return Icons.notifications_active;
     }
@@ -96,8 +104,8 @@ class NotificationData {
     switch (category) {
       case 'disease':
         return const Color(0xFFF44336);
-      case 'forecast':
-        return const Color(0xFFFFC107);
+      case 'sync':
+        return const Color(0xFF1976D2);
       default:
         return const Color(0xFF4CAF50);
     }
@@ -107,8 +115,8 @@ class NotificationData {
     switch (category) {
       case 'disease':
         return const Color(0xFFFFEBEE);
-      case 'forecast':
-        return const Color(0xFFFFF8E1);
+      case 'sync':
+        return const Color(0xFFE3F2FD);
       default:
         return const Color(0xFFE8F5E9);
     }
@@ -202,14 +210,32 @@ class NotificationsProvider extends ChangeNotifier {
     }
   }
 
+  void addOfflineSyncNotification(OfflineSyncNotification notification) {
+    final item = NotificationData(
+      id: notification.id,
+      titleEn: notification.titleEn,
+      titleAr: notification.titleAr,
+      messageEn: notification.messageEn,
+      messageAr: notification.messageAr,
+      icon: NotificationData._iconFor(notification.category),
+      color: NotificationData._colorFor(notification.category),
+      bgColor: NotificationData._bgColorFor(notification.category),
+      scanId: notification.scanId,
+      createdAt: notification.createdAt,
+    );
+    _notifications.removeWhere((existing) => existing.id == item.id);
+    _notifications.insert(0, item);
+    notifyListeners();
+  }
+
   void _handlePushMessage(RemoteMessage message) {
     final notification = message.notification;
     if (notification == null) return;
     final data = message.data;
     final category = data['category'] as String? ?? 'info';
+    final scanId = data['scan_id'] as String?;
     final item = NotificationData(
-      id: message.messageId ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
+      id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
       titleEn: notification.title ?? 'Notification',
       titleAr: notification.title ?? 'إشعار',
       messageEn: notification.body ?? '',
@@ -217,6 +243,7 @@ class NotificationsProvider extends ChangeNotifier {
       icon: NotificationData._iconFor(category),
       color: NotificationData._colorFor(category),
       bgColor: NotificationData._bgColorFor(category),
+      scanId: scanId,
     );
     _notifications.insert(0, item);
     notifyListeners();

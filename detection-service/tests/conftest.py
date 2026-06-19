@@ -55,16 +55,22 @@ if "torch" not in sys.modules and importlib.util.find_spec("torch") is None:
         def __init__(self, *args, **kwargs):
             pass
 
+    nn = types.ModuleType("torch.nn")
+    nn.Module = _Module
+    nn.Dropout = _Layer
+    nn.Linear = _Layer
+    nn.BatchNorm1d = _Layer
+    nn.ReLU = _Layer
+    nn.Conv2d = _Layer
+    nn.AdaptiveAvgPool2d = _Layer
+    nn.Sequential = lambda *layers: list(layers)
+
+    functional = types.ModuleType("torch.nn.functional")
+    functional.relu = lambda value: value
+    functional.interpolate = lambda value, *args, **kwargs: value
+
     torch.cuda = _Cuda()
-    torch.nn = types.SimpleNamespace(
-        Module=_Module,
-        Dropout=_Layer,
-        Linear=_Layer,
-        BatchNorm1d=_Layer,
-        ReLU=_Layer,
-        AdaptiveAvgPool2d=_Layer,
-        Sequential=lambda *layers: list(layers),
-    )
+    torch.nn = nn
     torch.Tensor = object
     torch.device = lambda value: value
     torch.no_grad = _NoGrad
@@ -74,6 +80,8 @@ if "torch" not in sys.modules and importlib.util.find_spec("torch") is None:
     torch.argmax = lambda values: 0
     torch.topk = lambda values, k: types.SimpleNamespace(indices=[], values=[])
     sys.modules["torch"] = torch
+    sys.modules["torch.nn"] = nn
+    sys.modules["torch.nn.functional"] = functional
 
 if "torchvision" not in sys.modules and importlib.util.find_spec("torchvision") is None:
     torchvision = types.ModuleType("torchvision")
@@ -86,6 +94,7 @@ if "torchvision" not in sys.modules and importlib.util.find_spec("torchvision") 
 
     models.efficientnet_b3 = lambda weights=None: _FakeVisionModel()
     models.convnext_tiny = lambda weights=None: _FakeVisionModel()
+    models.resnet50 = lambda weights=None: _FakeVisionModel()
     models.vgg16 = lambda weights=None: _FakeVisionModel()
     torchvision.models = models
     sys.modules["torchvision"] = torchvision

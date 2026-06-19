@@ -107,12 +107,6 @@
           <div class="stat-label">Healthy Plants</div>
           <div class="stat-value" id="stat-healthy">—</div>
         </div>
-        <!-- Premium weather card -->
-        <div class="stat-card amber" id="stat-weather-card" style="display:none;">
-          <div class="stat-label">Weather Risk</div>
-          <div class="stat-value" id="stat-risk">—</div>
-          <div class="stat-sub"   id="stat-risk-sub"></div>
-        </div>
       </div>
 
       <!-- Recent scans -->
@@ -142,15 +136,15 @@
 
       <!-- PREMIUM: Weather — shown to all, blurred for Free -->
       <div class="card blurred-section" id="weather-section" style="margin-bottom:24px;">
-        <div class="card-header"><div class="card-title">🌦 Weather Disease Risk <span class="badge badge-amber" style="margin-left:8px;">Premium</span></div></div>
+        <div class="card-header"><div class="card-title">🌦 Weather <span class="badge badge-amber" style="margin-left:8px;">Premium</span></div></div>
         <div class="card-body" id="weather-body" style="min-height:80px;">
           <div class="loading-center"><div class="spinner"></div></div>
         </div>
         <div class="blur-overlay" id="weather-lock" style="display:none;">
           <div class="blur-overlay-inner">
             <div class="lock-big">🌦</div>
-            <strong>Weather Disease Risk</strong>
-            <p>Get real-time weather-based disease risk alerts for your farm.</p>
+            <strong>Weather</strong>
+            <p>View current weather conditions for your farm.</p>
             <button class="btn btn-amber" onclick="openUpgradeModal('premium')">⭐ Upgrade to Premium</button>
           </div>
         </div>
@@ -220,7 +214,7 @@ Auth.requireLogin();
     premium: {
       icon:'⭐', title:'Premium Plan', cls:'premium',
       sub:'Unlimited scans · Full AI reports · Chatbot · Weather risk',
-      chips:[['Unlimited Scans','chip-amber'],['AI Report','chip-amber'],['Chatbot','chip-amber'],['Weather Risk','chip-amber'],['Farm Dashboard','chip-grey']],
+      chips:[['Unlimited Scans','chip-amber'],['AI Report','chip-amber'],['Chatbot','chip-amber'],['Weather','chip-amber'],['Farm Dashboard','chip-grey']],
       action:`<button class="btn btn-purple" onclick="openUpgradeModal('professional')">👑 Upgrade to Professional</button>`
     },
     professional: {
@@ -244,7 +238,7 @@ Auth.requireLogin();
   if (PLAN_RANK[plan] < PLAN_RANK['premium']) {
     document.getElementById('weather-body').innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
-        ${['Condition','Temperature','Humidity','Disease Risk'].map(l =>
+        ${['Condition','Temperature','Humidity'].map(l =>
           `<div><div style="font-size:12px;color:var(--grey-300);font-weight:600;text-transform:uppercase;margin-bottom:6px;">${l}</div>
            <div style="font-size:20px;font-weight:800;color:var(--grey-200);">██</div></div>`).join('')}
       </div>`;
@@ -277,11 +271,6 @@ Auth.requireLogin();
     const s = dashRes.data.data?.summary || {};
     document.getElementById('stat-diseases').textContent = s.diseased_scans ?? '—';
     document.getElementById('stat-healthy').textContent  = s.healthy_scans  ?? '—';
-    if (s.risk_level && PLAN_RANK[plan] >= PLAN_RANK['premium']) {
-      document.getElementById('stat-weather-card').style.display = '';
-      document.getElementById('stat-risk').textContent     = s.risk_level.toUpperCase();
-      document.getElementById('stat-risk-sub').textContent = s.risk_reason || 'weather-based';
-    }
   }
 
   // Recent scans
@@ -345,9 +334,8 @@ Auth.requireLogin();
           <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Condition</div><div style="font-size:15px;font-weight:700;">${wx.condition || '—'}</div></div>
           <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Temperature</div><div style="font-size:15px;font-weight:700;">${wx.temp_c != null ? wx.temp_c+'°C' : '—'}</div></div>
           <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Humidity</div><div style="font-size:15px;font-weight:700;">${wx.humidity != null ? wx.humidity+'%' : '—'}</div></div>
-          <div><div style="font-size:11px;color:var(--grey-500);font-weight:600;text-transform:uppercase;margin-bottom:4px;">Disease Risk</div><div style="font-size:15px;font-weight:700;">${severityBadge(wx.risk_level || 'low')}</div></div>
         </div>
-        ${wx.risk_message ? `<div class="alert alert-warning" style="margin-top:12px;">⚠ ${wx.risk_message}</div>` : ''}`;
+        `;
     } else {
       wxEl.innerHTML = '<p style="color:var(--grey-500);font-size:14px;">Weather unavailable — set OPENWEATHER_API_KEY in your .env to enable this.</p>';
     }

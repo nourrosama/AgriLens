@@ -142,7 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       padding: const EdgeInsets.all(24),
                       child: Column(
                         children: [
-                          _userInfo(lang, user, fieldsProvider, scanProvider),
+                          _userInfo(context, lang, user, fieldsProvider, scanProvider),
                           const SizedBox(height: 24),
                           _accountSummary(lang, user),
                           const SizedBox(height: 24),
@@ -203,6 +203,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       user.fullName.isNotEmpty
                           ? user.fullName
                           : (lang.isRTL ? 'حساب جديد' : 'New account'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.primaryDark,
                         fontSize: 18,
@@ -212,6 +214,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: 4),
                     Text(
                       user.phone.isNotEmpty ? user.phone : '-',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 16,
@@ -221,6 +225,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: 4),
                       Text(
                         user.country,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 14,
@@ -235,24 +241,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           const Divider(),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => context.push('/scan-history'),
-                  child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
-                ),
-              ),
-              Expanded(
-                child: _stat(
-                  '${fieldsProvider.fields.length}',
-                  lang.t('nav.fields'),
-                ),
-              ),
-              Expanded(
-                child: _stat(
-                  '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
-                  lang.t('fields.healthScore'),
           scanProvider.isLoading
               ? const SizedBox(
                   height: 40,
@@ -270,8 +258,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : Row(
                   children: [
                     Expanded(
-                      child: _stat(
-                          '${scanProvider.totalScans}', lang.t('nav.scan')),
+                      child: GestureDetector(
+                        onTap: () => context.push('/scan-history'),
+                        child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
+                      ),
                     ),
                     Expanded(
                       child: _stat(
@@ -325,6 +315,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       children: [
         Text(
           value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: AppColors.primaryDark,
             fontSize: 24,
@@ -334,6 +327,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         const SizedBox(height: 4),
         Text(
           label,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style:
               const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
@@ -355,16 +351,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                lang.isRTL ? 'ملخص الحساب' : 'Account summary',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  lang.isRTL ? 'ملخص الحساب' : 'Account summary',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              const SizedBox(width: 12),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -376,6 +376,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: Text(
                   planLabel.toUpperCase(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
@@ -430,6 +432,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   Text(
                     isRTL ? 'أنت على الخطة المجانية' : 'You\'re on the Free plan',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF7B5800),
@@ -440,6 +444,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     isRTL
                         ? 'قم بالترقية للوصول إلى التحليلات والتقارير والمزيد'
                         : 'Upgrade to unlock analytics, reports & more',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                         color: Color(0xFF9E7000), fontSize: 12),
                   ),
@@ -459,9 +465,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 minimumSize: Size.zero,
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              child: Text(isRTL ? 'ترقية' : 'Upgrade',
-                  style: const TextStyle(
-                      fontSize: 13, fontWeight: FontWeight.bold)),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(isRTL ? 'ترقية' : 'Upgrade',
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold)),
+              ),
             ),
           ],
         ),

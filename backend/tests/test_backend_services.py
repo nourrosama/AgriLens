@@ -8,34 +8,6 @@ from werkzeug.datastructures import FileStorage
 from app.services import detection_proxy_service, insights_service, storage_service, video_service
 
 
-def test_risk_level_thresholds_are_ordered():
-    assert insights_service.risk_level_from_score(0.1) == "low"
-    assert insights_service.risk_level_from_score(0.35) == "medium"
-    assert insights_service.risk_level_from_score(0.6) == "high"
-    assert insights_service.risk_level_from_score(0.8) == "critical"
-
-
-def test_compute_forecast_uses_scan_severity_and_weather():
-    scans = [
-        {"detection_result": {"severity": "critical"}},
-        {"detection_result": {"severity": "high"}},
-    ]
-    weather = {
-        "humidity": 88,
-        "condition": "Rainy",
-        "temperature": 28,
-        "wind_kmh": 9,
-        "forecast": [{"day": "Mon", "humidity": 90, "condition": "Rainy"}],
-    }
-
-    result = insights_service.compute_forecast(scans, weather, days_ahead=3)
-
-    assert result["risk_level"] == "critical"
-    assert result["spread_probability"] > 0.7
-    assert len(result["forecast"]) == 3
-    assert all(point["risk_level"] in {"high", "critical"} for point in result["forecast"])
-
-
 def test_build_weather_falls_back_without_api_key(flask_app):
     with flask_app.app_context():
         weather = insights_service.build_weather({"lat": "30.0", "lng": "31.2"}, days=4)

@@ -64,11 +64,19 @@ class AgriLensApp extends StatelessWidget {
             return prev;
           },
         ),
-        ChangeNotifierProxyProvider<UserProvider, ScanHistoryProvider>(
+        ChangeNotifierProxyProvider2<
+          UserProvider,
+          NotificationsProvider,
+          ScanHistoryProvider
+        >(
           create: (_) => ScanHistoryProvider(),
-          update: (_, user, prev) {
-            prev!.onUserChanged(user.isLoggedIn ? user.userId : '');
-            return prev;
+          update: (_, user, notifications, prev) {
+            final provider = prev!;
+            provider.attachOfflineSyncNotificationSink(
+              notifications.addOfflineSyncNotification,
+            );
+            provider.onUserChanged(user.isLoggedIn ? user.userId : '');
+            return provider;
           },
         ),
         ChangeNotifierProvider(create: (_) => ChatHistoryProvider()),
@@ -112,8 +120,9 @@ class AgriLensApp extends StatelessWidget {
                 return const ColoredBox(color: Colors.white);
               }
               return Directionality(
-                textDirection:
-                    lang.isRTL ? TextDirection.rtl : TextDirection.ltr,
+                textDirection: lang.isRTL
+                    ? TextDirection.rtl
+                    : TextDirection.ltr,
                 child: ConnectivityBanner(child: child!),
               );
             },

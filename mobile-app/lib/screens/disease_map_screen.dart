@@ -184,7 +184,7 @@ class DiseaseMapScreen extends StatelessWidget {
                           const SizedBox(height: 12),
                           _legendItem(
                             const Color(0xFFF44336),
-                            lang.t('forecast.highRisk'),
+                            lang.t('map.highRiskFields'),
                             lang.t('map.highRiskDescription'),
                           ),
                           if (markerFields.isNotEmpty) ...[

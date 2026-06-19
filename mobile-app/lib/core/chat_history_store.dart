@@ -1,6 +1,6 @@
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+
+import 'local_database.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data models
@@ -24,25 +24,26 @@ class ChatMessage {
   final DateTime createdAt;
 
   factory ChatMessage.fromRow(Map<String, dynamic> row) => ChatMessage(
-        id: row['id'] as int,
-        sessionId: row['session_id'] as int,
-        text: row['text'] as String,
-        isUser: (row['is_user'] as int) == 1,
-        createdAt: DateTime.parse(row['created_at'] as String),
-      );
+    id: row['id'] as int,
+    sessionId: row['session_id'] as int,
+    text: row['text'] as String,
+    isUser: (row['is_user'] as int) == 1,
+    createdAt: DateTime.parse(row['created_at'] as String),
+  );
 
-  factory ChatMessage.fromApi(Map<String, dynamic> json,
-      {int localSessionId = 0}) =>
-      ChatMessage(
-        id: 0,
-        sessionId: localSessionId,
-        apiId: json['id'] as String?,
-        text: json['text'] as String? ?? '',
-        isUser: json['is_user'] as bool? ?? false,
-        createdAt:
-            DateTime.tryParse(json['created_at'] as String? ?? '') ??
-                DateTime.now(),
-      );
+  factory ChatMessage.fromApi(
+    Map<String, dynamic> json, {
+    int localSessionId = 0,
+  }) => ChatMessage(
+    id: 0,
+    sessionId: localSessionId,
+    apiId: json['id'] as String?,
+    text: json['text'] as String? ?? '',
+    isUser: json['is_user'] as bool? ?? false,
+    createdAt:
+        DateTime.tryParse(json['created_at'] as String? ?? '') ??
+        DateTime.now(),
+  );
 }
 
 class ChatSession {
@@ -67,34 +68,33 @@ class ChatSession {
     String? apiId,
     DateTime? updatedAt,
     List<ChatMessage>? messages,
-  }) =>
-      ChatSession(
-        id: id,
-        apiId: apiId ?? this.apiId,
-        title: title ?? this.title,
-        createdAt: createdAt,
-        updatedAt: updatedAt ?? this.updatedAt,
-        messages: messages ?? this.messages,
-      );
+  }) => ChatSession(
+    id: id,
+    apiId: apiId ?? this.apiId,
+    title: title ?? this.title,
+    createdAt: createdAt,
+    updatedAt: updatedAt ?? this.updatedAt,
+    messages: messages ?? this.messages,
+  );
 
   factory ChatSession.fromRow(Map<String, dynamic> row) => ChatSession(
-        id: row['id'] as int,
-        title: row['title'] as String,
-        createdAt: DateTime.parse(row['created_at'] as String),
-        updatedAt: DateTime.parse(row['updated_at'] as String),
-      );
+    id: row['id'] as int,
+    title: row['title'] as String,
+    createdAt: DateTime.parse(row['created_at'] as String),
+    updatedAt: DateTime.parse(row['updated_at'] as String),
+  );
 
   factory ChatSession.fromApi(Map<String, dynamic> json) => ChatSession(
-        id: 0,
-        apiId: json['id'] as String?,
-        title: json['title'] as String? ?? '',
-        createdAt:
-            DateTime.tryParse(json['created_at'] as String? ?? '') ??
-                DateTime.now(),
-        updatedAt:
-            DateTime.tryParse(json['updated_at'] as String? ?? '') ??
-                DateTime.now(),
-      );
+    id: 0,
+    apiId: json['id'] as String?,
+    title: json['title'] as String? ?? '',
+    createdAt:
+        DateTime.tryParse(json['created_at'] as String? ?? '') ??
+        DateTime.now(),
+    updatedAt:
+        DateTime.tryParse(json['updated_at'] as String? ?? '') ??
+        DateTime.now(),
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,7 +102,6 @@ class ChatSession {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ChatHistoryStore {
-  static const _dbName = 'agrilens_mobile.db';
   static const _sessions = 'chat_sessions';
   static const _messages = 'chat_messages';
 
@@ -110,77 +109,13 @@ class ChatHistoryStore {
 
   Future<Database> _open() async {
     if (_db != null) return _db!;
-    final dir = await getApplicationDocumentsDirectory();
-    final dbPath = p.join(dir.path, _dbName);
-    _db = await openDatabase(
-      dbPath,
-      version: 2,
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          // version 1 already has queued_scans table; add chat tables
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS $_sessions (
-              id         INTEGER PRIMARY KEY AUTOINCREMENT,
-              title      TEXT    NOT NULL,
-              created_at TEXT    NOT NULL,
-              updated_at TEXT    NOT NULL
-            )
-          ''');
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS $_messages (
-              id         INTEGER PRIMARY KEY AUTOINCREMENT,
-              session_id INTEGER NOT NULL REFERENCES $_sessions(id) ON DELETE CASCADE,
-              text       TEXT    NOT NULL,
-              is_user    INTEGER NOT NULL DEFAULT 0,
-              created_at TEXT    NOT NULL
-            )
-          ''');
-          await db.execute(
-              'CREATE INDEX IF NOT EXISTS idx_msg_session ON $_messages(session_id)');
-        }
-      },
-      onCreate: (db, version) async {
-        // Fresh install — create all tables
-        await db.execute('''
-          CREATE TABLE IF NOT EXISTS queued_scans (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            image_path TEXT    NOT NULL,
-            crop_type  TEXT    NOT NULL,
-            farm_id    TEXT,
-            field_id   TEXT,
-            created_at TEXT    NOT NULL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE $_sessions (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            title      TEXT    NOT NULL,
-            created_at TEXT    NOT NULL,
-            updated_at TEXT    NOT NULL
-          )
-        ''');
-        await db.execute('''
-          CREATE TABLE $_messages (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            session_id INTEGER NOT NULL REFERENCES $_sessions(id) ON DELETE CASCADE,
-            text       TEXT    NOT NULL,
-            is_user    INTEGER NOT NULL DEFAULT 0,
-            created_at TEXT    NOT NULL
-          )
-        ''');
-        await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_msg_session ON $_messages(session_id)');
-      },
-    );
+    _db = await LocalDatabase.open();
     return _db!;
   }
 
-  // ── Sessions ───────────────────────────────────────────────────────────────
-
   Future<List<ChatSession>> loadSessions() async {
     final db = await _open();
-    final rows =
-        await db.query(_sessions, orderBy: 'updated_at DESC');
+    final rows = await db.query(_sessions, orderBy: 'updated_at DESC');
     return rows.map(ChatSession.fromRow).toList();
   }
 

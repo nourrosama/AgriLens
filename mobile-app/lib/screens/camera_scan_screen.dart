@@ -171,9 +171,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     final params = <String, String>{};
     if ((widget.farmId ?? '').isNotEmpty) params['farmId'] = widget.farmId!;
     if ((widget.fieldId ?? '').isNotEmpty) params['fieldId'] = widget.fieldId!;
-    context.push(
-      Uri(path: '/crop-select', queryParameters: params).toString(),
-    );
+    context.push(Uri(path: '/crop-select', queryParameters: params).toString());
   }
 
   Future<void> _capturePhoto() async {
@@ -330,6 +328,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         failure: scanProvider.validationFailure!,
         imageFile: imageFile,
       );
+    } else if (scanProvider.lastSubmitQueuedOffline) {
+      final lang = context.read<LanguageProvider>();
+      _showInfo(lang.t('offline.scanQueued'));
     } else {
       _showError(scanProvider.errorMessage ?? 'Scan failed');
     }
@@ -348,7 +349,19 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     if (!mounted) return;
     setState(() => _scanning = false);
     if (result == null) {
+      if (scanProvider.validationFailure != null) {
+        await _showValidationFailure(
+          failure: scanProvider.validationFailure!,
+          videoFile: videoFile,
+        );
+        return;
+      }
       // Upload failed or was queued offline — either way, inform user.
+      if (scanProvider.lastSubmitQueuedOffline) {
+        final lang = context.read<LanguageProvider>();
+        _showInfo(lang.t('offline.videoQueued'));
+        return;
+      }
       _showError(scanProvider.errorMessage ?? 'Video upload failed');
       return;
     }
@@ -374,17 +387,61 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     return cropProvider.getLabel(cropValue, isRTL: lang.isRTL);
   }
 
-  String _validationTitle(ScanValidationFailure failure) {
+  String _validationTitle(
+    ScanValidationFailure failure, [
+    LanguageProvider? lang,
+  ]) {
+    final activeLang = lang ?? context.read<LanguageProvider>();
     switch (failure.errorCode) {
       case 'NOT_A_PLANT':
-        return 'Not a plant';
+        return activeLang.t('validation.notPlantTitle');
       case 'UNSUPPORTED_CROP':
-        return 'Crop not supported';
+        return activeLang.t('validation.unsupportedCropTitle');
       case 'CROP_MISMATCH':
-        return 'Wrong crop selected';
+        return activeLang.t('validation.cropMismatchTitle');
       default:
-        return 'Scan validation failed';
+        return activeLang.t('validation.genericTitle');
     }
+  }
+
+  String _validationMessage(
+    ScanValidationFailure failure,
+    LanguageProvider lang,
+  ) {
+    switch (failure.errorCode) {
+      case 'NOT_A_PLANT':
+        return lang.t('validation.notPlantMessage');
+      case 'UNSUPPORTED_CROP':
+        return lang.t('validation.unsupportedCropMessage');
+      case 'CROP_MISMATCH':
+        final detected = failure.detectedCrop.isNotEmpty
+            ? _cropLabel(failure.detectedCrop)
+            : failure.detectedCrop;
+        final selected = failure.selectedCrop.isNotEmpty
+            ? _cropLabel(failure.selectedCrop)
+            : failure.selectedCrop;
+        if (lang.isRTL) {
+          return selected.isEmpty
+              ? 'يبدو أن هذه الصورة لـ $detected.'
+              : 'يبدو أن هذه الصورة لـ $detected وليست $selected.';
+        }
+        return selected.isEmpty
+            ? 'This appears to be $detected.'
+            : 'This appears to be $detected, not $selected.';
+      default:
+        return lang.t('validation.genericMessage');
+    }
+  }
+
+  String _supportedCropsLabel(
+    ScanValidationFailure failure,
+    LanguageProvider lang,
+  ) {
+    final labels = failure.supportedCrops
+        .map(_cropLabel)
+        .where((label) => label.trim().isNotEmpty)
+        .join(lang.isRTL ? '، ' : ', ');
+    return lang.t('validation.supportedCrops').replaceAll('{crops}', labels);
   }
 
   Future<void> _showValidationFailure({
@@ -395,30 +452,55 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     String? webImageName,
   }) async {
     final scanProvider = context.read<ScanHistoryProvider>();
+    final lang = context.read<LanguageProvider>();
     final detectedLabel = failure.canUseDetectedCrop
         ? _cropLabel(failure.detectedCrop)
+        : '';
+    final supportedCropsLabel =
+        failure.errorCode == 'UNSUPPORTED_CROP' &&
+            failure.supportedCrops.isNotEmpty
+        ? _supportedCropsLabel(failure, lang)
         : '';
 
     final action = await showDialog<String>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(_validationTitle(failure)),
-          content: Text(failure.message),
+          title: Text(_validationTitle(failure, lang)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: lang.isRTL
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.start,
+            children: [
+              Text(_validationMessage(failure, lang)),
+              if (supportedCropsLabel.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  supportedCropsLabel,
+                  style: Theme.of(dialogContext).textTheme.bodySmall,
+                ),
+              ],
+            ],
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(dialogContext).pop('upload'),
-              child: const Text('Upload another scan'),
+              child: Text(lang.t('validation.uploadAnother')),
             ),
             if (failure.errorCode == 'UNSUPPORTED_CROP')
               TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop('choose'),
-                child: const Text('Choose supported crop'),
+                child: Text(lang.t('validation.chooseSupportedCrop')),
               ),
             if (failure.canUseDetectedCrop)
               FilledButton(
                 onPressed: () => Navigator.of(dialogContext).pop('use'),
-                child: Text('Use $detectedLabel model'),
+                child: Text(
+                  lang
+                      .t('validation.useDetectedCropModel')
+                      .replaceAll('{crop}', detectedLabel),
+                ),
               ),
           ],
         );
@@ -455,6 +537,16 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       SnackBar(
         content: Text(message),
         backgroundColor: const Color(0xFFF44336),
+      ),
+    );
+  }
+
+  void _showInfo(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFF2E7D32),
       ),
     );
   }
@@ -792,10 +884,11 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                             border: Border.all(color: Colors.white, width: 4),
                             boxShadow: [
                               BoxShadow(
-                                color: (_isRecording
-                                        ? Colors.red
-                                        : const Color(0xFF4CAF50))
-                                    .withValues(alpha: 0.4),
+                                color:
+                                    (_isRecording
+                                            ? Colors.red
+                                            : const Color(0xFF4CAF50))
+                                        .withValues(alpha: 0.4),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
