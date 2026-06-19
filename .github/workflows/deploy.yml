@@ -1,0 +1,69 @@
+name: Deploy to EC2 + Build APK
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy backend to EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd /home/ec2-user/AgriLens
+            git pull origin main
+            VERSION=$(grep '^version:' mobile-app/pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+            sed -i "s|APP_VERSION=.*|APP_VERSION=$VERSION|" backend/.env || echo "APP_VERSION=$VERSION" >> backend/.env
+            sudo docker-compose up -d --build backend detection-service notification-service
+            echo "Deploy complete at $(date) — version $VERSION"
+
+  build-apk:
+    name: Build and release APK
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from pubspec
+        id: version
+        run: |
+          VERSION=$(grep '^version:' mobile-app/pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: stable
+
+      - name: Get dependencies
+        working-directory: mobile-app
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: mobile-app
+        run: flutter build apk --release --dart-define=API_BASE_URL=https://agrilens.chickenkiller.com
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.VERSION }}
+          name: "AgriLens v${{ steps.version.outputs.VERSION }}"
+          body: "Automated build from commit ${{ github.sha }}"
+          files: mobile-app/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
