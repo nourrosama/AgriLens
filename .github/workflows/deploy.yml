@@ -1,4 +1,4 @@
-name: Deploy to EC2
+name: Deploy to EC2 + Build APK
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 
 jobs:
   deploy:
+    name: Deploy backend to EC2
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to EC2
@@ -20,3 +21,40 @@ jobs:
             git pull origin main
             sudo docker-compose up -d --build backend detection-service notification-service
             echo "Deploy complete at $(date)"
+
+  build-apk:
+    name: Build and release APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: stable
+
+      - name: Get dependencies
+        working-directory: mobile-app
+        run: flutter pub get
+
+      - name: Build release APK
+        working-directory: mobile-app
+        run: flutter build apk --release --dart-define=API_BASE_URL=http://${{ secrets.EC2_HOST }}
+
+      - name: Upload APK to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: "AgriLens Build #${{ github.run_number }}"
+          body: "Automated build from commit ${{ github.sha }}"
+          files: mobile-app/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
