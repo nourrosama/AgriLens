@@ -26,7 +26,11 @@ def _cors_allowed_origins() -> list[str]:
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(
+        app,
+        resources={r"/*": {"origins": _cors_allowed_origins()}},
+        supports_credentials=True,
+    )
 
     app.config['RABBITMQ_URL'] = os.getenv('RABBITMQ_URL', 'amqp://guest:guest@localhost:5672/')
     app.config['MONGO_URI'] = os.getenv('MONGO_URI', '')
