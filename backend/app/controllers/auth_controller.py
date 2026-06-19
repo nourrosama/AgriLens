@@ -190,6 +190,7 @@ def verify_otp():
     signup_name = str(data.get('name', '')).strip()
     signup_country = str(data.get('country', '')).strip()
     signup_email = str(data.get('email', '')).strip()
+    signup_language = data.get('language') if data.get('language') in ('ar', 'en') else 'en'
 
     if not is_valid_phone(phone):
         return error_response('Invalid phone number', 400)
@@ -217,6 +218,7 @@ def verify_otp():
             name=signup_name,
             country=signup_country,
             email=signup_email,
+            language=signup_language,
         )
         is_new_user = True
     else:
@@ -348,6 +350,7 @@ def verify_email_otp():
     code = str(data.get('code', '')).strip()
     signup_name = str(data.get('name', '')).strip()
     signup_country = str(data.get('country', '')).strip()
+    signup_language = data.get('language') if data.get('language') in ('ar', 'en') else 'en'
 
     if not email or not _EMAIL_RE.match(email):
         return error_response('Invalid email address', 400)
@@ -373,6 +376,7 @@ def verify_email_otp():
             name=signup_name,
             country=signup_country,
             email=email,
+            language=signup_language,
         )
         is_new_user = True
     else:

@@ -253,7 +253,7 @@ class MyFieldsScreen extends StatelessWidget {
                       if ((field.cropType ?? '').isNotEmpty) ...[
                         const SizedBox(height: 8),
                         Text(
-                          '${lang.t('fields.cropType')}: ${field.cropType}',
+                          '${lang.t('fields.cropType')}: ${_localizedCrop(lang, field.cropType)}',
                           style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 14,
@@ -307,10 +307,12 @@ class MyFieldsScreen extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   if ((field.soilType ?? '').isNotEmpty)
-                    _tag('${lang.t('fields.soilType')}: ${field.soilType}'),
+                    _tag(
+                      '${lang.t('fields.soilType')}: ${_localizedSoil(lang, field.soilType)}',
+                    ),
                   if ((field.irrigationType ?? '').isNotEmpty)
                     _tag(
-                      '${lang.t('fields.irrigationType')}: ${field.irrigationType}',
+                      '${lang.t('fields.irrigationType')}: ${_localizedIrrigation(lang, field.irrigationType)}',
                     ),
                 ],
               ),
@@ -351,29 +353,39 @@ class MyFieldsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _statBox(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final cardWidth = constraints.maxWidth >= 540
+                  ? (constraints.maxWidth - 32) / 3
+                  : constraints.maxWidth;
+              return Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: [
+                  SizedBox(
+                    width: cardWidth,
+                    child: _statBox(
                   lang.t('fields.totalFields'),
                   '${provider.fields.length}',
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _statBox(
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: _statBox(
                   lang.t('fields.totalArea'),
                   '${provider.totalArea.toStringAsFixed(1)} ${lang.t('units.feddan')}',
                 ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _statBox(
+                  ),
+                  SizedBox(
+                    width: cardWidth,
+                    child: _statBox(
                   lang.t('fields.avgHealth'),
                   '${provider.averageHealth}${lang.t('units.percent')}',
                 ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -467,6 +479,8 @@ class MyFieldsScreen extends StatelessWidget {
         children: [
           Text(
             label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppColors.textSecondary,
               fontSize: 13,
@@ -475,10 +489,34 @@ class MyFieldsScreen extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(color: AppColors.primaryDark, fontSize: 16),
           ),
         ],
       ),
     );
+  }
+
+  String _localizedCrop(LanguageProvider lang, String? value) {
+    final key = _normalizedKey(value);
+    if (key.isEmpty) return '';
+    return lang.t('crops.$key');
+  }
+
+  String _localizedSoil(LanguageProvider lang, String? value) {
+    final key = _normalizedKey(value);
+    if (key.isEmpty) return '';
+    return lang.t('soil.$key');
+  }
+
+  String _localizedIrrigation(LanguageProvider lang, String? value) {
+    final key = _normalizedKey(value);
+    if (key.isEmpty) return '';
+    return lang.t('irrigation.$key');
+  }
+
+  String _normalizedKey(String? value) {
+    return (value ?? '').trim().toLowerCase().replaceAll(' ', '');
   }
 }

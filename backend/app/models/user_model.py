@@ -9,7 +9,7 @@ from app.models.db import users_col
 def create_user(
     phone: str,
     name: str = '',
-    language: str = 'ar',
+    language: str = 'en',
     role: str = 'farmer',
     email: str = '',
     country: str = '',
@@ -116,7 +116,7 @@ def serialize(user: dict) -> dict:
         'id': str(user['_id']),
         'phone': user.get('phone', ''),
         'name': user.get('name', ''),
-        'language': user.get('language', 'ar'),
+        'language': user.get('language', 'en'),
         'role': user.get('role', 'farmer'),
         'email': user.get('email', ''),
         'country': user.get('country', ''),

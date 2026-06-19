@@ -674,6 +674,7 @@ class ScanHistoryProvider extends ChangeNotifier {
 
       if (outcome.scan != null) {
         await _queueStore.removeQueuedScan(item.id);
+        await _refreshQueuedCount();
         await _deleteQueuedMedia(file);
         _lastSyncCompletedCount += 1;
         final scan = outcome.scan!;
@@ -692,6 +693,7 @@ class ScanHistoryProvider extends ChangeNotifier {
         }
       } else if (outcome.validationFailed) {
         await _queueStore.removeQueuedScan(item.id);
+        await _refreshQueuedCount();
         await _deleteQueuedMedia(file);
         _lastSyncFailedCount += 1;
       } else {

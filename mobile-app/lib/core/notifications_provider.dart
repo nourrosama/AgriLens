@@ -50,16 +50,20 @@ class NotificationData {
     final createdAt = ts.isEmpty ? null : DateTime.tryParse(ts)?.toLocal();
     final title = json['title']?.toString() ?? 'Notification';
     final message = json['message']?.toString() ?? '';
+    final titleEn = json['title_en']?.toString() ?? title;
+    final titleAr = json['title_ar']?.toString() ?? title;
+    final messageEn = json['message_en']?.toString() ?? message;
+    final messageAr = json['message_ar']?.toString() ?? message;
     final metadata = json['metadata'];
     final scanId =
         json['related_scan_id']?.toString() ??
         (metadata is Map ? metadata['scan_id']?.toString() : null);
     return NotificationData(
       id: json['id']?.toString() ?? '',
-      titleEn: title,
-      titleAr: title,
-      messageEn: message,
-      messageAr: message,
+      titleEn: titleEn,
+      titleAr: titleAr,
+      messageEn: messageEn,
+      messageAr: messageAr,
       icon: _iconFor(category),
       color: _colorFor(category),
       bgColor: _bgColorFor(category),
@@ -234,12 +238,14 @@ class NotificationsProvider extends ChangeNotifier {
     final data = message.data;
     final category = data['category'] as String? ?? 'info';
     final scanId = data['scan_id'] as String?;
+    final title = notification.title ?? 'Notification';
+    final body = notification.body ?? '';
     final item = NotificationData(
       id: message.messageId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      titleEn: notification.title ?? 'Notification',
-      titleAr: notification.title ?? 'إشعار',
-      messageEn: notification.body ?? '',
-      messageAr: notification.body ?? '',
+      titleEn: data['title_en'] as String? ?? title,
+      titleAr: data['title_ar'] as String? ?? title,
+      messageEn: data['body_en'] as String? ?? body,
+      messageAr: data['body_ar'] as String? ?? body,
       icon: NotificationData._iconFor(category),
       color: NotificationData._colorFor(category),
       bgColor: NotificationData._bgColorFor(category),

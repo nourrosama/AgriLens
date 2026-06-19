@@ -5,7 +5,19 @@ from datetime import datetime, timezone
 
 from bson import ObjectId
 
-from app.models.db import forum_questions_col, forum_answers_col
+from app.models.db import forum_questions_col, forum_answers_col, users_col
+
+
+def _author_fields(author_id) -> dict:
+    if not author_id:
+        return {'author_name': '', 'author_photo_url': ''}
+    user = users_col().find_one({'_id': ObjectId(str(author_id))})
+    if not user:
+        return {'author_name': '', 'author_photo_url': ''}
+    return {
+        'author_name': user.get('name', '') or user.get('email', '') or user.get('phone', ''),
+        'author_photo_url': user.get('photo_url', ''),
+    }
 
 
 def create_question(
@@ -86,6 +98,8 @@ def accept_answer(answer_id: str, question_id: str, requester_id: str) -> bool:
 def get_questions(
     crop_tags: list = None,
     disease_tags: list = None,
+    author_id: str = '',
+    answered_by: str = '',
     page: int = 1,
     per_page: int = 20,
 ) -> list:
@@ -94,6 +108,17 @@ def get_questions(
         query['tags.crops'] = {'$in': [t.lower() for t in crop_tags]}
     if disease_tags:
         query['tags.diseases'] = {'$in': [t.lower() for t in disease_tags]}
+    if author_id:
+        query['author_id'] = ObjectId(author_id)
+    if answered_by:
+        answer_question_ids = [
+            item['question_id']
+            for item in forum_answers_col().find(
+                {'author_id': ObjectId(answered_by)},
+                {'question_id': 1},
+            )
+        ]
+        query['_id'] = {'$in': answer_question_ids or [ObjectId()]}
     skip = (page - 1) * per_page
     return list(
         forum_questions_col()
@@ -127,6 +152,7 @@ def serialize_question(q: dict) -> dict:
     return {
         'id': str(q['_id']),
         'author_id': str(q.get('author_id', '')),
+        **_author_fields(q.get('author_id')),
         'title': q.get('title', ''),
         'body': q.get('body', ''),
         'tags': q.get('tags', {}),
@@ -144,6 +170,7 @@ def serialize_answer(a: dict) -> dict:
         'id': str(a['_id']),
         'question_id': str(a.get('question_id', '')),
         'author_id': str(a.get('author_id', '')),
+        **_author_fields(a.get('author_id')),
         'body': a.get('body', ''),
         'is_accepted': a.get('is_accepted', False),
         'upvotes': a.get('upvotes', 0),

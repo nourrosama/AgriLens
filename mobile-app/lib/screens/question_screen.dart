@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agrilens/core/app_config.dart';
 import 'package:agrilens/core/forum_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -314,6 +315,42 @@ class _AnswerTile extends StatelessWidget {
                   const SizedBox(height: 8),
                 ],
               ),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: AppColors.primaryLight,
+                  backgroundImage: answer.authorPhotoUrl.isEmpty
+                      ? null
+                      : NetworkImage(
+                          AppConfig.resolveMediaUrl(answer.authorPhotoUrl),
+                        ),
+                  child: answer.authorPhotoUrl.isEmpty
+                      ? Text(
+                          _authorInitial(answer),
+                          style: const TextStyle(
+                            color: AppColors.primaryDark,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _authorName(answer, isRTL),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryDark,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             Text(answer.body, style: const TextStyle(fontSize: 14, height: 1.5)),
             const SizedBox(height: 8),
             Row(
@@ -353,6 +390,21 @@ class _AnswerTile extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _authorName(ForumAnswer answer, bool isRTL) {
+    if (answer.authorName.trim().isNotEmpty) {
+      return answer.authorName.trim();
+    }
+    return isRTL ? 'مستخدم أجري لينس' : 'AgriLens user';
+  }
+
+  String _authorInitial(ForumAnswer answer) {
+    final name = answer.authorName.trim();
+    if (name.isNotEmpty) {
+      return name.substring(0, 1).toUpperCase();
+    }
+    return 'A';
   }
 }
 

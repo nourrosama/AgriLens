@@ -228,6 +228,7 @@ class _QaTab extends StatefulWidget {
 class _QaTabState extends State<_QaTab> {
   List<ForumQuestion>? _questions;
   bool _loading = true;
+  String _filter = '';
 
   @override
   void initState() {
@@ -236,8 +237,15 @@ class _QaTabState extends State<_QaTab> {
   }
 
   Future<void> _load() async {
-    final questions = await context.read<ForumProvider>().getQuestions();
-    if (mounted) setState(() { _questions = questions; _loading = false; });
+    final questions = await context.read<ForumProvider>().getQuestions(
+      filter: _filter,
+    );
+    if (mounted) {
+      setState(() {
+        _questions = questions;
+        _loading = false;
+      });
+    }
   }
 
   @override
@@ -257,8 +265,21 @@ class _QaTabState extends State<_QaTab> {
       },
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: (_loading || questions.isEmpty) ? 1 : questions.length,
+        itemCount: (_loading || questions.isEmpty) ? 2 : questions.length + 1,
         itemBuilder: (ctx, i) {
+          if (i == 0) {
+            return _QuestionFilters(
+              selected: _filter,
+              isRTL: isRTL,
+              onSelected: (value) async {
+                setState(() {
+                  _filter = value;
+                  _loading = true;
+                });
+                await _load();
+              },
+            );
+          }
           if (_loading) {
             return const Padding(
               padding: EdgeInsets.only(top: 80),
@@ -278,7 +299,7 @@ class _QaTabState extends State<_QaTab> {
               ),
             );
           }
-          final q = questions[i];
+          final q = questions[i - 1];
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             child: ListTile(
@@ -321,6 +342,57 @@ class _QaTabState extends State<_QaTab> {
 }
 
 // ── Trending tab ──────────────────────────────────────────────────────────────
+
+class _QuestionFilters extends StatelessWidget {
+  const _QuestionFilters({
+    required this.selected,
+    required this.isRTL,
+    required this.onSelected,
+  });
+
+  final String selected;
+  final bool isRTL;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final filters = <({String value, String labelEn, String labelAr})>[
+      (value: '', labelEn: 'All', labelAr: 'الكل'),
+      (value: 'my_questions', labelEn: 'My questions', labelAr: 'أسئلتي'),
+      (
+        value: 'answered_by_me',
+        labelEn: 'Answered by me',
+        labelAr: 'إجاباتي',
+      ),
+    ];
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      child: Row(
+        children: [
+          for (final filter in filters) ...[
+            ChoiceChip(
+              label: Text(isRTL ? filter.labelAr : filter.labelEn),
+              selected: selected == filter.value,
+              selectedColor: AppColors.primaryLight,
+              labelStyle: TextStyle(
+                color: selected == filter.value
+                    ? AppColors.primaryDark
+                    : AppColors.textSecondary,
+                fontWeight: selected == filter.value
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+              ),
+              onSelected: (_) => onSelected(filter.value),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 class _TrendingTab extends StatefulWidget {
   const _TrendingTab();

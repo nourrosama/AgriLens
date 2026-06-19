@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/theme.dart';
+import 'package:agrilens/core/user_provider.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -63,7 +64,7 @@ class SettingsScreen extends StatelessWidget {
                         lang,
                         onTap: () => context.push('/edit-profile'),
                       ),
-                      _languageToggle(lang),
+                      _languageToggle(context, lang),
                       _menuItem(
                         Icons.notifications_outlined,
                         lang.t('settings.notifications'),
@@ -223,7 +224,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _languageToggle(LanguageProvider lang) {
+  Widget _languageToggle(BuildContext context, LanguageProvider lang) {
     return Padding(
       padding: const EdgeInsets.all(20),
       child: Row(
@@ -240,8 +241,14 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           GestureDetector(
-            onTap: () =>
-                lang.setLanguage(lang.languageCode == 'en' ? 'ar' : 'en'),
+            onTap: () async {
+              final nextLanguage = lang.languageCode == 'en' ? 'ar' : 'en';
+              await lang.setLanguage(nextLanguage);
+              final userProvider = context.read<UserProvider>();
+              if (userProvider.isLoggedIn) {
+                await userProvider.updateProfile(language: nextLanguage);
+              }
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(

@@ -260,6 +260,10 @@ def admin_reply(ticket_id: str):
                 message=f'You have a new reply to: {ticket.get("subject", "your message")}',
                 category='support',
                 metadata={'ticket_id': ticket_id},
+                title_en='Support Reply',
+                message_en=f'You have a new reply to: {ticket.get("subject", "your message")}',
+                title_ar='رد من الدعم',
+                message_ar=f'لديك رد جديد على: {ticket.get("subject", "رسالتك")}',
             )
             # FCM push
             push_service.send_push_to_user(
