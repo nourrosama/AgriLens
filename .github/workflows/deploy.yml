@@ -49,6 +49,7 @@ jobs:
         with:
           flutter-version: '3.38.7'
           channel: stable
+          cache: false
 
       - name: Get dependencies
         working-directory: mobile-app
