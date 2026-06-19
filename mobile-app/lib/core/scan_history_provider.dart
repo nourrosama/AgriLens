@@ -348,6 +348,8 @@ class ScanHistoryProvider extends ChangeNotifier {
   int _lastSyncCompletedCount = 0;
   int _lastSyncFailedCount = 0;
   String? _lastOfflineSyncMessage;
+  bool _historyLimited = false;
+  String _historyLimitReason = '';
 
   List<ScanResult> get scans => List.unmodifiable(_scans);
   bool get isLoading => _isLoading;
@@ -358,6 +360,8 @@ class ScanHistoryProvider extends ChangeNotifier {
   int get lastSyncCompletedCount => _lastSyncCompletedCount;
   int get lastSyncFailedCount => _lastSyncFailedCount;
   String? get lastOfflineSyncMessage => _lastOfflineSyncMessage;
+  bool get historyLimited => _historyLimited;
+  String get historyLimitReason => _historyLimitReason;
   int get totalScans => _scans.length;
   String get currentUserId => _currentUserId;
 
@@ -445,6 +449,9 @@ class ScanHistoryProvider extends ChangeNotifier {
         await _queueStore.cacheScanResult(item);
       }
       final loadedScans = items.map(ScanResult.fromJson).toList();
+      final data = response['data'] as Map<String, dynamic>;
+      _historyLimited = data['history_limited'] == true;
+      _historyLimitReason = data['history_limit_reason']?.toString() ?? '';
       if (farmId == null &&
           fieldId == null &&
           (cropType == null || cropType.isEmpty)) {

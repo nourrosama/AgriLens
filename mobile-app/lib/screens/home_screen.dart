@@ -503,6 +503,34 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Quick Actions Grid
                       Row(
                         children: [
+                          // Scan History — all users
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => context.push('/scan-history'),
+                              child: _buildCard(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.history_rounded,
+                                      size: 40,
+                                      color: Color(0xFF4CAF50),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      lang.t('home.scanHistory'),
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E7D32),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
                           // My Fields — Professional only
                           Expanded(
                             child: GestureDetector(
@@ -560,7 +588,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           const SizedBox(width: 16),
-                          // Forecasting — Premium+ only
+                          // Reports
                           Expanded(
                             child: GestureDetector(
                               onTap: () => context.push('/reports'),

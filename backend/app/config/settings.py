@@ -103,3 +103,13 @@ class Config:
         if limit.strip()
     ]
     SCAN_UPLOAD_RATE_LIMIT = os.getenv('SCAN_UPLOAD_RATE_LIMIT', '10 per minute')
+
+    # Gmail SMTP (email OTP + support notifications)
+    GMAIL_USER = os.getenv('GMAIL_USER', '')
+    GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', '')
+
+    # Support — where user messages are emailed
+    SUPPORT_EMAIL = os.getenv('SUPPORT_EMAIL', '')
+
+    # Firebase (FCM push notifications)
+    FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '')

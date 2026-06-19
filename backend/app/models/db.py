@@ -44,6 +44,7 @@ def _ensure_indexes(app):
         _db['forum_posts'].create_index([('created_at', DESCENDING)])
         _db['audit_logs'].create_index('timestamp', expireAfterSeconds=7776000)
         _db['articles'].create_index([('published', ASCENDING), ('created_at', DESCENDING)])
+        _db['support_tickets'].create_index([('user_id', ASCENDING), ('updated_at', DESCENDING)])
         app.logger.info('MongoDB indexes created/verified')
     except Exception as exc:
         app.logger.warning('Index creation warning (non-fatal): %s', exc)
@@ -197,3 +198,7 @@ def chat_messages_col():
 
 def articles_col():
     return get_db()['articles']
+
+
+def support_tickets_col():
+    return get_db()['support_tickets']

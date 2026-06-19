@@ -260,7 +260,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Expanded(
                       child: GestureDetector(
                         onTap: () => context.push('/scan-history'),
-                        child: _stat('${scanProvider.totalScans}', lang.t('nav.scan')),
+                        child: _stat(
+                          '${scanProvider.totalScans}',
+                          lang.t('nav.scan'),
+                        ),
                       ),
                     ),
                     Expanded(

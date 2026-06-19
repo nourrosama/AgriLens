@@ -28,11 +28,13 @@ class _LoginSuccessScreenState extends State<LoginSuccessScreen>
     _scale = CurvedAnimation(parent: _controller, curve: Curves.elasticOut);
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) {
+    Future.delayed(const Duration(seconds: 2), () async {
+      if (!mounted) return;
+      final userProvider = context.read<UserProvider>();
+      if (userProvider.isAdmin) {
+        context.go('/admin');
         return;
       }
-      final userProvider = context.read<UserProvider>();
       context.go(userProvider.profileCompleted ? '/home' : '/registration');
     });
   }

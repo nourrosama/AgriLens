@@ -41,6 +41,7 @@ import 'package:agrilens/screens/user_registration_screen.dart';
 import 'package:agrilens/screens/auth_choice_screen.dart';
 import 'package:agrilens/screens/crop_select_screen.dart';
 import 'package:agrilens/screens/signup_screen.dart';
+import 'package:agrilens/screens/admin_dashboard_screen.dart';
 import 'package:agrilens/screens/articles_browser_screen.dart';
 
 final GoRouter appRouter = GoRouter(
@@ -80,6 +81,7 @@ final GoRouter appRouter = GoRouter(
       builder: (ctx, state) => const LoginSuccessScreen(),
     ),
     GoRoute(path: '/home', builder: (ctx, state) => const HomeScreen()),
+    GoRoute(path: '/admin', builder: (ctx, state) => const AdminDashboardScreen()),
     GoRoute(
       path: '/crop-select',
       builder: (ctx, state) => CropSelectScreen(

@@ -12,6 +12,9 @@ const _plans = [
   {'key': 'professional', 'priceEgp': 1499, 'recommended': false},
 ];
 
+// Plan rank — higher number = higher tier
+const _planRank = {'free': 0, 'premium': 1, 'professional': 2};
+
 // ── Per-plan feature lists ─────────────────────────────────────────────────────
 
 const _featuresEn = {
@@ -190,6 +193,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                           : _featuresEn['free']!,
                       recommended: false,
                       isCurrent: user.plan == 'free',
+                      currentPlanKey: user.plan,
                     ),
                     const SizedBox(height: 16),
                     _planCard(
@@ -203,6 +207,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                           : _featuresEn['premium']!,
                       recommended: true,
                       isCurrent: user.plan == 'premium',
+                      currentPlanKey: user.plan,
                     ),
                     const SizedBox(height: 16),
                     _planCard(
@@ -216,6 +221,7 @@ class SubscriptionPlansScreen extends StatelessWidget {
                           : _featuresEn['professional']!,
                       recommended: false,
                       isCurrent: user.plan == 'professional',
+                      currentPlanKey: user.plan,
                     ),
                     const SizedBox(height: 24),
 
@@ -266,7 +272,12 @@ class SubscriptionPlansScreen extends StatelessWidget {
     required List<String> features,
     required bool recommended,
     required bool isCurrent,
+    required String currentPlanKey,
   }) {
+    final thisRank    = _planRank[planKey] ?? 0;
+    final currentRank = _planRank[currentPlanKey] ?? 0;
+    // True when this plan is strictly lower tier than what the user has
+    final isDowngrade = thisRank < currentRank;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -406,37 +417,38 @@ class SubscriptionPlansScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ── CTA Button ────────────────────────────────────────────────────
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: isCurrent
-                  ? null
-                  : planKey == 'free'
-                      ? () => ctx.pop()
-                      : () => ctx.push('/subscription-payment', extra: {
-                            'planKey': planKey,
-                            'planName': name,
-                            'priceEgp': priceEgp,
-                          }),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isCurrent ? AppColors.border : AppColors.primary,
-                foregroundColor: isCurrent ? AppColors.textSecondary : Colors.white,
-                disabledBackgroundColor: AppColors.border,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+          if (!isDowngrade)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isCurrent
+                    ? null
+                    : planKey == 'free'
+                        ? () => ctx.pop()
+                        : () => ctx.push('/subscription-payment', extra: {
+                              'planKey': planKey,
+                              'planName': name,
+                              'priceEgp': priceEgp,
+                            }),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isCurrent ? AppColors.border : AppColors.primary,
+                  foregroundColor: isCurrent ? AppColors.textSecondary : Colors.white,
+                  disabledBackgroundColor: AppColors.border,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+                child: Text(
+                  isCurrent
+                      ? (lang.isRTL ? 'خطتك الحالية' : 'Current Plan')
+                      : planKey == 'free'
+                          ? (lang.isRTL ? 'الاستمرار مجاناً' : 'Continue Free')
+                          : (lang.isRTL ? 'اشترك الآن' : 'Subscribe Now'),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
-              child: Text(
-                isCurrent
-                    ? (lang.isRTL ? 'خطتك الحالية' : 'Current Plan')
-                    : planKey == 'free'
-                        ? (lang.isRTL ? 'الاستمرار مجاناً' : 'Continue Free')
-                        : (lang.isRTL ? 'اشترك الآن' : 'Subscribe Now'),
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
             ),
-          ),
         ],
       ),
     );

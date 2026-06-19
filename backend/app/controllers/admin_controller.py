@@ -45,6 +45,18 @@ def get_stats():
         for r in scans_col().aggregate(pipeline)
     ]
 
+    # Top 5 scanned crops
+    crop_pipeline = [
+        {'$match': {'crop_type': {'$ne': None, '$ne': ''}}},
+        {'$group': {'_id': '$crop_type', 'count': {'$sum': 1}}},
+        {'$sort': {'count': -1}},
+        {'$limit': 5},
+    ]
+    top_crops = [
+        {'crop': r['_id'] or 'Unknown', 'count': r['count']}
+        for r in scans_col().aggregate(crop_pipeline)
+    ]
+
     # New users in last 30 days
     from datetime import datetime, timedelta, timezone
     since = datetime.now(timezone.utc) - timedelta(days=30)
@@ -67,6 +79,7 @@ def get_stats():
             'published': published_articles,
         },
         'top_diseases': top_diseases,
+        'top_crops': top_crops,
     })
 
 

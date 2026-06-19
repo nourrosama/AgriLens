@@ -239,6 +239,7 @@ def test_scan_video_list_get_and_callback_routes(client_for, auth_headers, curre
     monkeypatch.setattr(scan_controller.event_publisher, "scan_completed", lambda *args, **kwargs: None)
     monkeypatch.setattr(scan_controller.event_publisher, "disease_detected", lambda *args: None)
     monkeypatch.setattr(scan_controller.event_publisher, "risk_high", lambda *args: None)
+    current_user["plan"] = "premium"
 
     client = client_for(scan_bp)
     upload = client.post(
