@@ -2,6 +2,7 @@
 AgriLens Backend API - Application factory.
 Initializes MongoDB, Redis, RabbitMQ, media storage, Swagger, and all blueprints.
 """
+import json
 import logging
 
 from flask import Flask, jsonify, send_from_directory
@@ -10,14 +11,48 @@ from flasgger import Swagger
 
 from dotenv import load_dotenv
 
+try:
+    from flask_talisman import Talisman
+except ImportError:  # pragma: no cover - dependency is installed in Docker.
+    Talisman = None
+
 load_dotenv()
+
+
+class JsonFormatter(logging.Formatter):
+    """Small structured formatter for Docker stdout."""
+
+    def format(self, record):
+        payload = {
+            'level': record.levelname,
+            'logger': record.name,
+            'message': record.getMessage(),
+        }
+        if record.exc_info:
+            payload['exc_info'] = self.formatException(record.exc_info)
+        for key in ('scan_id', 'user_id', 'crop_type', 'media_type', 'duration_ms', 'event'):
+            value = getattr(record, key, None)
+            if value is not None:
+                payload[key] = value
+        return json.dumps(payload, default=str)
+
+
+def _configure_logging(app):
+    if not app.config.get('JSON_LOGS', True):
+        app.logger.setLevel(logging.INFO)
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(logging.INFO)
+    app.logger.handlers = [handler]
+    app.logger.setLevel(logging.INFO)
 
 
 def create_app():
     """Application factory pattern."""
     app = Flask(__name__)
-    app.logger.setLevel(logging.INFO)
-    CORS(app)
 
     # Allow the Flask admin panel to be embedded in an iframe from Flutter Web
     @app.after_request
@@ -28,6 +63,26 @@ def create_app():
 
     from app.config.settings import Config
     app.config.from_object(Config)
+    _configure_logging(app)
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": app.config.get('CORS_ALLOWED_ORIGINS', [])}},
+        supports_credentials=True,
+    )
+    if Talisman is not None:
+        Talisman(
+            app,
+            content_security_policy=False,
+            force_https=app.config.get('FORCE_HTTPS', False),
+            strict_transport_security=app.config.get('FORCE_HTTPS', False),
+            referrer_policy='strict-origin-when-cross-origin',
+        )
+
+    from app.extensions import limiter
+    app.config.setdefault('RATELIMIT_STORAGE_URI', app.config.get('REDIS_URL', 'memory://'))
+    app.config.setdefault('RATELIMIT_DEFAULT', app.config.get('GLOBAL_RATE_LIMITS', []))
+    app.config.setdefault('RATELIMIT_HEADERS_ENABLED', True)
+    limiter.init_app(app)
 
     from app.models.db import init_db
     init_db(app)
@@ -59,7 +114,7 @@ def create_app():
     swagger_template = {
         'info': {
             'title': 'AgriLens API',
-            'description': 'AI-based crop disease detection & forecasting platform',
+            'description': 'AI-based crop disease detection platform',
             'version': '1.0.0',
         },
         'securityDefinitions': {
@@ -74,9 +129,8 @@ def create_app():
             {'name': 'Auth', 'description': 'OTP login & user profile'},
             {'name': 'Farms', 'description': 'Farm & field management'},
             {'name': 'Scans', 'description': 'Image upload & detection'},
-            {'name': 'Forecast', 'description': 'Disease forecasting'},
             {'name': 'Notifications', 'description': 'User alerts and notification state'},
-            {'name': 'Weather', 'description': 'Current and forecast weather'},
+            {'name': 'Weather', 'description': 'Current weather'},
             {'name': 'Dashboard', 'description': 'Mobile dashboard summaries'},
             {'name': 'Reports', 'description': 'Report export'},
             {'name': 'Chatbot', 'description': 'Farmer assistant'},
@@ -91,7 +145,6 @@ def create_app():
     from app.controllers.auth_controller import auth_bp
     from app.controllers.farm_controller import farm_bp
     from app.controllers.scan_controller import scan_bp
-    from app.controllers.forecast_controller import forecast_bp
     from app.controllers.notification_controller import notifications_bp
     from app.controllers.weather_controller import weather_bp
     from app.controllers.dashboard_controller import dashboard_bp
@@ -108,7 +161,6 @@ def create_app():
     app.register_blueprint(auth_bp)
     app.register_blueprint(farm_bp)
     app.register_blueprint(scan_bp)
-    app.register_blueprint(forecast_bp)
     app.register_blueprint(notifications_bp)
     app.register_blueprint(weather_bp)
     app.register_blueprint(dashboard_bp)

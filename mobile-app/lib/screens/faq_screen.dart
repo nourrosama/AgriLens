@@ -17,7 +17,6 @@ class FaqScreen extends StatelessWidget {
       (lang.t('faq.q3'), lang.t('faq.a3')),
       (lang.t('faq.q4'), lang.t('faq.a4')),
       (lang.t('faq.q5'), lang.t('faq.a5')),
-      (lang.t('faq.q6'), lang.t('faq.a6')),
     ];
 
     return Scaffold(

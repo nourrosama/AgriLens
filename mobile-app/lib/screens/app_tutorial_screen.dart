@@ -44,14 +44,6 @@ class _AppTutorialScreenState extends State<AppTutorialScreen> {
         const Color(0xFF7C3AED),
       ),
       (
-        Icons.cloud_outlined,
-        'forecast',
-        lang.t('tutorial.step4Title'),
-        lang.t('tutorial.step4'),
-        const Color(0xFFFEF3C7),
-        const Color(0xFFD97706),
-      ),
-      (
         Icons.bar_chart_outlined,
         'report',
         lang.t('tutorial.step5Title'),

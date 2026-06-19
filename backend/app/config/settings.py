@@ -11,6 +11,8 @@ load_dotenv()
 class Config:
     """Central configuration pulled from .env or defaults."""
 
+    APP_ENV = os.getenv('APP_ENV', 'development').strip().lower()
+
     # MongoDB
     MONGO_URI = os.getenv('MONGO_URI', '').strip()
 
@@ -18,12 +20,24 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
     JWT_SECRET = os.getenv('JWT_SECRET', 'jwt-dev-secret')
     JWT_EXPIRY_HOURS = int(os.getenv('JWT_EXPIRY_HOURS', '720'))
+    FORCE_HTTPS = os.getenv('FORCE_HTTPS', 'false').lower() == 'true'
+    JSON_LOGS = os.getenv('JSON_LOGS', 'true').lower() == 'true'
 
     # Twilio Verify
     TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
     TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
     TWILIO_VERIFY_SERVICE_SID = os.getenv('TWILIO_VERIFY_SERVICE_SID', '')
     TWILIO_MOCK_MODE = os.getenv('TWILIO_MOCK_MODE', 'true').lower() == 'true'
+
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip()
+        for origin in os.getenv(
+            'CORS_ALLOWED_ORIGINS',
+            'http://localhost:5000,http://127.0.0.1:5000,'
+            'http://localhost:8080,http://127.0.0.1:8080',
+        ).split(',')
+        if origin.strip()
+    ]
 
     # Scan media storage
     MEDIA_STORAGE_PROVIDER = os.getenv(
@@ -45,7 +59,7 @@ class Config:
     VIDEO_BLUR_THRESHOLD = float(os.getenv('VIDEO_BLUR_THRESHOLD', 80.0))
     VIDEO_MIN_FRAMES_REQUIRED = int(os.getenv('VIDEO_MIN_FRAMES_REQUIRED', 1))
     VIDEO_SAVE_DEBUG_FRAMES = os.getenv('VIDEO_SAVE_DEBUG_FRAMES', 'false').lower() == 'true'
-    VIDEO_KEYFRAME_MODEL_ENABLED = os.getenv('VIDEO_KEYFRAME_MODEL_ENABLED', 'true').lower() == 'true'
+    VIDEO_KEYFRAME_MODEL_ENABLED = os.getenv('VIDEO_KEYFRAME_MODEL_ENABLED', 'false').lower() == 'true'
     VIDEO_KEYFRAME_TARGET_FPS = float(os.getenv('VIDEO_KEYFRAME_TARGET_FPS', 10))
 
     # Inter-service URLs
@@ -57,7 +71,6 @@ class Config:
     SAGEMAKER_ENDPOINT_NAME = os.getenv('SAGEMAKER_ENDPOINT_NAME', '').strip()
     SAGEMAKER_ENDPOINTS = os.getenv('SAGEMAKER_ENDPOINTS', '').strip()
     SAGEMAKER_PROFILE = os.getenv('SAGEMAKER_PROFILE', '').strip()
-    FORECAST_SERVICE_URL = os.getenv('FORECAST_SERVICE_URL', 'http://localhost:5002')
     DETECTION_MOCK_FALLBACK = os.getenv('DETECTION_MOCK_FALLBACK', 'false').lower() == 'true'
 
     # RabbitMQ
@@ -81,6 +94,15 @@ class Config:
     OTP_RATE_LIMIT_WINDOW = int(os.getenv('OTP_RATE_LIMIT_WINDOW', '600'))
     VERIFY_RATE_LIMIT_MAX = int(os.getenv('VERIFY_RATE_LIMIT_MAX', '5'))
     VERIFY_RATE_LIMIT_WINDOW = int(os.getenv('VERIFY_RATE_LIMIT_WINDOW', '600'))
+    GLOBAL_RATE_LIMITS = [
+        limit.strip()
+        for limit in os.getenv(
+            'GLOBAL_RATE_LIMITS',
+            '200 per minute,2000 per hour',
+        ).split(',')
+        if limit.strip()
+    ]
+    SCAN_UPLOAD_RATE_LIMIT = os.getenv('SCAN_UPLOAD_RATE_LIMIT', '10 per minute')
 
     # Gmail SMTP (email OTP + support notifications)
     GMAIL_USER = os.getenv('GMAIL_USER', '')

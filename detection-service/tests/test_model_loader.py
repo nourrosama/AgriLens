@@ -53,6 +53,72 @@ def test_unsupported_crop_payload_is_structured():
     assert "mushroom" not in payload["supported_crops"]
 
 
+def test_crop_validator_without_not_plant_or_other_labels_is_skipped(monkeypatch):
+    monkeypatch.setattr(model_loader, "_validator_state", None)
+    monkeypatch.setattr(model_loader, "_validator_error", None)
+    monkeypatch.setattr(
+        model_loader,
+        "_app_config",
+        {
+            "CROP_VALIDATOR_ENABLED": True,
+            "CROP_VALIDATOR_MODEL_PATH": "crop_validator.pt",
+        },
+    )
+    monkeypatch.setattr(model_loader.os.path, "exists", lambda path: True)
+    monkeypatch.setattr(
+        model_loader,
+        "_load_checkpoint",
+        lambda path: {
+            "class_names": [
+                "apple",
+                "corn",
+                "cotton",
+                "grape",
+                "potato",
+                "sugarcane",
+                "tomato",
+                "wheat",
+            ]
+        },
+    )
+
+    validation = model_loader.validate_image_bgr(object(), "sugarcane")
+
+    assert validation["plant_status"] == "validator_unavailable"
+    assert validation["selected_crop"] == "sugarcane"
+    assert "missing a not-plant label" in validation["warning"]
+
+
+def test_low_confidence_prediction_after_skipped_validator_returns_not_plant(monkeypatch):
+    monkeypatch.setattr(
+        model_loader,
+        "validate_image_bgr",
+        lambda image, crop: {
+            "valid": True,
+            "plant_status": "validator_unavailable",
+            "selected_crop": "tomato",
+            "detected_crop": "tomato",
+            "supported_crops": model_loader.supported_crops(),
+        },
+    )
+    monkeypatch.setattr(
+        model_loader,
+        "_predict_from_bgr",
+        lambda image, crop: {"confidence": 0.12, "_predicted_id": 0},
+    )
+    monkeypatch.setattr(
+        model_loader,
+        "_app_config",
+        {"MIN_PLANT_CONFIDENCE": 0.4},
+    )
+
+    with pytest.raises(model_loader.ValidationFailure) as exc_info:
+        model_loader._predict_validated(object(), "tomato", include_gradcam=False)
+
+    assert exc_info.value.payload["error_code"] == "NOT_A_PLANT"
+    assert exc_info.value.payload["selected_crop"] == "tomato"
+
+
 def test_get_model_status_for_unsupported_crop_is_explicit():
     status = model_loader.get_model_status("banana")
 

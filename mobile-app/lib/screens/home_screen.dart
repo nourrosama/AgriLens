@@ -587,6 +587,34 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 16),
+                          // Reports
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => context.push('/reports'),
+                              child: _buildCard(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.assessment_rounded,
+                                      size: 40,
+                                      color: Color(0xFF4CAF50),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      lang.t('reports.title'),
+                                      style: const TextStyle(
+                                        color: Color(0xFF2E7D32),
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 24),

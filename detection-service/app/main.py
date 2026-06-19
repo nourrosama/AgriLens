@@ -11,9 +11,25 @@ from flask_cors import CORS
 load_dotenv()
 
 
+def _cors_allowed_origins() -> list[str]:
+    return [
+        origin.strip()
+        for origin in os.getenv(
+            "CORS_ALLOWED_ORIGINS",
+            "http://localhost:5000,http://127.0.0.1:5000,"
+            "http://localhost:8080,http://127.0.0.1:8080",
+        ).split(",")
+        if origin.strip()
+    ]
+
+
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(
+        app,
+        resources={r"/*": {"origins": _cors_allowed_origins()}},
+        supports_credentials=True,
+    )
     app.config["MODEL_PATH"] = os.getenv("MODEL_PATH", "")
     app.config["TOMATO_MODEL_PATH"] = os.getenv("TOMATO_MODEL_PATH", "")
     app.config["POTATO_MODEL_PATH"] = os.getenv("POTATO_MODEL_PATH", "")
@@ -30,7 +46,7 @@ def create_app():
     app.config["CROP_VALIDATOR_MODEL_PATH"] = os.getenv("CROP_VALIDATOR_MODEL_PATH", "")
     app.config["CROP_VALIDATOR_LABELS_PATH"] = os.getenv("CROP_VALIDATOR_LABELS_PATH", "")
     app.config["CROP_VALIDATOR_ENABLED"] = (
-        os.getenv("CROP_VALIDATOR_ENABLED", "true").lower() == "true"
+        os.getenv("CROP_VALIDATOR_ENABLED", "false").lower() == "true"
     )
     app.config["CROP_VALIDATOR_NOT_PLANT_THRESHOLD"] = float(
         os.getenv("CROP_VALIDATOR_NOT_PLANT_THRESHOLD", "0.35")
@@ -38,6 +54,7 @@ def create_app():
     app.config["CROP_VALIDATOR_SUPPORTED_THRESHOLD"] = float(
         os.getenv("CROP_VALIDATOR_SUPPORTED_THRESHOLD", "0.65")
     )
+    app.config["MIN_PLANT_CONFIDENCE"] = float(os.getenv("MIN_PLANT_CONFIDENCE", "0.40"))
     app.config["VIDEO_MODEL_PATH"] = os.getenv("VIDEO_MODEL_PATH", "")
     app.config["VIDEO_LABELS_PATH"] = os.getenv("VIDEO_LABELS_PATH", "")
     app.config["VIDEO_KEYFRAME_TARGET_FPS"] = float(os.getenv("VIDEO_KEYFRAME_TARGET_FPS", "10"))

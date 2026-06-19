@@ -577,6 +577,6 @@ def _load_config() -> dict:
         "min_frames_required": int(app_config.get("VIDEO_MIN_FRAMES_REQUIRED", 1)),
         "debug_frames":        bool(app_config.get("VIDEO_SAVE_DEBUG_FRAMES", False)),
         "upload_folder":       str(app_config.get("UPLOAD_FOLDER", "uploads")),
-        "keyframe_model_enabled": bool(app_config.get("VIDEO_KEYFRAME_MODEL_ENABLED", True)),
+        "keyframe_model_enabled": bool(app_config.get("VIDEO_KEYFRAME_MODEL_ENABLED", False)),
         "keyframe_target_fps": float(app_config.get("VIDEO_KEYFRAME_TARGET_FPS", 10)),
     }

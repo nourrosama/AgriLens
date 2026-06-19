@@ -4,7 +4,17 @@ import 'package:flutter/foundation.dart';
 import 'api_client.dart';
 import 'app_config.dart';
 import 'fcm_service.dart';
+import 'offline_sync_notification.dart';
 import 'offline_queue_store.dart';
+
+typedef LocalNotificationSender =
+    Future<void> Function({
+      required String title,
+      required String body,
+      String? scanId,
+    });
+typedef OfflineSyncNotificationSink =
+    void Function(OfflineSyncNotification notification);
 
 class ScanPrediction {
   ScanPrediction({
@@ -57,9 +67,13 @@ class SelectedVideoFrame {
   bool get hasGradcam => gradcamUrl != null && gradcamUrl!.isNotEmpty;
 
   factory SelectedVideoFrame.fromJson(Map<String, dynamic> json) {
-    final frameUrl = AppConfig.resolveMediaUrl(json['frame_url']?.toString() ?? '');
+    final frameUrl = AppConfig.resolveMediaUrl(
+      json['frame_url']?.toString() ?? '',
+    );
     final gradcamRaw = json['gradcam_url']?.toString() ?? '';
-    final gradcamUrl = gradcamRaw.isEmpty ? null : AppConfig.resolveMediaUrl(gradcamRaw);
+    final gradcamUrl = gradcamRaw.isEmpty
+        ? null
+        : AppConfig.resolveMediaUrl(gradcamRaw);
     final displayRaw = json['display_url']?.toString() ?? '';
     final displayUrl = displayRaw.isNotEmpty
         ? AppConfig.resolveMediaUrl(displayRaw)
@@ -292,18 +306,48 @@ class ScanValidationFailure {
   }
 }
 
+class _SubmitOutcome {
+  const _SubmitOutcome({
+    this.scan,
+    this.scanJson,
+    this.queuedOffline = false,
+    this.validationFailed = false,
+    this.connectivityFailed = false,
+    this.error,
+  });
+
+  final ScanResult? scan;
+  final Map<String, dynamic>? scanJson;
+  final bool queuedOffline;
+  final bool validationFailed;
+  final bool connectivityFailed;
+  final String? error;
+}
+
 class ScanHistoryProvider extends ChangeNotifier {
-  ScanHistoryProvider({ApiClient? apiClient, OfflineQueueStore? queueStore})
-    : _apiClient = apiClient ?? ApiClient(),
-      _queueStore = queueStore ?? OfflineQueueStore();
+  ScanHistoryProvider({
+    ApiClient? apiClient,
+    OfflineQueueStore? queueStore,
+    LocalNotificationSender? localNotificationSender,
+  }) : _apiClient = apiClient ?? ApiClient(),
+       _queueStore = queueStore ?? OfflineQueueStore(),
+       _sendLocalNotification =
+           localNotificationSender ?? FcmService.showLocalNotification;
 
   final ApiClient _apiClient;
   final OfflineQueueStore _queueStore;
+  final LocalNotificationSender _sendLocalNotification;
+  OfflineSyncNotificationSink? _notificationSink;
   final List<ScanResult> _scans = [];
   bool _isLoading = false;
   String? _errorMessage;
   String _currentUserId = '';
   ScanValidationFailure? _validationFailure;
+  bool _lastSubmitQueuedOffline = false;
+  bool _isSyncingQueuedScans = false;
+  int _lastSyncCompletedCount = 0;
+  int _lastSyncFailedCount = 0;
+  String? _lastOfflineSyncMessage;
   bool _historyLimited = false;
   String _historyLimitReason = '';
 
@@ -311,14 +355,27 @@ class ScanHistoryProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   ScanValidationFailure? get validationFailure => _validationFailure;
+  bool get lastSubmitQueuedOffline => _lastSubmitQueuedOffline;
+  bool get isSyncingQueuedScans => _isSyncingQueuedScans;
+  int get lastSyncCompletedCount => _lastSyncCompletedCount;
+  int get lastSyncFailedCount => _lastSyncFailedCount;
+  String? get lastOfflineSyncMessage => _lastOfflineSyncMessage;
   bool get historyLimited => _historyLimited;
   String get historyLimitReason => _historyLimitReason;
   int get totalScans => _scans.length;
   String get currentUserId => _currentUserId;
 
+  void attachOfflineSyncNotificationSink(
+    OfflineSyncNotificationSink? notificationSink,
+  ) {
+    _notificationSink = notificationSink;
+  }
+
   void clear() {
     _scans.clear();
     _errorMessage = null;
+    _lastSubmitQueuedOffline = false;
+    _lastOfflineSyncMessage = null;
     notifyListeners();
   }
 
@@ -329,6 +386,7 @@ class ScanHistoryProvider extends ChangeNotifier {
     if (userId.isEmpty) {
       clear();
     } else {
+      _refreshQueuedCount();
       loadScans();
     }
   }
@@ -342,6 +400,7 @@ class ScanHistoryProvider extends ChangeNotifier {
     _queuedCount = queued.length;
     notifyListeners();
   }
+
   int get activeDiseasesCount => _scans
       .where(
         (scan) =>
@@ -386,6 +445,9 @@ class ScanHistoryProvider extends ChangeNotifier {
                   [])
               .whereType<Map<String, dynamic>>()
               .toList();
+      for (final item in items) {
+        await _queueStore.cacheScanResult(item);
+      }
       final loadedScans = items.map(ScanResult.fromJson).toList();
       final data = response['data'] as Map<String, dynamic>;
       _historyLimited = data['history_limited'] == true;
@@ -408,6 +470,20 @@ class ScanHistoryProvider extends ChangeNotifier {
       }
       _errorMessage = null;
       _validationFailure = null;
+    } on ApiException catch (error) {
+      if (error.isConnectivityError) {
+        final cached = await _cachedScansForFilters(
+          farmId: farmId,
+          fieldId: fieldId,
+          cropType: cropType,
+        );
+        if (cached.isNotEmpty) {
+          _scans
+            ..clear()
+            ..addAll(cached);
+        }
+      }
+      _errorMessage = error.toString();
     } catch (error) {
       _errorMessage = error.toString();
     } finally {
@@ -464,15 +540,36 @@ class ScanHistoryProvider extends ChangeNotifier {
     String? farmId,
     String? fieldId,
   }) async {
-    _setLoading(true);
+    final outcome = await _uploadMedia(
+      file: file,
+      mediaType: mediaType,
+      cropType: cropType,
+      farmId: farmId,
+      fieldId: fieldId,
+      queueOnConnectivityFailure: true,
+      showLoading: true,
+    );
+    return outcome.scan;
+  }
+
+  Future<_SubmitOutcome> _uploadMedia({
+    required io.File file,
+    required String mediaType,
+    required String cropType,
+    String? farmId,
+    String? fieldId,
+    required bool queueOnConnectivityFailure,
+    bool showLoading = false,
+  }) async {
+    _lastSubmitQueuedOffline = false;
+    if (showLoading) _setLoading(true);
     try {
       final response = await _apiClient.multipart(
         '/api/scans',
         auth: true,
         fieldName: mediaType == 'video' ? 'video' : 'image',
         file: file,
-        timeout: const Duration(seconds: 90), // upload only; video processing is async
-
+        timeout: const Duration(seconds: 90),
         fields: {
           'crop_type': cropType,
           ...?(farmId == null ? null : {'farm_id': farmId}),
@@ -485,8 +582,8 @@ class ScanHistoryProvider extends ChangeNotifier {
           (response['data'] as Map<String, dynamic>)['scan']
               as Map<String, dynamic>;
       var scan = ScanResult.fromJson(scanJson);
-      // Cache image bytes so the GradCAM card can render instantly without
-      // a second network request (bytes are already in memory here).
+      await _queueStore.cacheScanResult(scanJson);
+
       if (mediaType == 'image' && !kIsWeb) {
         try {
           final bytes = await file.readAsBytes();
@@ -499,82 +596,205 @@ class ScanHistoryProvider extends ChangeNotifier {
       _errorMessage = null;
       _validationFailure = null;
       notifyListeners();
-      return scan;
+      return _SubmitOutcome(scan: scan, scanJson: scanJson);
     } on ApiException catch (error) {
       if (_captureValidationFailure(error)) {
-        return null;
+        return _SubmitOutcome(validationFailed: true, error: error.toString());
       }
-      await _queueStore.enqueueScan(
-        mediaFile: file,
-        mediaType: mediaType,
-        cropType: cropType,
-        farmId: farmId,
-        fieldId: fieldId,
-      );
+      if (error.isConnectivityError) {
+        if (queueOnConnectivityFailure) {
+          await _queueStore.enqueueScan(
+            mediaFile: file,
+            mediaType: mediaType,
+            cropType: cropType,
+            farmId: farmId,
+            fieldId: fieldId,
+          );
+          await _refreshQueuedCount();
+          _lastSubmitQueuedOffline = true;
+          _errorMessage =
+              'Scan saved offline. It will sync when you are back online.';
+        } else {
+          _errorMessage = error.toString();
+        }
+        notifyListeners();
+        return _SubmitOutcome(
+          queuedOffline: queueOnConnectivityFailure,
+          connectivityFailed: true,
+          error: error.toString(),
+        );
+      }
       _errorMessage = error.toString();
       notifyListeners();
-      return null;
+      return _SubmitOutcome(error: error.toString());
     } catch (error) {
-      // Queue both images and videos for retry when connectivity returns.
-      await _queueStore.enqueueScan(
-        mediaFile: file,
-        mediaType: mediaType,
-        cropType: cropType,
-        farmId: farmId,
-        fieldId: fieldId,
-      );
-      await _refreshQueuedCount();
       _errorMessage = error.toString();
       notifyListeners();
-      return null;
+      return _SubmitOutcome(error: error.toString());
     } finally {
-      _setLoading(false);
+      if (showLoading) _setLoading(false);
     }
   }
 
-  Future<void> syncQueuedScans() async {
+  Future<void> syncQueuedScans({bool notifyStart = true}) async {
+    if (_isSyncingQueuedScans) return;
     final queued = await _queueStore.listQueuedScans();
+    if (queued.isEmpty) {
+      await _refreshQueuedCount();
+      return;
+    }
+
+    _isSyncingQueuedScans = true;
+    _lastSyncCompletedCount = 0;
+    _lastSyncFailedCount = 0;
+    _lastOfflineSyncMessage = 'Syncing queued scans...';
+    notifyListeners();
+
+    if (notifyStart) {
+      await _notifySyncStarted(queued.length);
+    }
+
     for (final item in queued) {
       final file = io.File(item.mediaPath);
       if (!file.existsSync()) {
         await _queueStore.removeQueuedScan(item.id);
+        _lastSyncFailedCount += 1;
         continue;
       }
 
-      ScanResult? scan;
-      if (item.mediaType == 'video') {
-        scan = await submitVideoScan(
-          videoFile: file,
-          cropType: item.cropType,
-          farmId: item.farmId,
-          fieldId: item.fieldId,
-        );
-      } else {
-        scan = await submitScan(
-          imageFile: file,
-          cropType: item.cropType,
-          farmId: item.farmId,
-          fieldId: item.fieldId,
-        );
-      }
+      await _queueStore.markQueuedScanSyncing(item.id);
+      final outcome = await _uploadMedia(
+        file: file,
+        mediaType: item.mediaType,
+        cropType: item.cropType,
+        farmId: item.farmId,
+        fieldId: item.fieldId,
+        queueOnConnectivityFailure: false,
+      );
 
-      if (scan != null) {
+      if (outcome.scan != null) {
         await _queueStore.removeQueuedScan(item.id);
-        // For images: result is ready now → show local notification.
-        // For videos: backend returns 202 and processes async → FCM push
-        // fires later, so we skip the local notification here.
+        await _deleteQueuedMedia(file);
+        _lastSyncCompletedCount += 1;
+        final scan = outcome.scan!;
         if (scan.mediaType != 'video') {
-          await FcmService.showLocalNotification(
-            title: 'Scan Complete ✓',
-            body: scan.isHealthy
-                ? 'Your crop looks healthy! No disease detected.'
-                : '${scan.diseaseNameEn} detected. Tap to view details.',
+          await _notifyQueuedImageCompleted(scan);
+        } else {
+          _emitInAppNotification(
+            id: 'offline-video-uploaded-${scan.id}',
+            titleEn: 'Video uploaded',
+            titleAr: 'تم رفع الفيديو',
+            messageEn:
+                'Analysis is processing. We will notify you when it is complete.',
+            messageAr: 'جاري تحليل الفيديو. سنخبرك عند اكتمال التحليل.',
             scanId: scan.id,
           );
         }
+      } else if (outcome.validationFailed) {
+        await _queueStore.removeQueuedScan(item.id);
+        await _deleteQueuedMedia(file);
+        _lastSyncFailedCount += 1;
+      } else {
+        await _queueStore.markQueuedScanFailed(
+          item.id,
+          outcome.error ?? 'Sync failed',
+        );
+        _lastSyncFailedCount += 1;
       }
     }
+
     await _refreshQueuedCount();
+    _isSyncingQueuedScans = false;
+    _lastOfflineSyncMessage = _lastSyncFailedCount > 0
+        ? 'Some offline scans could not sync. They will retry later.'
+        : 'Offline scans synced successfully.';
+    notifyListeners();
+  }
+
+  Future<void> _notifySyncStarted(int count) async {
+    final body = count == 1
+        ? 'Syncing 1 queued scan...'
+        : 'Syncing $count queued scans...';
+    await _sendLocalNotification(title: 'Back online', body: body);
+    _emitInAppNotification(
+      id: 'offline-sync-start-${DateTime.now().millisecondsSinceEpoch}',
+      titleEn: 'Back online',
+      titleAr: 'عدت للاتصال',
+      messageEn: body,
+      messageAr: 'جاري مزامنة الفحوصات المحفوظة...',
+    );
+  }
+
+  Future<void> _notifyQueuedImageCompleted(ScanResult scan) async {
+    final healthyBody = 'Scan complete. No disease detected.';
+    final diseaseBody = 'Scan complete. ${scan.diseaseNameEn} detected.';
+    final body = scan.isHealthy ? healthyBody : diseaseBody;
+    await _sendLocalNotification(
+      title: 'Scan Complete',
+      body: body,
+      scanId: scan.id,
+    );
+    _emitInAppNotification(
+      id: 'offline-scan-complete-${scan.id}',
+      titleEn: 'Scan complete',
+      titleAr: 'اكتمل الفحص',
+      messageEn: body,
+      messageAr: scan.isHealthy
+          ? 'اكتمل الفحص. لم يتم اكتشاف أي مرض.'
+          : 'اكتمل الفحص. تم اكتشاف ${scan.diseaseNameEn}.',
+      scanId: scan.id,
+      category: scan.isHealthy ? 'sync' : 'disease',
+    );
+  }
+
+  void _emitInAppNotification({
+    required String id,
+    required String titleEn,
+    required String titleAr,
+    required String messageEn,
+    required String messageAr,
+    String category = 'sync',
+    String? scanId,
+  }) {
+    _notificationSink?.call(
+      OfflineSyncNotification(
+        id: id,
+        titleEn: titleEn,
+        titleAr: titleAr,
+        messageEn: messageEn,
+        messageAr: messageAr,
+        category: category,
+        scanId: scanId,
+      ),
+    );
+  }
+
+  Future<void> _deleteQueuedMedia(io.File file) async {
+    try {
+      if (file.existsSync()) {
+        await file.delete();
+      }
+    } catch (_) {
+      // Best-effort cache cleanup; the queue row is the source of truth.
+    }
+  }
+
+  Future<List<ScanResult>> _cachedScansForFilters({
+    String? farmId,
+    String? fieldId,
+    String? cropType,
+  }) async {
+    final cachedJson = await _queueStore.listCachedScanResults();
+    return cachedJson.map(ScanResult.fromJson).where((scan) {
+      if (farmId != null && scan.farmId != farmId) return false;
+      if (fieldId != null && scan.fieldId != fieldId) return false;
+      if (cropType != null &&
+          cropType.isNotEmpty &&
+          scan.cropType != cropType) {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 
   Future<ScanResult?> getScan(String id) async {
@@ -587,10 +807,24 @@ class ScanHistoryProvider extends ChangeNotifier {
       final scanJson =
           (response['data'] as Map<String, dynamic>)['scan']
               as Map<String, dynamic>;
+      await _queueStore.cacheScanResult(scanJson);
       final scan = ScanResult.fromJson(scanJson);
       _upsertScan(scan);
       notifyListeners();
       return scan;
+    } on ApiException catch (error) {
+      if (error.isConnectivityError) {
+        final cachedJson = await _queueStore.getCachedScanResult(id);
+        if (cachedJson != null) {
+          final scan = ScanResult.fromJson(cachedJson);
+          _upsertScan(scan);
+          notifyListeners();
+          return scan;
+        }
+      }
+      _errorMessage = error.toString();
+      notifyListeners();
+      return null;
     } catch (error) {
       _errorMessage = error.toString();
       notifyListeners();

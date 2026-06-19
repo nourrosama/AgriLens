@@ -1,8 +1,8 @@
 # 🌿 AgriLens
 
-**AI-Based Early Detection and Forecasting System for Crop Diseases**
+**AI-Based Early Detection System for Crop Diseases**
 
-AgriLens is an AI-powered system that helps Egyptian farmers detect crop diseases early and predict their spread using deep learning, computer vision, and environmental data.
+AgriLens is an AI-powered system that helps Egyptian farmers detect crop diseases early using deep learning, computer vision, and farm data.
 
 ---
 
@@ -14,7 +14,6 @@ The project follows a **microservices architecture** with **MVC** and **Observer
 |---|---|---|
 | `backend/` | Central API — auth, uploads, farm management, data routing | Flask, MongoDB |
 | `detection-service/` | Disease detection (CNN/YOLO/ViT) | Flask, TensorFlow/PyTorch |
-| `forecast-service/` | Disease spread forecasting (LSTM/Prophet/ARIMA) | Flask, TensorFlow/PyTorch |
 | `notification-service/` | Event-driven alerts (SMS, push notifications) | Flask, RabbitMQ, Twilio, FCM |
 | `mobile-app/` | Farmer-facing mobile client | Flutter, Firebase |
 
@@ -32,7 +31,6 @@ The project follows a **microservices architecture** with **MVC** and **Observer
 AgriLens/
 ├── backend/                  # Central API microservice
 ├── detection-service/        # Disease detection microservice
-├── forecast-service/         # Forecasting microservice
 ├── notification-service/     # Alert microservice
 ├── mobile-app/               # Flutter mobile app
 ├── docs/                     # Documentation & diagrams
@@ -46,7 +44,7 @@ AgriLens/
 
 ## 🤖 ML Model Weights
 
-Model weights are **not included in the repository** due to file size. Download them from Google Drive and place them in the correct folders before running the detection service.
+Model weights are **not included in the repository** due to file size. In staging, the detection service downloads required model files from S3 into `/models` at container startup when `AWS_S3_BUCKET` is configured.
 
 | Model | Crop | Destination | Download |
 |---|---|---|---|
@@ -143,7 +141,7 @@ flutter run
 
 | Member | Role |
 |---|---|
-| Nour Osama | DSAI — AI model & forecasting |
+| Nour Osama | DSAI — AI models |
 | Rahma Abdelwahab | DSAI — Mobile app & testing |
 | Merna Ahmed | SWD — Architecture, dashboard, mobile |
 | Layla Mohammad | DSAI — AI model & integration |

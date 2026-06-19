@@ -67,8 +67,7 @@ class NotificationsScreen extends StatelessWidget {
           Expanded(
             child: notifProv.isLoading
                 ? const Center(
-                    child:
-                        CircularProgressIndicator(color: Color(0xFF4CAF50)),
+                    child: CircularProgressIndicator(color: Color(0xFF4CAF50)),
                   )
                 : RefreshIndicator(
                     color: const Color(0xFF4CAF50),
@@ -87,7 +86,9 @@ class NotificationsScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          ...today.map((n) => _buildNotifCard(n, lang)),
+                          ...today.map(
+                            (n) => _buildNotifCard(context, n, lang),
+                          ),
                           const SizedBox(height: 16),
                         ],
 
@@ -102,7 +103,9 @@ class NotificationsScreen extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 12),
-                          ...earlier.map((n) => _buildNotifCard(n, lang)),
+                          ...earlier.map(
+                            (n) => _buildNotifCard(context, n, lang),
+                          ),
                         ],
 
                         // Empty state
@@ -138,9 +141,13 @@ class NotificationsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNotifCard(NotificationData n, LanguageProvider lang) {
+  Widget _buildNotifCard(
+    BuildContext context,
+    NotificationData n,
+    LanguageProvider lang,
+  ) {
     final isRead = n.isRead;
-    return Container(
+    final card = Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -171,7 +178,9 @@ class NotificationsScreen extends StatelessWidget {
                               ? const Color(0xFF757575)
                               : const Color(0xFF2E7D32),
                           fontSize: 16,
-                          fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
+                          fontWeight: isRead
+                              ? FontWeight.normal
+                              : FontWeight.w600,
                         ),
                       ),
                     ),
@@ -210,6 +219,12 @@ class NotificationsScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+    final scanId = n.scanId;
+    if (scanId == null || scanId.isEmpty) return card;
+    return GestureDetector(
+      onTap: () => context.push('/scan-result', extra: scanId),
+      child: card,
     );
   }
 }

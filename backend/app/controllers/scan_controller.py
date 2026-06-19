@@ -8,12 +8,13 @@ import threading
 
 from flask import Blueprint, current_app, g, jsonify, request
 
+from app.extensions import limiter
 from app.middleware.auth_middleware import require_auth
-from app.models import audit_model, farm_model, forecast_model, notification_model, scan_model
+from app.models import audit_model, notification_model, scan_model
 from app.observers import event_publisher
 from app.services import (
     detection_proxy_service, disease_report_service,
-    insights_service, storage_service, video_service,
+    storage_service, video_service,
 )
 from app.services.subscription_service import can_scan, build_scan_response
 from app.utils.validators import is_valid_object_id
@@ -61,6 +62,7 @@ def _allowed_file(filename: str, allowed: set = None) -> bool:
 
 
 @scan_bp.route('/api/scans', methods=['POST'])
+@limiter.limit(lambda: current_app.config.get('SCAN_UPLOAD_RATE_LIMIT', '10 per minute'))
 @require_auth
 def upload_scan():
     """Upload an image or video for disease detection and return the stored result.
@@ -176,6 +178,16 @@ def upload_scan():
         device_info=device_info,
     )
     scan_id = str(scan['_id'])
+    current_app.logger.info(
+        'scan_received',
+        extra={
+            'event': 'scan_received',
+            'scan_id': scan_id,
+            'user_id': user_id,
+            'crop_type': crop_type,
+            'media_type': media_type,
+        },
+    )
     event_publisher.scan_created(scan_id, media_url)
 
     if media_type == 'video':
@@ -189,7 +201,6 @@ def upload_scan():
         def _process_video():
             _tmp_path = None
             result = None
-            forecast_payload = None
             with _app.app_context():
                 # Write in-memory bytes to an OS temp file in /tmp (not uploads/).
                 # cv2.VideoCapture requires a file path — BytesIO is not accepted.
@@ -211,27 +222,17 @@ def upload_scan():
 
                     if result is not None:
                         scan_model.update_detection_result(scan_id, result)
-                        event_publisher.scan_completed(scan_id, result, user_id, media_type='video')
-
-                        location = {}
-                        if farm_id:
-                            farm = farm_model.get_farm_by_id(farm_id)
-                            if farm:
-                                location = farm.get('location', {})
-                                if field_id:
-                                    for field in farm.get('fields', []):
-                                        if str(field.get('field_id')) == field_id:
-                                            location = field.get('location') or location
-                                            break
-
-                        weather = insights_service.build_weather(location)
-                        scans = scan_model.get_scans_by_user(user_id, 1, 50)
-                        forecast_payload = insights_service.compute_forecast(scans, weather, 7)
-                        forecast_model.upsert_snapshot(
-                            user_id,
-                            {'farm_id': farm_id, 'field_id': field_id},
-                            forecast_payload,
+                        _app.logger.info(
+                            'scan_completed',
+                            extra={
+                                'event': 'scan_completed',
+                                'scan_id': scan_id,
+                                'user_id': user_id,
+                                'crop_type': crop_type,
+                                'media_type': 'video',
+                            },
                         )
+                        event_publisher.scan_completed(scan_id, result, user_id, media_type='video')
 
                         if not result.get('is_healthy', True):
                             notification_model.create_notification(
@@ -249,20 +250,6 @@ def upload_scan():
                                 user_id,
                             )
 
-                        if forecast_payload and forecast_payload.get('risk_level') in ('high', 'critical'):
-                            notification_model.create_notification(
-                                user_id,
-                                'High risk alert',
-                                f"Forecast risk is {forecast_payload.get('risk_level')} for the next few days.",
-                                category='forecast',
-                                related_scan_id=scan_id,
-                                metadata={'scan_id': scan_id},
-                            )
-                            event_publisher.risk_high(
-                                scan_id,
-                                forecast_payload.get('risk_level', 'high'),
-                                user_id,
-                            )
                     else:
                         scan_model.update_scan(scan_id, {'status': 'failed'})
 
@@ -318,7 +305,6 @@ def upload_scan():
 
     detection = None
     gradcam_overlay = None   # held in memory only — never written to MongoDB
-    forecast_payload = None
     validation_payload = None
 
     try:
@@ -329,27 +315,17 @@ def upload_scan():
             # It will be re-injected into the one-time 201 response below.
             gradcam_overlay = detection.pop('gradcam_overlay', None)
             scan_model.update_detection_result(scan_id, detection)
-            event_publisher.scan_completed(scan_id, detection, user_id, media_type='image')
-
-            location = {}
-            if farm_id:
-                farm = farm_model.get_farm_by_id(farm_id)
-                if farm:
-                    location = farm.get('location', {})
-                    if field_id:
-                        for field in farm.get('fields', []):
-                            if str(field.get('field_id')) == field_id:
-                                location = field.get('location') or location
-                                break
-
-            weather = insights_service.build_weather(location)
-            scans = scan_model.get_scans_by_user(user_id, 1, 50)
-            forecast_payload = insights_service.compute_forecast(scans, weather, 7)
-            forecast_model.upsert_snapshot(
-                user_id,
-                {'farm_id': farm_id, 'field_id': field_id},
-                forecast_payload,
+            current_app.logger.info(
+                'scan_completed',
+                extra={
+                    'event': 'scan_completed',
+                    'scan_id': scan_id,
+                    'user_id': user_id,
+                    'crop_type': crop_type,
+                    'media_type': 'image',
+                },
             )
+            event_publisher.scan_completed(scan_id, detection, user_id, media_type='image')
 
             if not detection.get('is_healthy', True):
                 notification_model.create_notification(
@@ -424,7 +400,6 @@ def upload_scan():
     return success_response(
         {
             'scan': serialized_scan,
-            'forecast': forecast_payload,
             'result': subscription_result,
         },
         message,
