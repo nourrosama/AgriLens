@@ -10,7 +10,7 @@ from flask import Blueprint, current_app, g, jsonify, request
 
 from app.extensions import limiter
 from app.middleware.auth_middleware import require_auth
-from app.models import audit_model, notification_model, scan_model
+from app.models import audit_model, farm_model, notification_model, scan_model
 from app.observers import event_publisher
 from app.services import (
     detection_proxy_service, disease_report_service,
@@ -59,6 +59,45 @@ def _allowed_file(filename: str, allowed: set = None) -> bool:
     if allowed is None:
         allowed = ALLOWED_IMAGE_EXT | ALLOWED_VIDEO_EXT
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed
+
+
+def _update_field_health_from_detection(farm_id: str, field_id: str, detection: dict) -> None:
+    if not farm_id or not field_id or not detection:
+        return
+
+    is_healthy = detection.get('is_healthy', True)
+    severity = str(detection.get('severity', 'none')).lower()
+    risk_level = str(detection.get('risk_level', 'low')).lower()
+
+    if is_healthy:
+        health_score = 100
+        risk_level = 'low'
+    elif severity in ('critical', 'high') or risk_level == 'high':
+        health_score = 45
+        risk_level = 'high'
+    elif severity == 'medium' or risk_level == 'medium':
+        health_score = 65
+        risk_level = 'medium'
+    else:
+        health_score = 78
+        risk_level = 'low'
+
+    try:
+        farm_model.update_field(
+            farm_id,
+            field_id,
+            {
+                'health_score': health_score,
+                'risk_level': risk_level,
+            },
+        )
+    except Exception as exc:
+        current_app.logger.warning(
+            'Failed to update field health for farm=%s field=%s: %s',
+            farm_id,
+            field_id,
+            exc,
+        )
 
 
 @scan_bp.route('/api/scans', methods=['POST'])
@@ -222,6 +261,7 @@ def upload_scan():
 
                     if result is not None:
                         scan_model.update_detection_result(scan_id, result)
+                        _update_field_health_from_detection(farm_id, field_id, result)
                         _app.logger.info(
                             'scan_completed',
                             extra={
@@ -242,6 +282,10 @@ def upload_scan():
                                 category='disease',
                                 related_scan_id=scan_id,
                                 metadata={'scan_id': scan_id},
+                                title_en='Disease detected',
+                                message_en=f"{result.get('disease', 'Unknown disease')} detected with {result.get('severity', 'unknown')} severity.",
+                                title_ar='تم اكتشاف مرض',
+                                message_ar=f"تم اكتشاف {result.get('disease', 'مرض غير معروف')} بدرجة خطورة {result.get('severity', 'غير معروفة')}.",
                             )
                             event_publisher.disease_detected(
                                 scan_id,
@@ -315,6 +359,7 @@ def upload_scan():
             # It will be re-injected into the one-time 201 response below.
             gradcam_overlay = detection.pop('gradcam_overlay', None)
             scan_model.update_detection_result(scan_id, detection)
+            _update_field_health_from_detection(farm_id, field_id, detection)
             current_app.logger.info(
                 'scan_completed',
                 extra={
@@ -335,6 +380,10 @@ def upload_scan():
                     category='disease',
                     related_scan_id=scan_id,
                     metadata={'scan_id': scan_id},
+                    title_en='Disease detected',
+                    message_en=f"{detection.get('disease', 'Unknown disease')} detected with {detection.get('severity', 'unknown')} severity.",
+                    title_ar='تم اكتشاف مرض',
+                    message_ar=f"تم اكتشاف {detection.get('disease', 'مرض غير معروف')} بدرجة خطورة {detection.get('severity', 'غير معروفة')}.",
                 )
                 event_publisher.disease_detected(
                     scan_id,

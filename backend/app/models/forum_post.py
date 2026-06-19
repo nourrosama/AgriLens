@@ -5,9 +5,21 @@ from datetime import datetime, timezone
 
 from bson import ObjectId
 
-from app.models.db import forum_posts_col, forum_comments_col
+from app.models.db import forum_posts_col, forum_comments_col, users_col
 
 CONTENT_TYPES = ('post', 'video', 'article', 'blog')
+
+
+def _author_fields(author_id) -> dict:
+    if not author_id:
+        return {'author_name': '', 'author_photo_url': ''}
+    user = users_col().find_one({'_id': ObjectId(str(author_id))})
+    if not user:
+        return {'author_name': '', 'author_photo_url': ''}
+    return {
+        'author_name': user.get('name', '') or user.get('email', '') or user.get('phone', ''),
+        'author_photo_url': user.get('photo_url', ''),
+    }
 
 
 def create_post(
@@ -139,6 +151,7 @@ def serialize_post(post: dict, current_user_id: str = '') -> dict:
     return {
         'id': str(post['_id']),
         'author_id': str(post.get('author_id', '')),
+        **_author_fields(post.get('author_id')),
         'body': post.get('body', ''),
         'content_type': post.get('content_type', 'post'),
         'media_url': post.get('media_url', ''),
@@ -157,6 +170,7 @@ def serialize_comment(comment: dict) -> dict:
         'id': str(comment['_id']),
         'post_id': str(comment.get('post_id', '')),
         'author_id': str(comment.get('author_id', '')),
+        **_author_fields(comment.get('author_id')),
         'body': comment.get('body', ''),
         'created_at': comment['created_at'].isoformat() if comment.get('created_at') else None,
     }

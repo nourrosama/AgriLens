@@ -42,12 +42,13 @@ class _ConnectivityBannerState extends State<ConnectivityBanner> {
     final scanHistory = context.watch<ScanHistoryProvider>();
     final pending = scanHistory.queuedCount;
     final showOffline = !connectivity.isOnline;
-    final showOnline = _showOnlineBadge || scanHistory.isSyncingQueuedScans;
+    final showSyncing = scanHistory.isSyncingQueuedScans && pending > 0;
+    final showOnline = _showOnlineBadge || showSyncing;
     final showBanner = showOffline || showOnline;
     final offlineText = pending > 0
         ? lang.t('offline.pendingSync').replaceAll('{count}', '$pending')
         : lang.t('offline.offline');
-    final onlineText = scanHistory.isSyncingQueuedScans
+    final onlineText = showSyncing
         ? lang.t('offline.syncingCount').replaceAll('{count}', '$pending')
         : scanHistory.lastSyncFailedCount > 0
         ? lang.t('offline.syncFailed')

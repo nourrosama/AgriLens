@@ -19,10 +19,14 @@ class ForumPost {
     required this.createdAt,
     this.cropTags = const [],
     this.diseaseTags = const [],
+    this.authorName = '',
+    this.authorPhotoUrl = '',
   });
 
   final String id;
   final String authorId;
+  final String authorName;
+  final String authorPhotoUrl;
   final String body;
   final String contentType; // post | video | article | blog
   final String mediaUrl;
@@ -38,6 +42,8 @@ class ForumPost {
     return ForumPost(
       id: json['id']?.toString() ?? '',
       authorId: json['author_id']?.toString() ?? '',
+      authorName: json['author_name']?.toString() ?? '',
+      authorPhotoUrl: json['author_photo_url']?.toString() ?? '',
       body: json['body']?.toString() ?? '',
       contentType: json['content_type']?.toString() ?? 'post',
       mediaUrl: json['media_url']?.toString() ?? '',
@@ -63,16 +69,22 @@ class ForumComment {
     required this.authorId,
     required this.body,
     required this.createdAt,
+    this.authorName = '',
+    this.authorPhotoUrl = '',
   });
 
   final String id;
   final String authorId;
+  final String authorName;
+  final String authorPhotoUrl;
   final String body;
   final DateTime createdAt;
 
   factory ForumComment.fromJson(Map<String, dynamic> json) => ForumComment(
     id: json['id']?.toString() ?? '',
     authorId: json['author_id']?.toString() ?? '',
+    authorName: json['author_name']?.toString() ?? '',
+    authorPhotoUrl: json['author_photo_url']?.toString() ?? '',
     body: json['body']?.toString() ?? '',
     createdAt:
         DateTime.tryParse(json['created_at']?.toString() ?? '') ??
@@ -91,10 +103,14 @@ class ForumQuestion {
     required this.createdAt,
     this.cropTags = const [],
     this.diseaseTags = const [],
+    this.authorName = '',
+    this.authorPhotoUrl = '',
   });
 
   final String id;
   final String authorId;
+  final String authorName;
+  final String authorPhotoUrl;
   final String title;
   final String body;
   final int answerCount;
@@ -108,6 +124,8 @@ class ForumQuestion {
     return ForumQuestion(
       id: json['id']?.toString() ?? '',
       authorId: json['author_id']?.toString() ?? '',
+      authorName: json['author_name']?.toString() ?? '',
+      authorPhotoUrl: json['author_photo_url']?.toString() ?? '',
       title: json['title']?.toString() ?? '',
       body: json['body']?.toString() ?? '',
       answerCount: (json['answer_count'] as num?)?.toInt() ?? 0,
@@ -133,10 +151,14 @@ class ForumAnswer {
     required this.isAccepted,
     required this.upvotes,
     required this.createdAt,
+    this.authorName = '',
+    this.authorPhotoUrl = '',
   });
 
   final String id;
   final String authorId;
+  final String authorName;
+  final String authorPhotoUrl;
   final String body;
   bool isAccepted;
   final int upvotes;
@@ -145,6 +167,8 @@ class ForumAnswer {
   factory ForumAnswer.fromJson(Map<String, dynamic> json) => ForumAnswer(
     id: json['id']?.toString() ?? '',
     authorId: json['author_id']?.toString() ?? '',
+    authorName: json['author_name']?.toString() ?? '',
+    authorPhotoUrl: json['author_photo_url']?.toString() ?? '',
     body: json['body']?.toString() ?? '',
     isAccepted: json['is_accepted'] == true,
     upvotes: (json['upvotes'] as num?)?.toInt() ?? 0,
@@ -324,12 +348,14 @@ class ForumProvider extends ChangeNotifier {
   Future<List<ForumQuestion>> getQuestions({
     String crop = '',
     String disease = '',
+    String filter = '',
     int page = 1,
   }) async {
     try {
       final q = <String, dynamic>{'page': page};
       if (crop.isNotEmpty) q['crop'] = crop;
       if (disease.isNotEmpty) q['disease'] = disease;
+      if (filter.isNotEmpty) q['filter'] = filter;
       final response = await _api.get(
         '/api/forum/questions',
         auth: true,

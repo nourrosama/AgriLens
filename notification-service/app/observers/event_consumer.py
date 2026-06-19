@@ -122,6 +122,7 @@ def _dispatch(routing_key: str, event: dict):
             title_ar='تنبيه مرض 🌿',
             body_ar=f'تم اكتشاف مرض: {disease} (شدة: {severity_ar}). اضغط لعرض التفاصيل.',
             scan_id=scan_id,
+            category='disease',
         )
 
     elif routing_key == 'risk.high':
@@ -134,6 +135,7 @@ def _dispatch(routing_key: str, event: dict):
             title_ar='تحذير خطر عالٍ ⚠️',
             body_ar=f'مستوى خطر التوقعات: {risk_ar}. تحقق من محاصيلك فوراً.',
             scan_id=scan_id,
+            category='info',
         )
 
     elif routing_key == 'scan.completed':
@@ -152,6 +154,7 @@ def _dispatch(routing_key: str, event: dict):
                 body_ar='محصولك يبدو بصحة جيدة! لم يُكتشف أي مرض.' if is_healthy
                     else f'تم اكتشاف مرض: {disease} (شدة: {severity_ar}). اضغط لعرض التفاصيل.',
                 scan_id=scan_id,
+                category='sync' if is_healthy else 'disease',
             )
         logger.info(
             'Scan %s completed (media_type=%s); push dispatched=%s',

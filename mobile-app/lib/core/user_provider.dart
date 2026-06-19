@@ -198,6 +198,7 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
               as Map<String, dynamic>;
       _user = UserData.fromJson(userJson);
       await _sessionStorage.saveUser(userJson);
+      await _syncStoredLanguagePreference();
     } on ApiException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
         await _sessionStorage.clearSession();
@@ -217,6 +218,39 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Registration flow — collect profile first, then send OTP.
   /// Calls POST /api/auth/register (phone must be new).
+  Future<String> _preferredLanguage() async {
+    final storedLanguage = await _sessionStorage.readLanguage();
+    if (storedLanguage == 'ar' || storedLanguage == 'en') {
+      return storedLanguage!;
+    }
+    if (_user.language == 'ar' || _user.language == 'en') {
+      return _user.language;
+    }
+    return 'en';
+  }
+
+  Future<void> _syncStoredLanguagePreference() async {
+    final preferredLanguage = await _preferredLanguage();
+    if (!_user.isLoggedIn || _user.language == preferredLanguage) {
+      return;
+    }
+    try {
+      final response = await _apiClient.put(
+        '/api/auth/me',
+        auth: true,
+        body: {'language': preferredLanguage},
+      );
+      final userJson =
+          (response['data'] as Map<String, dynamic>)['user']
+              as Map<String, dynamic>;
+      _user = UserData.fromJson(userJson);
+      await _sessionStorage.saveUser(userJson);
+      notifyListeners();
+    } catch (_) {
+      // Keep the local UI language responsive if profile sync must retry later.
+    }
+  }
+
   Future<bool> signup({
     required String fullName,
     required String country,
@@ -335,9 +369,11 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
     _setLoading(true);
     try {
       final resolvedEmail = email ?? _pendingEmail ?? '';
+      final preferredLanguage = await _preferredLanguage();
       final body = <String, dynamic>{
         'email': resolvedEmail,
         'code': otp,
+        'language': preferredLanguage,
         ...?(_pendingSignupName == null ? null : {'name': _pendingSignupName!}),
         ...?(_pendingSignupCountry == null ? null : {'country': _pendingSignupCountry!}),
       };
@@ -357,6 +393,7 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pendingSignupName = null;
       _pendingSignupCountry = null;
 
+      await _syncStoredLanguagePreference();
       unawaited(_registerFcmToken());
 
       _errorMessage = null;
@@ -373,9 +410,11 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
     _setLoading(true);
     try {
       final resolvedPhone = phone ?? _pendingPhone ?? _user.phone;
+      final preferredLanguage = await _preferredLanguage();
       final body = <String, dynamic>{
         'phone': resolvedPhone,
         'code': otp,
+        'language': preferredLanguage,
         // Include signup profile if this is the registration flow.
         // The backend uses their presence to decide signup vs login.
         ...?(_pendingSignupName == null ? null : {'name': _pendingSignupName!}),
@@ -399,6 +438,7 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pendingSignupName = null;
       _pendingSignupCountry = null;
 
+      await _syncStoredLanguagePreference();
       unawaited(_registerFcmToken());
 
       _errorMessage = null;

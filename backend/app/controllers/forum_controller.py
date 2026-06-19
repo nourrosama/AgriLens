@@ -5,17 +5,52 @@ from bson import ObjectId
 from flask import Blueprint, current_app, g, request
 
 from app.middleware.auth_middleware import require_auth
+from app.models import notification_model, user_model
 from app.models import forum_post as post_model
 from app.models.db import forum_posts_col, forum_comments_col
 from app.models import forum_question as question_model
 from app.models import community as community_model
-from app.services import feed_service, trending_service, storage_service
+from app.services import feed_service, push_service, trending_service, storage_service
 from app.utils.validators import is_valid_object_id
 from app.views.responses import error_response, success_response
 
 ALLOWED_MEDIA = {'jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'avi', 'mkv', 'pdf'}
 
 forum_bp = Blueprint('forum', __name__)
+
+
+def _notify_forum_interaction(
+    recipient_id: str,
+    actor_id: str,
+    title_en: str,
+    message_en: str,
+    title_ar: str,
+    message_ar: str,
+    metadata: dict,
+) -> None:
+    if not recipient_id or recipient_id == actor_id:
+        return
+    notification_model.create_notification(
+        user_id=recipient_id,
+        title=title_en,
+        message=message_en,
+        category='forum',
+        metadata=metadata,
+        title_en=title_en,
+        message_en=message_en,
+        title_ar=title_ar,
+        message_ar=message_ar,
+    )
+    user = user_model.find_by_id(recipient_id)
+    if not user:
+        return
+    lang = user.get('language', 'en')
+    push_service.send_push_to_user(
+        user=user,
+        title=title_ar if lang == 'ar' else title_en,
+        body=message_ar if lang == 'ar' else message_en,
+        data={**metadata, 'category': 'forum'},
+    )
 
 
 # ── Media upload ─────────────────────────────────────────────────────────────
@@ -353,6 +388,17 @@ def add_comment(post_id):
         return error_response('Comment body is required', 400)
     user_id = str(g.current_user['_id'])
     comment = post_model.add_comment(post_id, user_id, body)
+    post = post_model.get_post_by_id(post_id)
+    if post:
+        _notify_forum_interaction(
+            recipient_id=str(post.get('author_id', '')),
+            actor_id=user_id,
+            title_en='New comment',
+            message_en='Someone commented on your forum post.',
+            title_ar='تعليق جديد',
+            message_ar='قام أحد المستخدمين بالتعليق على منشورك في المنتدى.',
+            metadata={'post_id': post_id, 'comment_id': str(comment.get('_id', ''))},
+        )
     return success_response(
         {'comment': post_model.serialize_comment(comment)},
         'Comment added',
@@ -388,10 +434,14 @@ def list_questions():
     """
     crop = request.args.get('crop', '').strip()
     disease = request.args.get('disease', '').strip()
+    filter_key = request.args.get('filter', '').strip()
     page = request.args.get('page', 1, type=int)
+    user_id = str(g.current_user['_id'])
     questions = question_model.get_questions(
         crop_tags=[crop] if crop else None,
         disease_tags=[disease] if disease else None,
+        author_id=user_id if filter_key == 'my_questions' else '',
+        answered_by=user_id if filter_key == 'answered_by_me' else '',
         page=page,
     )
     return success_response({
@@ -504,11 +554,21 @@ def post_answer(question_id):
     body = (data.get('body') or '').strip()
     if not body:
         return error_response('Answer body is required', 400)
-    if not question_model.get_question_by_id(question_id):
+    question = question_model.get_question_by_id(question_id)
+    if not question:
         return error_response('Question not found', 404)
 
     user_id = str(g.current_user['_id'])
     answer = question_model.create_answer(question_id, user_id, body)
+    _notify_forum_interaction(
+        recipient_id=str(question.get('author_id', '')),
+        actor_id=user_id,
+        title_en='New answer',
+        message_en='Someone answered your question.',
+        title_ar='إجابة جديدة',
+        message_ar='قام أحد المستخدمين بالإجابة على سؤالك.',
+        metadata={'question_id': question_id, 'answer_id': str(answer.get('_id', ''))},
+    )
     return success_response(
         {'answer': question_model.serialize_answer(answer)},
         'Answer posted',

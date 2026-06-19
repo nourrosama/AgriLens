@@ -13,6 +13,7 @@ def send(
     title_ar: str = '',
     body_ar: str = '',
     scan_id: str = '',
+    category: str = 'info',
 ):
     """Send a push notification to all stored FCM tokens for the user.
 
@@ -32,7 +33,15 @@ def send(
     tokens = user.get('fcm_tokens', [])
     sent = runtime.send_push(
         tokens, title, body,
-        data={'user_id': user_id, 'scan_id': scan_id},
+        data={
+            'user_id': user_id,
+            'scan_id': scan_id,
+            'category': category,
+            'title_en': title_en,
+            'title_ar': title_ar or title_en,
+            'body_en': body_en,
+            'body_ar': body_ar or body_en,
+        },
     )
     logger.info('Push delivery attempted for user=%s scan=%s lang=%s sent=%s',
                 user_id, scan_id, lang, sent)

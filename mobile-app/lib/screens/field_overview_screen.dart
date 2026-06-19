@@ -101,7 +101,7 @@ class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
         : (fieldScans.first.isHealthy
               ? lang.t('scan.healthy')
               : fieldScans.first.diseaseNameEn);
-    final trendPoints = _buildTrend(fieldScans);
+    final activityDays = _buildActivityDays(fieldScans);
     final fieldWeather = field.weatherSnapshot;
     final temperature =
         (fieldWeather['temperature'] as num?)?.round() ??
@@ -240,15 +240,15 @@ class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
                               children: [
                                 if ((field.cropType ?? '').isNotEmpty)
                                   _tag(
-                                    '${lang.t('fields.cropType')}: ${field.cropType}',
+                                    '${lang.t('fields.cropType')}: ${_localizedCrop(lang, field.cropType)}',
                                   ),
                                 if ((field.soilType ?? '').isNotEmpty)
                                   _tag(
-                                    '${lang.t('fields.soilType')}: ${field.soilType}',
+                                    '${lang.t('fields.soilType')}: ${_localizedSoil(lang, field.soilType)}',
                                   ),
                                 if ((field.irrigationType ?? '').isNotEmpty)
                                   _tag(
-                                    '${lang.t('fields.irrigationType')}: ${field.irrigationType}',
+                                    '${lang.t('fields.irrigationType')}: ${_localizedIrrigation(lang, field.irrigationType)}',
                                   ),
                                 if ((field.season ?? '').isNotEmpty)
                                   _tag('Season: ${field.season}'),
@@ -264,7 +264,7 @@ class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Scan Activity',
+                              lang.t('fields.scanActivity'),
                               style: const TextStyle(
                                 color: AppColors.primaryDark,
                                 fontSize: 18,
@@ -272,31 +272,18 @@ class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            SizedBox(
-                              height: 160,
-                              child: CustomPaint(
-                                size: const Size(double.infinity, 160),
-                                painter: _LinePainter(
-                                  trendPoints,
-                                  diseasedScanCount == 0
-                                      ? AppColors.primary
-                                      : const Color(0xFFFFC107),
-                                ),
-                              ),
+                            _ScanActivityChart(
+                              days: activityDays,
+                              isRTL: lang.isRTL,
+                              emptyText: lang.t('fields.noScanActivity'),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               fieldScans.isEmpty
-                                  ? (lang.isRTL
-                                        ? 'لا توجد فحوصات محفوظة لهذا الحقل بعد.'
-                                        : 'No scan results saved for this field yet.')
+                                  ? lang.t('fields.noFieldScans')
                                   : diseasedScanCount == 0
-                                  ? (lang.isRTL
-                                        ? 'كل الفحوصات المحفوظة لهذا الحقل سليمة.'
-                                        : 'All saved scans for this field are healthy.')
-                                  : (lang.isRTL
-                                        ? 'توجد فحوصات مصابة محفوظة لهذا الحقل.'
-                                        : 'Saved scans include disease detections for this field.'),
+                                  ? lang.t('fields.allFieldScansHealthy')
+                                  : lang.t('fields.fieldScansIncludeDisease'),
                               style: const TextStyle(
                                 color: AppColors.textSecondary,
                                 fontSize: 14,
@@ -551,74 +538,195 @@ class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
     );
   }
 
-  List<int> _buildTrend(List<ScanResult> scans) {
-    const baselineHealth = 100;
-    if (scans.isEmpty) {
-      return <int>[
-        max(0, baselineHealth - 4),
-        max(0, baselineHealth - 3),
-        max(0, baselineHealth - 2),
-        max(0, baselineHealth - 1),
-        baselineHealth,
-      ];
+  List<_ScanActivityDay> _buildActivityDays(List<ScanResult> scans) {
+    final today = DateTime.now();
+    final start = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    ).subtract(const Duration(days: 6));
+    final days = List.generate(
+      7,
+      (index) => _ScanActivityDay(date: start.add(Duration(days: index))),
+    );
+
+    for (final scan in scans) {
+      final scanDay = DateTime(
+        scan.scannedAt.year,
+        scan.scannedAt.month,
+        scan.scannedAt.day,
+      );
+      final index = scanDay.difference(start).inDays;
+      if (index < 0 || index >= days.length) {
+        continue;
+      }
+      if (scan.hasDetection && !scan.isHealthy) {
+        days[index].diseased += 1;
+      } else {
+        days[index].healthy += 1;
+      }
     }
-    final trend = <int>[];
-    for (final scan in scans.take(5).toList().reversed) {
-      final adjustment = scan.isHealthy
-          ? 0
-          : scan.severity == 'high'
-          ? 18
-          : 10;
-      trend.add(max(10, baselineHealth - adjustment));
-    }
-    while (trend.length < 5) {
-      trend.insert(0, max(0, baselineHealth - (5 - trend.length)));
-    }
-    return trend;
+
+    return days;
+  }
+
+  String _localizedCrop(LanguageProvider lang, String? value) {
+    final key = _normalizedKey(value);
+    if (key.isEmpty) return '';
+    return lang.t('crops.$key');
+  }
+
+  String _localizedSoil(LanguageProvider lang, String? value) {
+    final key = _normalizedKey(value);
+    if (key.isEmpty) return '';
+    return lang.t('soil.$key');
+  }
+
+  String _localizedIrrigation(LanguageProvider lang, String? value) {
+    final key = _normalizedKey(value);
+    if (key.isEmpty) return '';
+    return lang.t('irrigation.$key');
+  }
+
+  String _normalizedKey(String? value) {
+    return (value ?? '').trim().toLowerCase().replaceAll(' ', '');
   }
 }
 
-class _LinePainter extends CustomPainter {
-  const _LinePainter(this.data, this.color);
+class _ScanActivityDay {
+  _ScanActivityDay({required this.date});
 
-  final List<int> data;
-  final Color color;
+  final DateTime date;
+  int healthy = 0;
+  int diseased = 0;
+
+  int get total => healthy + diseased;
+}
+
+class _ScanActivityChart extends StatelessWidget {
+  const _ScanActivityChart({
+    required this.days,
+    required this.isRTL,
+    required this.emptyText,
+  });
+
+  final List<_ScanActivityDay> days;
+  final bool isRTL;
+  final String emptyText;
 
   @override
-  void paint(Canvas canvas, Size size) {
-    if (data.isEmpty) {
-      return;
+  Widget build(BuildContext context) {
+    final displayDays = isRTL ? days.reversed.toList() : days;
+    final maxTotal = max(
+      1,
+      days.fold<int>(0, (value, day) => max(value, day.total)),
+    );
+    final hasActivity = days.any((day) => day.total > 0);
+
+    if (!hasActivity) {
+      return Container(
+        height: 160,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: AppColors.background,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          emptyText,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+        ),
+      );
     }
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final dotPaint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final maxVal = data.reduce(max).toDouble();
-    final minVal = data.reduce(min).toDouble();
-    final range = maxVal - minVal == 0 ? 1.0 : maxVal - minVal;
-    final path = Path();
-    for (int i = 0; i < data.length; i++) {
-      final x = i * size.width / (data.length - 1);
-      final y =
-          size.height -
-          ((data[i] - minVal) / range) * size.height * 0.8 -
-          size.height * 0.1;
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-      canvas.drawCircle(Offset(x, y), 4, dotPaint);
-    }
-    canvas.drawPath(path, paint);
+
+    return SizedBox(
+      height: 180,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final day in displayDays)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _ScanActivityBar(day: day, maxTotal: maxTotal),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScanActivityBar extends StatelessWidget {
+  const _ScanActivityBar({required this.day, required this.maxTotal});
+
+  final _ScanActivityDay day;
+  final int maxTotal;
+
+  @override
+  Widget build(BuildContext context) {
+    const maxBarHeight = 110.0;
+    final barHeight = max(10.0, (day.total / maxTotal) * maxBarHeight);
+    final healthyHeight = day.total == 0
+        ? 0.0
+        : max(0.0, barHeight * (day.healthy / day.total));
+    final diseasedHeight = day.total == 0
+        ? 0.0
+        : max(0.0, barHeight * (day.diseased / day.total));
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Text(
+          '${day.total}',
+          style: const TextStyle(
+            color: AppColors.primaryDark,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: maxBarHeight,
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: SizedBox(
+                width: 18,
+                height: barHeight,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (day.diseased > 0)
+                      Container(
+                        height: max(4.0, diseasedHeight),
+                        color: const Color(0xFFFFC107),
+                      ),
+                    if (day.healthy > 0)
+                      Container(
+                        height: max(4.0, healthyHeight),
+                        color: AppColors.primary,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _dayLabel(day.date),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+        ),
+      ],
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant _LinePainter oldDelegate) {
-    return oldDelegate.data != data || oldDelegate.color != color;
+  String _dayLabel(DateTime date) {
+    const labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    return labels[date.weekday - 1];
   }
 }
