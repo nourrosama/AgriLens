@@ -4,6 +4,8 @@ Forum controller — community feed, posts, comments, and Q&A endpoints.
 from bson import ObjectId
 from flask import Blueprint, current_app, g, request
 
+import html
+
 from app.middleware.auth_middleware import require_auth
 from app.models import notification_model, user_model
 from app.models import forum_post as post_model
@@ -13,8 +15,11 @@ from app.models import community as community_model
 from app.services import feed_service, push_service, trending_service, storage_service
 from app.utils.validators import is_valid_object_id
 from app.views.responses import error_response, success_response
+from app.controllers.scan_controller import _verify_magic_bytes
 
 ALLOWED_MEDIA = {'jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'avi', 'mkv', 'pdf'}
+_ALLOWED_IMG = {'jpg', 'jpeg', 'png', 'webp'}
+_ALLOWED_VID = {'mp4', 'mov', 'avi', 'mkv'}
 
 forum_bp = Blueprint('forum', __name__)
 
@@ -83,6 +88,11 @@ def upload_media():
     ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
     if ext not in ALLOWED_MEDIA:
         return error_response(f'File type .{ext} not allowed', 400)
+
+    if ext in _ALLOWED_IMG and not _verify_magic_bytes(file.stream, _ALLOWED_IMG):
+        return error_response('File content does not match a supported image format', 400)
+    if ext in _ALLOWED_VID and not _verify_magic_bytes(file.stream, _ALLOWED_VID):
+        return error_response('File content does not match a supported video format', 400)
 
     try:
         if ext in {'mp4', 'mov', 'avi', 'mkv'}:
@@ -263,6 +273,8 @@ def create_post():
     if not body:
         return error_response('Post body is required', 400)
 
+    body = html.escape(body)
+
     user_id = str(g.current_user['_id'])
     crop_tags = data.get('crop_tags') or []
     post = post_model.create_post(
@@ -386,6 +398,7 @@ def add_comment(post_id):
     body = (data.get('body') or '').strip()
     if not body:
         return error_response('Comment body is required', 400)
+    body = html.escape(body)
     user_id = str(g.current_user['_id'])
     comment = post_model.add_comment(post_id, user_id, body)
     post = post_model.get_post_by_id(post_id)
@@ -487,6 +500,8 @@ def ask_question():
     if not title or not body:
         return error_response('title and body are required', 400)
 
+    title = html.escape(title)
+    body = html.escape(body)
     user_id = str(g.current_user['_id'])
     question = question_model.create_question(
         author_id=user_id,
@@ -554,6 +569,7 @@ def post_answer(question_id):
     body = (data.get('body') or '').strip()
     if not body:
         return error_response('Answer body is required', 400)
+    body = html.escape(body)
     question = question_model.get_question_by_id(question_id)
     if not question:
         return error_response('Question not found', 404)

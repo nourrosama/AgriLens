@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +28,7 @@ class _SignupScreenState extends State<SignupScreen>
   // Shared fields
   final _nameCtrl = TextEditingController();
   File? _photo;
+  bool _consentAccepted = false;
 
   // Phone tab
   final _phoneCtrl = TextEditingController();
@@ -74,6 +76,7 @@ class _SignupScreenState extends State<SignupScreen>
   // ── submit: phone tab ────────────────────────────────────────────────────
 
   Future<void> _submitPhone() async {
+    if (!_consentAccepted) return;
     if (!_formKeyPhone.currentState!.validate()) return;
     final phone = _buildPhone();
     if (phone == null) return;
@@ -86,6 +89,7 @@ class _SignupScreenState extends State<SignupScreen>
       country: 'egypt',
       phone: phone,
       email: _emailOptCtrl.text.trim(),
+      consentGivenAt: DateTime.now().toUtc(),
     );
 
     if (!mounted) return;
@@ -102,6 +106,7 @@ class _SignupScreenState extends State<SignupScreen>
   // ── submit: email tab ────────────────────────────────────────────────────
 
   Future<void> _submitEmail() async {
+    if (!_consentAccepted) return;
     if (!_formKeyEmail.currentState!.validate()) return;
 
     final provider = context.read<UserProvider>();
@@ -111,6 +116,7 @@ class _SignupScreenState extends State<SignupScreen>
       fullName: _nameCtrl.text.trim(),
       country: 'egypt',
       email: _emailCtrl.text.trim().toLowerCase(),
+      consentGivenAt: DateTime.now().toUtc(),
     );
 
     if (!mounted) return;
@@ -370,10 +376,13 @@ class _SignupScreenState extends State<SignupScreen>
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
 
+          _consentRow(lang),
           _submitBtn(
-              up, lang.isRTL ? 'إرسال رمز التحقق' : 'Send Code', _submitPhone),
+              up,
+              lang.isRTL ? 'إرسال رمز التحقق' : 'Send Code',
+              _consentAccepted ? _submitPhone : () {}),
           _loginLink(lang),
         ],
       ),
@@ -415,10 +424,13 @@ class _SignupScreenState extends State<SignupScreen>
             style:
                 const TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 20),
 
-          _submitBtn(up,
-              lang.isRTL ? 'إرسال رمز التحقق' : 'Send Code', _submitEmail),
+          _consentRow(lang),
+          _submitBtn(
+              up,
+              lang.isRTL ? 'إرسال رمز التحقق' : 'Send Code',
+              _consentAccepted ? _submitEmail : () {}),
           _loginLink(lang),
         ],
       ),
@@ -427,14 +439,74 @@ class _SignupScreenState extends State<SignupScreen>
 
   // ── Shared widgets ────────────────────────────────────────────────────────
 
+  Widget _consentRow(LanguageProvider lang) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Checkbox(
+              value: _consentAccepted,
+              activeColor: AppColors.primary,
+              onChanged: (v) => setState(() => _consentAccepted = v ?? false),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 12),
+                child: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(
+                        color: Color(0xFF374151), fontSize: 13, height: 1.4),
+                    children: [
+                      TextSpan(
+                        text: lang.isRTL
+                            ? 'أوافق على '
+                            : 'I agree to the ',
+                      ),
+                      TextSpan(
+                        text: lang.isRTL ? 'سياسة الخصوصية' : 'Privacy Policy',
+                        style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () => context.push('/data-privacy'),
+                      ),
+                      TextSpan(
+                        text: lang.isRTL ? ' و' : ' and ',
+                      ),
+                      TextSpan(
+                        text: lang.isRTL
+                            ? 'الشروط والأحكام'
+                            : 'Terms & Conditions',
+                        style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600),
+                        recognizer: TapGestureRecognizer()
+                          ..onTap = () => context.push('/terms'),
+                      ),
+                      TextSpan(
+                        text: lang.isRTL
+                            ? '، وأوافق على جمع بيانات المزرعة والمحاصيل لأغراض الكشف عن الأمراض.'
+                            : ', and consent to the collection of my farm and crop data for disease detection purposes.',
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+
   Widget _submitBtn(UserProvider up, String label, VoidCallback onTap) =>
       SizedBox(
         width: double.infinity,
         child: ElevatedButton(
-          onPressed: up.isLoading ? null : onTap,
+          onPressed: (up.isLoading || !_consentAccepted) ? null : onTap,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primary,
+            backgroundColor: _consentAccepted ? AppColors.primary : const Color(0xFFD1D5DB),
             foregroundColor: Colors.white,
+            disabledBackgroundColor: const Color(0xFFD1D5DB),
+            disabledForegroundColor: Colors.white70,
             padding: const EdgeInsets.symmetric(vertical: 14),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),

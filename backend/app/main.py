@@ -54,11 +54,14 @@ def create_app():
     """Application factory pattern."""
     app = Flask(__name__)
 
-    # Allow the Flask admin panel to be embedded in an iframe from Flutter Web
+    # Allow only the admin panel and user portal to be embedded in an iframe from Flutter Web.
+    # API endpoints retain X-Frame-Options protection against clickjacking.
     @app.after_request
     def _allow_iframe(response):
-        response.headers.pop('X-Frame-Options', None)
-        response.headers['Content-Security-Policy'] = "frame-ancestors *"
+        from flask import request as _req
+        if _req.path.startswith('/admin') or _req.path.startswith('/app'):
+            response.headers.pop('X-Frame-Options', None)
+            response.headers['Content-Security-Policy'] = "frame-ancestors *"
         return response
 
     from app.config.settings import Config
@@ -79,10 +82,23 @@ def create_app():
         )
 
     from app.extensions import limiter
+    from flask import request as _flask_request
+
     app.config.setdefault('RATELIMIT_STORAGE_URI', app.config.get('REDIS_URL', 'memory://'))
-    app.config.setdefault('RATELIMIT_DEFAULT', app.config.get('GLOBAL_RATE_LIMITS', []))
+    global_limits = app.config.get('GLOBAL_RATE_LIMITS', [])
+    if isinstance(global_limits, list):
+        global_limits = ';'.join(global_limits)
+    app.config.setdefault('RATELIMIT_DEFAULT', global_limits)
     app.config.setdefault('RATELIMIT_HEADERS_ENABLED', True)
+    app.config['RATELIMIT_DEFAULTS_EXEMPT_WHEN'] = lambda: _flask_request.path in ('/metrics', '/api/health')
     limiter.init_app(app)
+
+    try:
+        from prometheus_flask_exporter import PrometheusMetrics
+        metrics = PrometheusMetrics(app, path='/metrics')
+        metrics.info('agrilens_app_info', 'AgriLens backend', version='1.0.0')
+    except ImportError:
+        app.logger.warning('prometheus-flask-exporter not installed; /metrics unavailable')
 
     from app.models.db import init_db
     init_db(app)

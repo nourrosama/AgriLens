@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from bson import ObjectId
 from flask import Blueprint, request, g
 
+from app.extensions import limiter
 from app.middleware.auth_middleware import require_auth
 from app.middleware.subscription_middleware import require_plan
 from app.services import chatbot_service, disease_report_service
@@ -42,6 +43,7 @@ def _message_to_dict(m):
 # ── public test endpoint (no auth) ───────────────────────────────────────────
 
 @chatbot_bp.route('/api/chatbot-test', methods=['POST'])
+@limiter.limit('10 per minute')
 def chat_test():
     """Public chatbot endpoint for testing (no auth required)."""
     data = request.get_json(silent=True) or {}
@@ -56,6 +58,7 @@ def chat_test():
 # ── authenticated chat (saves history) ───────────────────────────────────────
 
 @chatbot_bp.route('/api/chatbot', methods=['POST'])
+@limiter.limit('20 per minute')
 @require_auth
 @require_plan('premium')
 def chat():

@@ -156,6 +156,58 @@ services:
       retries: 10
       start_period: 20s
 
+  # ── Observability stack ────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - backend
+
+  loki:
+    image: grafana/loki:2.9.0
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deployment/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    entrypoint:
+      - sh
+      - -c
+      - "mkdir -p /loki/chunks /loki/rules /loki/tsdb-shipper-active /loki/tsdb-shipper-cache && /usr/bin/loki -config.file=/etc/loki/local-config.yaml"
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: agrilens2025
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+
 volumes:
   backend_uploads:
   mongo_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

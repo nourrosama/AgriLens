@@ -135,7 +135,7 @@ def test_scan_upload_processes_unhealthy_detection_and_alerts(
     client = client_for(scan_bp)
     response = client.post(
         "/api/scans",
-        data={"image": (BytesIO(b"fake image"), "leaf.jpg"), "crop_type": "tomato"},
+        data={"image": (BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 100), "leaf.jpg"), "crop_type": "tomato"},
         content_type="multipart/form-data",
         headers=auth_headers,
     )
@@ -214,7 +214,7 @@ def test_scan_upload_returns_validation_failure(
 
     response = client_for(scan_bp).post(
         "/api/scans",
-        data={"image": (BytesIO(b"fake image"), "leaf.jpg"), "crop_type": "potato"},
+        data={"image": (BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 100), "leaf.jpg"), "crop_type": "potato"},
         content_type="multipart/form-data",
         headers=auth_headers,
     )
