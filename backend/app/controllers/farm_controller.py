@@ -1,10 +1,10 @@
 """
 Farm controller — CRUD for farms and embedded fields.
 """
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, current_app
 from app.middleware.auth_middleware import require_auth
 from app.models import farm_model, user_model, audit_model
-from app.services import insights_service
+from app.services import insights_service, storage_service
 from app.services import cache
 from app.utils.validators import is_valid_object_id
 from app.views.responses import success_response, error_response
@@ -282,6 +282,7 @@ def add_field(farm_id):
         data.get('season', ''),
         data.get('health_score', 0),
         data.get('risk_level', 'low'),
+        data.get('photo_url', ''),
     )
     location = data.get('location') or {}
     if location:
@@ -321,6 +322,7 @@ def update_field(farm_id, field_id):
         'season',
         'health_score',
         'risk_level',
+        'photo_url',
     )
     updates = {key: data[key] for key in allowed_keys if key in data}
     if 'location' in updates:
@@ -334,6 +336,21 @@ def update_field(farm_id, field_id):
     if field is None:
         return error_response('Field not found', 404)
     return success_response({'field': farm_model.serialize_field(field)}, 'Field updated')
+
+
+@farm_bp.route('/api/farms/field-photo', methods=['POST'])
+@require_auth
+def upload_field_photo():
+    """Upload a field photo and return the URL."""
+    photo = request.files.get('photo')
+    if not photo or not photo.filename:
+        return error_response('No photo provided', 400)
+    try:
+        url = storage_service.upload_field_image(photo)
+        return success_response({'photo_url': url}, 'Photo uploaded', 201)
+    except Exception as exc:
+        current_app.logger.exception('Field photo upload failed: %s', exc)
+        return error_response('Unable to upload photo. Please try again.', 503)
 
 
 @farm_bp.route('/api/farms/<farm_id>/fields/<field_id>', methods=['DELETE'])

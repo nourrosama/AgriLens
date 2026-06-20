@@ -158,6 +158,14 @@ class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
                 ],
               ),
             ),
+            if (field.photoUrl.isNotEmpty)
+              Image.network(
+                field.photoUrl,
+                height: 180,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+              ),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {

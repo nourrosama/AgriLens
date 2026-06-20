@@ -16,6 +16,7 @@ class FieldData {
     this.status = 'healthy',
     this.health = 85,
     this.farmName = '',
+    this.photoUrl = '',
     this.locationData = const {},
     this.weatherSnapshot = const {},
   });
@@ -34,6 +35,7 @@ class FieldData {
   String? season;
   String status;
   int health;
+  String photoUrl;
   double? get latitude =>
       _toDouble(locationData['lat'] ?? locationData['latitude']);
   double? get longitude => _toDouble(
@@ -69,6 +71,7 @@ class FieldData {
       season: json['season']?.toString(),
       status: riskLevel == 'low' ? 'healthy' : 'warning',
       health: healthScore,
+      photoUrl: json['photo_url']?.toString() ?? '',
       locationData: location is Map<String, dynamic> ? location : const {},
       weatherSnapshot: json['weather_snapshot'] is Map<String, dynamic>
           ? json['weather_snapshot'] as Map<String, dynamic>
@@ -171,6 +174,7 @@ class FieldsProvider extends ChangeNotifier {
     String? soilType,
     String? irrigationType,
     String? season,
+    String? photoUrl,
   }) async {
     _setLoading(true);
     try {
@@ -193,6 +197,7 @@ class FieldsProvider extends ChangeNotifier {
           'season': season ?? '',
           'health_score': 85,
           'risk_level': 'low',
+          if (photoUrl != null && photoUrl.isNotEmpty) 'photo_url': photoUrl,
         },
       );
       await loadFields();

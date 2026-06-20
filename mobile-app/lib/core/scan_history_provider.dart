@@ -120,6 +120,7 @@ class ScanResult {
     this.topPredictions = const [],
     this.selectedFrames = const [],
     this.gradcamOverlay,
+    this.gradcamUrl,
     this.diseaseReport,
     this.localImageBytes,
   });
@@ -151,6 +152,10 @@ class ScanResult {
   /// Base64-encoded PNG of the Grad-CAM heatmap overlay.
   /// Only present in the immediate scan creation response; null for history.
   final String? gradcamOverlay;
+
+  /// Persistent Cloudinary/local URL of the uploaded Grad-CAM image.
+  /// Present in scan history after the first detection persists it.
+  final String? gradcamUrl;
 
   /// Structured AI disease report fetched from /api/disease-report.
   /// Populated lazily by ScanResultScreen; null until fetched.
@@ -190,6 +195,7 @@ class ScanResult {
     topPredictions: topPredictions,
     selectedFrames: selectedFrames,
     gradcamOverlay: gradcamOverlay,
+    gradcamUrl: gradcamUrl,
     diseaseReport: diseaseReport,
     localImageBytes: bytes,
   );
@@ -253,6 +259,7 @@ class ScanResult {
           .map(SelectedVideoFrame.fromJson)
           .toList(),
       gradcamOverlay: detection['gradcam_overlay']?.toString(),
+      gradcamUrl: () { final s = json['gradcam_url']?.toString() ?? ''; return s.isEmpty ? null : s; }(),
     );
   }
 }

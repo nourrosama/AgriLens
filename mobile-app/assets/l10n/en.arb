@@ -407,5 +407,20 @@
   "home.goodEvening": "Good evening",
   "home.goodNight": "Good night",
   "subscription.trialActive": "Trial active",
-  "subscription.trialDaysLeft": "days left"
+  "subscription.trialDaysLeft": "days left",
+  "subscription.payment": "Payment",
+  "subscription.selectPayment": "Select Payment Method",
+  "subscription.processing": "Processing...",
+  "subscription.orderSummary": "Order Summary",
+  "subscription.total": "Total",
+  "subscription.card": "Credit/Debit Card",
+  "subscription.vodafoneCash": "Vodafone Cash",
+  "subscription.fawry": "Fawry",
+  "subscription.instaPay": "InstaPay",
+  "subscription.holderName": "Cardholder Name",
+  "subscription.mobileNumber": "Mobile Number",
+  "subscription.fawryCode": "Fawry Code",
+  "subscription.bankName": "Bank Name",
+  "subscription.trialExpiredTitle": "Trial Expired",
+  "subscription.trialExpiredBody": "Your free trial has ended. Subscribe to a plan to continue using all features."
 }

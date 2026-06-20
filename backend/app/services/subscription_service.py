@@ -7,7 +7,7 @@ from bson import ObjectId
 from app.models.db import scans_col
 
 # ── Plan hierarchy ────────────────────────────────────────────────────────────
-PLAN_HIERARCHY = {'free': 0, 'premium': 1, 'professional': 2}
+PLAN_HIERARCHY = {'free': 0, 'trial': 1, 'premium': 1, 'professional': 2}
 FREE_SCAN_LIMIT = 15
 
 # ── Feature matrix ────────────────────────────────────────────────────────────

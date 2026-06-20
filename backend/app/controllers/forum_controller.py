@@ -216,14 +216,18 @@ def list_posts():
     content_type = request.args.get('content_type', '').strip() or None
     crop        = request.args.get('crop', '').strip()
     disease     = request.args.get('disease', '').strip()
+    filter_key  = request.args.get('filter', '').strip()
     page        = request.args.get('page', 1, type=int)
     per_page    = min(request.args.get('per_page', 20, type=int), 50)
     user_id     = str(g.current_user['_id'])
+
+    author_id = user_id if filter_key == 'my_posts' else ''
 
     posts = post_model.get_posts_by_tags(
         crop_tags=[crop] if crop else None,
         disease_tags=[disease] if disease else None,
         content_type=content_type,
+        author_id=author_id,
         page=page,
         per_page=per_page,
     )

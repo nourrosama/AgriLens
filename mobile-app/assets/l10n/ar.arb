@@ -407,5 +407,20 @@
   "home.goodEvening": "مساء النور",
   "home.goodNight": "تصبح على خير",
   "subscription.trialActive": "الفترة التجريبية نشطة",
-  "subscription.trialDaysLeft": "أيام متبقية"
+  "subscription.trialDaysLeft": "أيام متبقية",
+  "subscription.payment": "الدفع",
+  "subscription.selectPayment": "اختر طريقة الدفع",
+  "subscription.processing": "جاري المعالجة...",
+  "subscription.orderSummary": "ملخص الطلب",
+  "subscription.total": "الإجمالي",
+  "subscription.card": "بطاقة بنكية",
+  "subscription.vodafoneCash": "فودافون كاش",
+  "subscription.fawry": "فوري",
+  "subscription.instaPay": "إنستاباي",
+  "subscription.holderName": "اسم حامل البطاقة",
+  "subscription.mobileNumber": "رقم الجوال",
+  "subscription.fawryCode": "كود فوري",
+  "subscription.bankName": "اسم البنك",
+  "subscription.trialExpiredTitle": "انتهت الفترة التجريبية",
+  "subscription.trialExpiredBody": "انتهت فترتك التجريبية المجانية. اشترك في خطة للاستمرار في استخدام جميع المميزات."
 }
