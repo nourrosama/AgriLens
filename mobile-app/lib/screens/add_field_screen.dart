@@ -1,13 +1,36 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/theme.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/fields_provider.dart';
 import 'package:agrilens/core/crop_provider.dart';
+
+/// Calls Nominatim reverse-geocoding and returns a display name or empty string.
+Future<String> _reverseGeocode(double lat, double lng) async {
+  try {
+    final uri = Uri.parse(
+      'https://nominatim.openstreetmap.org/reverse'
+      '?format=json&lat=$lat&lon=$lng&accept-language=en',
+    );
+    final resp = await http.get(uri, headers: {'User-Agent': 'AgriLens/1.0'})
+        .timeout(const Duration(seconds: 8));
+    if (resp.statusCode == 200) {
+      final json = jsonDecode(resp.body) as Map<String, dynamic>;
+      return json['display_name']?.toString() ?? '';
+    }
+  } catch (_) {}
+  return '';
+}
 
 class AddFieldScreen extends StatefulWidget {
   const AddFieldScreen({super.key});
@@ -19,6 +42,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
   final _formKey = GlobalKey<FormState>();
   final _latitudeCtrl = TextEditingController();
   final _longitudeCtrl = TextEditingController();
+  final _locationNameCtrl = TextEditingController();
   String _name = '',
       _location = '',
       _area = '',
@@ -27,6 +51,10 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
   String? _cropType = 'tomato', _soilType, _irrigationType;
   bool _showSuccess = false;
   bool _isLocating = false;
+  XFile? _pickedImage;
+  bool _uploadingPhoto = false;
+  String? _uploadedPhotoUrl;
+  final _apiClient = ApiClient();
 
   bool get _hasSelectedLocation =>
       _latitudeCtrl.text.trim().isNotEmpty &&
@@ -36,7 +64,37 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
   void dispose() {
     _latitudeCtrl.dispose();
     _longitudeCtrl.dispose();
+    _locationNameCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1200,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _pickedImage = picked;
+      _uploadingPhoto = true;
+    });
+    try {
+      final response = await _apiClient.multipart(
+        '/api/farms/field-photo',
+        file: File(picked.path),
+        fieldName: 'photo',
+        auth: true,
+      );
+      final url = (response['data'] as Map<String, dynamic>?)?['photo_url']
+          ?.toString();
+      if (mounted) setState(() => _uploadedPhotoUrl = url);
+    } catch (_) {
+      if (mounted) setState(() => _uploadedPhotoUrl = null);
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
   }
 
   Future<void> _submit() async {
@@ -65,6 +123,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
         cropType: _cropType,
         soilType: _soilType,
         irrigationType: _irrigationType,
+        photoUrl: _uploadedPhotoUrl,
       );
 
       if (!mounted) {
@@ -138,6 +197,11 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
     setState(() {
       _latitudeCtrl.text = point.latitude.toStringAsFixed(6);
       _longitudeCtrl.text = point.longitude.toStringAsFixed(6);
+    });
+    _reverseGeocode(point.latitude, point.longitude).then((name) {
+      if (mounted && name.isNotEmpty && _locationNameCtrl.text.isEmpty) {
+        setState(() => _locationNameCtrl.text = name);
+      }
     });
   }
 
@@ -246,33 +310,92 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(32),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
+                      GestureDetector(
+                        onTap: _uploadingPhoto ? null : _pickAndUploadImage,
+                        child: ClipRRect(
                           borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.camera_alt_rounded,
-                              size: 48,
-                              color: AppColors.primary,
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              lang.t('addField.takePhoto'),
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 18,
+                          child: Container(
+                            width: double.infinity,
+                            height: 160,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: _uploadedPhotoUrl != null
+                                    ? AppColors.primary
+                                    : AppColors.border,
+                                width: 2,
                               ),
+                              borderRadius: BorderRadius.circular(16),
                             ),
-                          ],
+                            child: _uploadingPhoto
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.primary,
+                                    ),
+                                  )
+                                : _pickedImage != null
+                                    ? Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Image.file(
+                                            File(_pickedImage!.path),
+                                            fit: BoxFit.cover,
+                                          ),
+                                          if (_uploadedPhotoUrl == null)
+                                            Container(
+                                              color: Colors.black26,
+                                              child: const Center(
+                                                child: CircularProgressIndicator(
+                                                  color: Colors.white,
+                                                ),
+                                              ),
+                                            ),
+                                          Positioned(
+                                            bottom: 8,
+                                            right: 8,
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 8,
+                                                vertical: 4,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black54,
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                              ),
+                                              child: Text(
+                                                lang.isRTL
+                                                    ? 'تغيير الصورة'
+                                                    : 'Change photo',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      )
+                                    : Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(
+                                            Icons.add_photo_alternate_rounded,
+                                            size: 48,
+                                            color: AppColors.primary,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            lang.t('addField.takePhoto'),
+                                            style: const TextStyle(
+                                              color: AppColors.primary,
+                                              fontSize: 16,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                          ),
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -517,6 +640,7 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
         ),
         const SizedBox(height: 12),
         TextFormField(
+          controller: _locationNameCtrl,
           decoration: InputDecoration(
             hintText: lang.t('addField.locationPlaceholder'),
             hintStyle: const TextStyle(color: Color(0xFF9E9E9E)),
@@ -556,7 +680,9 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.my_location_rounded),
-                label: Text(_isLocating ? 'Locating...' : 'Use current'),
+                label: Text(_isLocating
+                    ? (lang.isRTL ? 'جارٍ التحديد...' : 'Locating...')
+                    : (lang.isRTL ? 'موقعي الحالي' : 'Use current')),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   side: const BorderSide(color: AppColors.primary),
@@ -595,17 +721,35 @@ class _AddFieldScreenState extends State<AddFieldScreen> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.primary),
             ),
-            child: const Row(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.check_circle_rounded, color: AppColors.primary),
-                SizedBox(width: 8),
+                const Icon(Icons.check_circle_rounded, color: AppColors.primary),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    'Field location selected',
-                    style: TextStyle(
-                      color: AppColors.primaryDark,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        lang.isRTL ? 'تم تحديد الموقع' : 'Location selected',
+                        style: const TextStyle(
+                          color: AppColors.primaryDark,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      if (_locationNameCtrl.text.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          _locationNameCtrl.text,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -733,21 +877,148 @@ class _FieldLocationPicker extends StatefulWidget {
 
 class _FieldLocationPickerState extends State<_FieldLocationPicker> {
   late LatLng _selectedPoint = widget.initialPoint;
+  final _mapController = MapController();
+  final _searchCtrl = TextEditingController();
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _searching = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _search(String query) async {
+    if (query.trim().isEmpty) {
+      setState(() => _searchResults = []);
+      return;
+    }
+    setState(() => _searching = true);
+    try {
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/search'
+        '?format=json&q=${Uri.encodeComponent(query)}&limit=5&accept-language=en',
+      );
+      final resp = await http.get(uri, headers: {'User-Agent': 'AgriLens/1.0'})
+          .timeout(const Duration(seconds: 8));
+      if (resp.statusCode == 200) {
+        final list = jsonDecode(resp.body) as List<dynamic>;
+        setState(() {
+          _searchResults = list.cast<Map<String, dynamic>>();
+        });
+      }
+    } catch (_) {
+      setState(() => _searchResults = []);
+    } finally {
+      setState(() => _searching = false);
+    }
+  }
+
+  void _selectSearchResult(Map<String, dynamic> result) {
+    final lat = double.tryParse(result['lat']?.toString() ?? '') ?? 0;
+    final lon = double.tryParse(result['lon']?.toString() ?? '') ?? 0;
+    final point = LatLng(lat, lon);
+    setState(() {
+      _selectedPoint = point;
+      _searchResults = [];
+      _searchCtrl.clear();
+    });
+    _mapController.move(point, 14);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
+    final isRTL = lang.isRTL;
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: AppColors.primaryDark,
         elevation: 0,
-        title: const Text('Mark Field Location'),
+        title: Text(isRTL ? 'تحديد موقع الحقل' : 'Mark Field Location'),
       ),
       body: Column(
         children: [
+          // Search bar
+          Container(
+            color: Colors.white,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchCtrl,
+                  textDirection: isRTL ? TextDirection.rtl : TextDirection.ltr,
+                  decoration: InputDecoration(
+                    hintText: isRTL ? 'ابحث عن موقع...' : 'Search for a location...',
+                    prefixIcon: _searching
+                        ? const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : const Icon(Icons.search),
+                    suffixIcon: _searchCtrl.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchCtrl.clear();
+                              setState(() => _searchResults = []);
+                            },
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  onSubmitted: _search,
+                  onChanged: (v) => setState(() {}),
+                ),
+                if (_searchResults.isNotEmpty)
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: _searchResults.length,
+                      separatorBuilder: (_, _) =>
+                          const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final r = _searchResults[i];
+                        return ListTile(
+                          dense: true,
+                          leading: const Icon(Icons.location_on_outlined,
+                              color: AppColors.primary, size: 20),
+                          title: Text(
+                            r['display_name']?.toString() ?? '',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          onTap: () => _selectSearchResult(r),
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
+          ),
           Expanded(
             child: FlutterMap(
+              mapController: _mapController,
               options: MapOptions(
                 initialCenter: _selectedPoint,
                 initialZoom: 12,
@@ -791,9 +1062,11 @@ class _FieldLocationPickerState extends State<_FieldLocationPicker> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Tap the map to place the field marker.',
-                  style: TextStyle(color: AppColors.textPrimary),
+                Text(
+                  isRTL
+                      ? 'اضغط على الخريطة لتحديد موقع الحقل.'
+                      : 'Tap the map to place the field marker.',
+                  style: const TextStyle(color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -801,7 +1074,7 @@ class _FieldLocationPickerState extends State<_FieldLocationPicker> {
                   child: ElevatedButton.icon(
                     onPressed: () => Navigator.of(context).pop(_selectedPoint),
                     icon: const Icon(Icons.check_rounded),
-                    label: const Text('Use this location'),
+                    label: Text(isRTL ? 'استخدم هذا الموقع' : 'Use this location'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,

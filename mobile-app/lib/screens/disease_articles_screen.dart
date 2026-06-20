@@ -321,8 +321,10 @@ class _CuratedArticleCard extends StatelessWidget {
 
   Future<void> _open() async {
     final uri = Uri.tryParse(article.url);
-    if (uri == null) return;
-    if (await canLaunchUrl(uri)) await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (uri == null || article.url.isEmpty) return;
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   @override

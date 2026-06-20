@@ -148,7 +148,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 24),
                           _planSection(context, lang, user),
                           const SizedBox(height: 24),
-                          _menuOptions(context, lang),
+                          _menuOptions(context, lang, userProvider),
                           const SizedBox(height: 24),
                           _logoutBtn(context, lang, userProvider),
                           const SizedBox(height: 80),
@@ -213,7 +213,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      user.phone.isNotEmpty ? user.phone : '-',
+                      user.phone.isNotEmpty
+                          ? user.phone
+                          : user.email.isNotEmpty
+                              ? user.email
+                              : '-',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -221,18 +225,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         fontSize: 16,
                       ),
                     ),
-                    if (user.country.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        user.country,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -274,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Expanded(
                       child: _stat(
-                        '${fieldsProvider.averageHealth}${lang.t('units.percent')}',
+                        '${scanProvider.totalScans > 0 ? ((scanProvider.totalScans - scanProvider.activeDiseasesCount) / scanProvider.totalScans * 100).round() : 100}${lang.t('units.percent')}',
                         lang.t('fields.healthScore'),
                       ),
                     ),
@@ -547,8 +539,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _menuOptions(BuildContext context, LanguageProvider lang) {
+  Widget _menuOptions(BuildContext context, LanguageProvider lang, UserProvider userProvider) {
     final items = [
+      if (userProvider.isAdmin)
+        (
+          Icons.admin_panel_settings_outlined,
+          lang.isRTL ? 'لوحة الإدارة' : 'Admin Dashboard',
+          '/admin',
+        ),
       (Icons.edit_outlined, lang.t('profile.editProfile'), '/edit-profile'),
       (
         Icons.settings_outlined,

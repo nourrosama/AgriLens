@@ -704,25 +704,29 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final savedPath = await saveExportFile(filename, content);
 
       if (mounted) {
-        final displayName = savedPath.split('/').last.split(r'\').last;
+        final isDownloads = savedPath.contains('/Download');
+        final locationLabel = lang.isRTL
+            ? (isDownloads ? 'مجلد التنزيلات' : 'مجلد المستندات')
+            : (isDownloads ? 'Downloads folder' : 'Documents folder');
+        final filename2 = savedPath.split('/').last.split(r'\').last;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.primaryDark,
+            duration: const Duration(seconds: 6),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lang.isRTL ? 'تم الحفظ بنجاح' : 'Saved successfully',
+                  lang.isRTL ? 'تم الحفظ في $locationLabel' : 'Saved to $locationLabel',
                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 Text(
-                  displayName,
+                  filename2,
                   style: const TextStyle(fontSize: 12, color: Colors.white70),
                 ),
               ],
             ),
-            duration: const Duration(seconds: 5),
           ),
         );
       }

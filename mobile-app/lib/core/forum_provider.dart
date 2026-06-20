@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 
@@ -199,6 +201,8 @@ class ForumProvider extends ChangeNotifier {
 
   // ── Feed ────────────────────────────────────────────────────────────────────
 
+  static const _feedCacheKey = 'cached_forum_feed_v1';
+
   Future<void> loadFeed({bool refresh = false}) async {
     if (_feedLoading) return;
     if (refresh) {
@@ -210,6 +214,7 @@ class ForumProvider extends ChangeNotifier {
     _feedLoading = true;
     _feedError = null;
     notifyListeners();
+    final isFirstPage = _feedPage == 1;
     try {
       final response = await _api.get(
         '/api/feed',
@@ -217,15 +222,34 @@ class ForumProvider extends ChangeNotifier {
         query: {'page': _feedPage, 'per_page': 20},
       );
       final data = response['data'] as Map<String, dynamic>;
-      final posts =
+      final rawPosts =
           ((data['posts'] as List<dynamic>?) ?? [])
               .whereType<Map<String, dynamic>>()
-              .map(ForumPost.fromJson)
               .toList();
+      final posts = rawPosts.map(ForumPost.fromJson).toList();
       if (posts.length < 20) _feedHasMore = false;
       _feed.addAll(posts);
       _feedPage++;
+      // Persist page 1 for offline use
+      if (isFirstPage) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_feedCacheKey, jsonEncode(rawPosts));
+      }
     } catch (e) {
+      // Load cached feed when offline and no posts loaded yet
+      if (isFirstPage && _feed.isEmpty) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final cached = prefs.getString(_feedCacheKey);
+          if (cached != null) {
+            final rawPosts = (jsonDecode(cached) as List<dynamic>)
+                .whereType<Map<String, dynamic>>()
+                .toList();
+            _feed.addAll(rawPosts.map(ForumPost.fromJson));
+            _feedHasMore = false;
+          }
+        } catch (_) {}
+      }
       _feedError = e.toString();
     } finally {
       _feedLoading = false;
@@ -447,6 +471,27 @@ class ForumProvider extends ChangeNotifier {
       return true;
     } catch (_) {
       return false;
+    }
+  }
+
+  // ── Filtered posts (my posts, etc.) ─────────────────────────────────────────
+
+  Future<List<ForumPost>> getFilteredPosts({
+    String filter = '',
+    int page = 1,
+  }) async {
+    try {
+      final q = <String, dynamic>{'page': page};
+      if (filter.isNotEmpty) q['filter'] = filter;
+      final response = await _api.get('/api/posts', auth: true, query: q);
+      return ((response['data'] as Map<String, dynamic>)['posts']
+                  as List<dynamic>? ??
+              [])
+          .whereType<Map<String, dynamic>>()
+          .map(ForumPost.fromJson)
+          .toList();
+    } catch (_) {
+      return [];
     }
   }
 

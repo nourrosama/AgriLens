@@ -14,6 +14,7 @@ from app.models import audit_model, farm_model, notification_model, scan_model
 from app.observers import event_publisher
 from app.services import (
     detection_proxy_service, disease_report_service,
+    push_service,
     storage_service, video_service,
 )
 from app.services.subscription_service import can_scan, build_scan_response
@@ -26,18 +27,12 @@ ALLOWED_IMAGE_EXT = {'jpg', 'jpeg', 'png', 'webp'}
 ALLOWED_VIDEO_EXT = {'mp4', 'mov', 'avi', 'mkv'}
 
 
-def _store_validation_failure(scan_id: str, validation: dict) -> None:
-    scan_model.update_scan(
-        scan_id,
-        {
-            'status': 'validation_failed',
-            'detection_result': validation,
-        },
-    )
+def _store_validation_failure(scan_id: str, _validation: dict) -> None:
+    """Delete the scan document when validation fails — invalid images must not appear in history."""
+    scan_model.delete_scan(scan_id)
 
 
-def _validation_failure_response(scan_id: str, validation: dict):
-    stored = scan_model.get_scan_by_id(scan_id)
+def _validation_failure_response(_scan_id: str, validation: dict):
     return (
         jsonify(
             {
@@ -45,7 +40,7 @@ def _validation_failure_response(scan_id: str, validation: dict):
                 'message': validation.get('message', 'Scan validation failed'),
                 'error_code': validation.get('error_code'),
                 'data': {
-                    'scan': scan_model.serialize(stored),
+                    'scan': None,
                     'validation': validation,
                     'suggested_crop': validation.get('detected_crop'),
                 },
@@ -396,9 +391,18 @@ def upload_scan():
         detection = detection_proxy_service.detect(image_reference, crop_type)
 
         if detection:
-            # Pop the Grad-CAM overlay before persisting to keep the document lean.
-            # It will be re-injected into the one-time 201 response below.
+            # Pop the Grad-CAM overlay before persisting; we'll upload it
+            # separately and store the permanent URL in detection_result.
             gradcam_overlay = detection.pop('gradcam_overlay', None)
+            if gradcam_overlay and not detection.get('is_healthy', True):
+                try:
+                    import base64 as _b64
+                    encoded = gradcam_overlay.split(',', 1)[-1]
+                    gc_bytes = _b64.b64decode(encoded)
+                    gc_url = storage_service.upload_scan_gradcam_bytes(gc_bytes, scan_id, 0)
+                    detection['gradcam_url'] = gc_url
+                except Exception as _gc_exc:
+                    current_app.logger.warning('GradCAM upload failed: %s', _gc_exc)
             scan_model.update_detection_result(scan_id, detection)
             _update_field_health_from_detection(farm_id, field_id, detection)
             current_app.logger.info(
@@ -486,6 +490,22 @@ def upload_scan():
             'plan': g.current_user.get('plan', 'free'),
         }
 
+    # ── Push notification for disease detection ──────────────────────────────
+    if detection and not detection.get('is_healthy', True):
+        is_ar = g.current_user.get('language', 'en') == 'ar'
+        disease_name = detection.get('disease', '')
+        severity = detection.get('severity', 'medium')
+        push_service.send_push_to_user(
+            user=g.current_user,
+            title='تحذير: مرض نباتي مكتشف' if is_ar else 'Disease Detected',
+            body=(
+                f'تم اكتشاف {disease_name} بخطورة {severity}. افتح التطبيق للتفاصيل.'
+                if is_ar else
+                f'{disease_name} detected ({severity} severity). Tap to view your report.'
+            ),
+            data={'scan_id': scan_id, 'type': 'scan_result'},
+        )
+
     message = 'Scan processed successfully' if detection else 'Scan uploaded but detection failed'
     return success_response(
         {
@@ -533,6 +553,7 @@ def list_scans():
             scans_col().find({
                 'user_id': ObjectId(str(g.current_user['_id'])),
                 'created_at': {'$gte': week_start},
+                'status': {'$nin': ['validation_failed', 'failed']},
             })
             .sort('created_at', -1)
             .limit(3)

@@ -145,7 +145,11 @@ class _FeedCardState extends State<FeedCard>
                 Stack(
                   clipBehavior: Clip.none,
                   children: [
-                    _Avatar(authorId: widget.post.authorId),
+                    _Avatar(
+                      authorId: widget.post.authorId,
+                      authorPhotoUrl: widget.post.authorPhotoUrl,
+                      authorName: widget.post.authorName,
+                    ),
                     if (isOwner && isPremiumPlus)
                       Positioned(
                         right: -3,
@@ -756,13 +760,27 @@ class _ActionButton extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.authorId});
+  const _Avatar({required this.authorId, this.authorPhotoUrl = '', this.authorName = ''});
   final String authorId;
+  final String authorPhotoUrl;
+  final String authorName;
 
   @override
   Widget build(BuildContext context) {
-    final initial =
-        authorId.isNotEmpty ? authorId[authorId.length - 1].toUpperCase() : 'F';
+    final initial = authorName.isNotEmpty
+        ? authorName[0].toUpperCase()
+        : (authorId.isNotEmpty ? authorId[authorId.length - 1].toUpperCase() : 'F');
+
+    if (authorPhotoUrl.isNotEmpty) {
+      return CircleAvatar(
+        radius: 18,
+        backgroundColor: AppColors.primaryLight,
+        backgroundImage: NetworkImage(authorPhotoUrl),
+        onBackgroundImageError: (_, _) {},
+        child: null,
+      );
+    }
+
     return CircleAvatar(
       radius: 18,
       backgroundColor: AppColors.primaryLight,

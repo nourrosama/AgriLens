@@ -23,16 +23,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   bool _initialised = false;
-  String _country = 'egypt';
   File? _photo;
   String? _existingPhotoPath;
-
-  static const _countries = [
-    ('egypt', 'Egypt', 'مصر'),
-    ('saudi', 'Saudi Arabia', 'السعودية'),
-    ('uae', 'UAE', 'الإمارات'),
-    ('jordan', 'Jordan', 'الأردن'),
-  ];
 
   @override
   void didChangeDependencies() {
@@ -44,7 +36,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameCtrl.text = user.fullName ?? '';
     _emailCtrl.text = user.email ?? '';
     _phoneCtrl.text = user.phone ?? '';
-    _country = user.country ?? 'egypt';
     _existingPhotoPath = user.photoPath;
     _initialised = true;
   }
@@ -75,7 +66,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final ok = await context.read<UserProvider>().updateProfile(
       fullName: _nameCtrl.text.trim(),
       email: _emailCtrl.text.trim(),
-      country: _country,
       photoPath: _photo?.path ?? _existingPhotoPath,
     );
     if (!mounted) {
@@ -267,25 +257,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             filled: true,
                             fillColor: const Color(0xFFF3F4F6),
                           ),
-                        ),
-                        const SizedBox(height: 20),
-                        _fieldLabel(lang.t('editProfile.country')),
-                        const SizedBox(height: 8),
-                        DropdownButtonFormField<String>(
-                          initialValue: _country,
-                          decoration: _inputDec(),
-                          items: _countries
-                              .map(
-                                (country) => DropdownMenuItem<String>(
-                                  value: country.$1,
-                                  child: Text(
-                                    lang.isRTL ? country.$3 : country.$2,
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) =>
-                              setState(() => _country = value ?? _country),
                         ),
                         const SizedBox(height: 28),
                         SizedBox(

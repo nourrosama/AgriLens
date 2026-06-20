@@ -87,13 +87,9 @@ class _FeedScreenState extends State<FeedScreen>
       ),
       floatingActionButton: _currentTab == 2
           ? null
-          : FloatingActionButton(
+          : FloatingActionButton.extended(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              // No tooltip: on Flutter web the FAB tooltip creates an Overlay
-              // entry that reads the FAB's render-box position before layout
-              // completes, triggering a cascade of "Assertion failed /
-              // proxy_box performLayout" errors that block tap delivery.
               onPressed: () {
                 final tab = _currentTab;
                 WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -105,10 +101,15 @@ class _FeedScreenState extends State<FeedScreen>
                   }
                 });
               },
-              child: Icon(
+              icon: Icon(
                 _currentTab == 1
                     ? Icons.help_outline_rounded
                     : Icons.edit_rounded,
+              ),
+              label: Text(
+                _currentTab == 1
+                    ? (isRTL ? 'اطرح سؤالاً' : 'Ask Question')
+                    : (isRTL ? 'منشور جديد' : 'New Post'),
               ),
             ),
       bottomNavigationBar: const BottomNav(active: 'forum'),
@@ -118,13 +119,34 @@ class _FeedScreenState extends State<FeedScreen>
 
 // ── All-posts tab ─────────────────────────────────────────────────────────────
 
-class _FeedTab extends StatelessWidget {
+class _FeedTab extends StatefulWidget {
   const _FeedTab({required this.scrollController});
   final ScrollController scrollController;
 
   @override
+  State<_FeedTab> createState() => _FeedTabState();
+}
+
+class _FeedTabState extends State<_FeedTab> {
+  String _filter = '';
+  List<ForumPost>? _filteredPosts;
+  bool _filterLoading = false;
+
+  Future<void> _loadFiltered() async {
+    setState(() => _filterLoading = true);
+    final posts = await context
+        .read<ForumProvider>()
+        .getFilteredPosts(filter: _filter);
+    if (mounted) setState(() { _filteredPosts = posts; _filterLoading = false; });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final forum = context.watch<ForumProvider>();
+    final lang = context.watch<LanguageProvider>();
+    final isRTL = lang.isRTL;
+
+    final useFiltered = _filter.isNotEmpty;
 
     // Always keep the same top-level widget type (RefreshIndicator >
     // ListView.builder) so Flutter never swaps out the render object during
@@ -134,12 +156,41 @@ class _FeedTab extends StatelessWidget {
     // items so the ListView render object is created once and reused.
     return RefreshIndicator(
       color: AppColors.primary,
-      onRefresh: () => forum.loadFeed(refresh: true),
+      onRefresh: useFiltered
+          ? _loadFiltered
+          : () => forum.loadFeed(refresh: true),
       child: ListView.builder(
-        controller: scrollController,
+        controller: widget.scrollController,
         padding: const EdgeInsets.only(top: 8, bottom: 100),
-        itemCount: _itemCount(forum),
+        itemCount: _itemCount(forum, useFiltered),
         itemBuilder: (context, index) {
+          if (index == 0) {
+            return _PostFilters(
+              selected: _filter,
+              isRTL: isRTL,
+              onSelected: (value) {
+                setState(() => _filter = value);
+                if (value.isEmpty) {
+                  forum.loadFeed(refresh: true);
+                } else {
+                  _loadFiltered();
+                }
+              },
+            );
+          }
+          final adjustedIndex = index - 1;
+          if (useFiltered) {
+            if (_filterLoading) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 80),
+                child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              );
+            }
+            final posts = _filteredPosts ?? [];
+            if (posts.isEmpty) return _EmptyFeed();
+            if (adjustedIndex < posts.length) return FeedCard(post: posts[adjustedIndex]);
+            return const SizedBox.shrink();
+          }
           // Initial loading state
           if (forum.feedLoading && forum.feed.isEmpty) {
             return const Padding(
@@ -153,8 +204,8 @@ class _FeedTab extends StatelessWidget {
           if (forum.feed.isEmpty) {
             return _EmptyFeed();
           }
-          // "Load more" spinner at the end
-          if (index == forum.feed.length) {
+          // "Load more" spinner at the end — note: adjustedIndex for feed items
+          if (adjustedIndex == forum.feed.length) {
             return const Padding(
               padding: EdgeInsets.all(16),
               child: Center(
@@ -165,24 +216,69 @@ class _FeedTab extends StatelessWidget {
               ),
             );
           }
-          return FeedCard(post: forum.feed[index]);
+          if (adjustedIndex < forum.feed.length) {
+            return FeedCard(post: forum.feed[adjustedIndex]);
+          }
+          return const SizedBox.shrink();
         },
       ),
     );
   }
 
-  int _itemCount(ForumProvider forum) {
-    if (forum.feedLoading && forum.feed.isEmpty) return 1;
-    if (forum.feed.isEmpty) return 1;
-    return forum.feed.length + (forum.feedHasMore ? 1 : 0);
+  int _itemCount(ForumProvider forum, bool useFiltered) {
+    // +1 for the filter chips row at index 0
+    if (useFiltered) {
+      if (_filterLoading) return 2;
+      final posts = _filteredPosts ?? [];
+      return posts.isEmpty ? 2 : posts.length + 1;
+    }
+    if (forum.feedLoading && forum.feed.isEmpty) return 2;
+    if (forum.feed.isEmpty) return 2;
+    return forum.feed.length + 1 + (forum.feedHasMore ? 1 : 0);
   }
 
-  void _showPostDetail(BuildContext context, ForumPost post) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _PostDetailSheet(post: post),
+}
+
+class _PostFilters extends StatelessWidget {
+  const _PostFilters({
+    required this.selected,
+    required this.isRTL,
+    required this.onSelected,
+  });
+  final String selected;
+  final bool isRTL;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final filters = <({String value, String labelEn, String labelAr})>[
+      (value: '', labelEn: 'All', labelAr: 'الكل'),
+      (value: 'my_posts', labelEn: 'My posts', labelAr: 'منشوراتي'),
+    ];
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+      child: Row(
+        children: [
+          for (final f in filters) ...[
+            ChoiceChip(
+              label: Text(isRTL ? f.labelAr : f.labelEn),
+              selected: selected == f.value,
+              selectedColor: AppColors.primaryLight,
+              labelStyle: TextStyle(
+                color: selected == f.value
+                    ? AppColors.primaryDark
+                    : AppColors.textSecondary,
+                fontWeight: selected == f.value
+                    ? FontWeight.w600
+                    : FontWeight.w400,
+              ),
+              onSelected: (_) => onSelected(f.value),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ],
+      ),
     );
   }
 }
