@@ -61,6 +61,43 @@ def _allowed_file(filename: str, allowed: set = None) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed
 
 
+_IMAGE_SIGNATURES = [
+    (b'\xff\xd8\xff', {'jpg', 'jpeg'}),
+    (b'\x89PNG', {'png'}),
+]
+
+_WEBP_RIFF = b'RIFF'
+_WEBP_MAGIC = b'WEBP'
+_MP4_FTYP = b'ftyp'
+_AVI_MAGIC = b'AVI '
+_MKV_MAGIC = b'\x1aE\xdf\xa3'
+
+
+def _verify_magic_bytes(file_obj, expected_types: set) -> bool:
+    """Read the first 12 bytes and confirm the file signature matches the claimed type."""
+    header = file_obj.read(12)
+    file_obj.seek(0)
+
+    for sig, types in _IMAGE_SIGNATURES:
+        if header[:len(sig)] == sig and expected_types & types:
+            return True
+
+    if header[:4] == _WEBP_RIFF and header[8:12] == _WEBP_MAGIC and 'webp' in expected_types:
+        return True
+
+    # MP4 / MOV: 'ftyp' box starts at byte 4
+    if header[4:8] == _MP4_FTYP and expected_types & {'mp4', 'mov'}:
+        return True
+
+    if header[:4] == _WEBP_RIFF and header[8:12] == _AVI_MAGIC and 'avi' in expected_types:
+        return True
+
+    if header[:4] == _MKV_MAGIC and 'mkv' in expected_types:
+        return True
+
+    return False
+
+
 def _update_field_health_from_detection(farm_id: str, field_id: str, detection: dict) -> None:
     if not farm_id or not field_id or not detection:
         return
@@ -162,11 +199,15 @@ def upload_scan():
         file = request.files['image']
         if not _allowed_file(file.filename, ALLOWED_IMAGE_EXT):
             return error_response('Invalid image type. Allowed: jpg, jpeg, png, webp', 400)
+        if not _verify_magic_bytes(file.stream, ALLOWED_IMAGE_EXT):
+            return error_response('File content does not match a supported image format', 400)
         media_type = 'image'
     else:
         file = request.files['video']
         if not _allowed_file(file.filename, ALLOWED_VIDEO_EXT):
             return error_response('Invalid video type. Allowed: mp4, mov, avi, mkv', 400)
+        if not _verify_magic_bytes(file.stream, ALLOWED_VIDEO_EXT):
+            return error_response('File content does not match a supported video format', 400)
         media_type = 'video'
 
     user_id = str(g.current_user['_id'])

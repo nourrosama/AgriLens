@@ -23,3 +23,4 @@ boto3==1.43.29
 gunicorn==23.0.0
 groq==1.4.0
 firebase-admin==6.5.0
+prometheus-flask-exporter==0.23.1

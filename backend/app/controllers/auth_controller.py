@@ -7,6 +7,7 @@ Supports two OTP channels:
 import re
 
 from flask import Blueprint, current_app, request, g
+from app.extensions import limiter
 from app.services import auth_service
 from app.services import storage_service
 from app.models import user_model, audit_model
@@ -20,6 +21,7 @@ _EMAIL_RE = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
 
 
 @auth_bp.route('/api/auth/send-otp', methods=['POST'])
+@limiter.limit('5 per minute')
 def send_otp():
     """Send OTP to phone via Twilio Verify.
     ---
@@ -138,6 +140,7 @@ def register():
 
 
 @auth_bp.route('/api/auth/verify-otp', methods=['POST'])
+@limiter.limit('10 per minute')
 def verify_otp():
     """Verify OTP — handles both login and new-user signup.
 
@@ -245,6 +248,7 @@ def verify_otp():
 
 
 @auth_bp.route('/api/auth/send-email-otp', methods=['POST'])
+@limiter.limit('5 per minute')
 def send_email_otp():
     """Send a 6-digit OTP to the user's email address via Resend.
     ---
@@ -306,6 +310,7 @@ def send_email_otp():
 
 
 @auth_bp.route('/api/auth/verify-email-otp', methods=['POST'])
+@limiter.limit('10 per minute')
 def verify_email_otp():
     """Verify an email OTP — handles login and new-user signup via email.
 
@@ -599,3 +604,58 @@ def update_profile():
 
     user = user_model.find_by_id(str(g.current_user['_id']))
     return success_response({'user': user_model.serialize(user)}, 'Profile updated')
+
+
+@auth_bp.route('/api/auth/account', methods=['DELETE'])
+@require_auth
+def delete_account():
+    """Permanently delete the authenticated user's account and all associated data.
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Account and all data deleted
+      401:
+        description: Unauthorized
+    """
+    from bson import ObjectId
+    from app.models.db import (
+        scans_col, farms_col, notifications_col,
+        chat_sessions_col, chat_messages_col,
+        forum_posts_col, forum_comments_col,
+        forum_questions_col, forum_answers_col,
+        users_col,
+    )
+
+    user_id = str(g.current_user['_id'])
+    uid_obj = ObjectId(user_id)
+
+    try:
+        scans_col().delete_many({'user_id': uid_obj})
+        farms_col().delete_many({'user_id': uid_obj})
+        notifications_col().delete_many({'user_id': uid_obj})
+        sessions = list(chat_sessions_col().find({'user_id': user_id}, {'_id': 1}))
+        session_ids = [s['_id'] for s in sessions]
+        if session_ids:
+            chat_messages_col().delete_many({'session_id': {'$in': [str(sid) for sid in session_ids]}})
+        chat_sessions_col().delete_many({'user_id': user_id})
+        forum_posts_col().delete_many({'author_id': uid_obj})
+        forum_comments_col().delete_many({'author_id': uid_obj})
+        forum_questions_col().delete_many({'author_id': uid_obj})
+        forum_answers_col().delete_many({'author_id': uid_obj})
+        users_col().delete_one({'_id': uid_obj})
+
+        audit_model.log_action(
+            user_id,
+            'account_deleted',
+            ip_address=request.remote_addr,
+        )
+        current_app.logger.info('account_deleted', extra={'event': 'account_deleted', 'user_id': user_id})
+    except Exception as exc:
+        current_app.logger.exception('Account deletion failed for user %s: %s', user_id, exc)
+        return error_response('Account deletion failed. Please try again or contact support.', 500)
+
+    return success_response(message='Your account and all associated data have been permanently deleted.')
