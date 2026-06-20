@@ -236,9 +236,20 @@ class ApiClient {
   }
 
   Map<String, dynamic> _decode(http.Response response) {
-    final decoded = response.body.isNotEmpty
-        ? jsonDecode(response.body) as Map<String, dynamic>
-        : <String, dynamic>{};
+    Map<String, dynamic> decoded;
+    try {
+      decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body) as Map<String, dynamic>
+          : <String, dynamic>{};
+    } on FormatException {
+      // Server returned non-JSON (HTML error page, nginx 502, etc.)
+      throw ApiException(
+        'Server returned an unexpected response (status ${response.statusCode}). '
+        'The backend may be down or unreachable.',
+        statusCode: response.statusCode,
+        isConnectivityError: response.statusCode >= 500 || response.statusCode == 0,
+      );
+    }
     if (response.statusCode >= 400) {
       throw ApiException(
         decoded['message']?.toString() ?? 'Request failed',
