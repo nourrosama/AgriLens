@@ -7,7 +7,9 @@ import pytest
 from bson import ObjectId
 from flask import Flask
 
-from tests.conftest import make_token
+import sys, os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from conftest import make_token
 
 
 # ── Fixtures ─────────────────────────────────────────────────────────────────

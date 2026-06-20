@@ -138,6 +138,8 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
   // Signup flow: stored here so verifyOtp can include them in the request body
   String? _pendingSignupName;
   String? _pendingSignupCountry;
+  // GDPR consent timestamp captured when the user checks the consent box.
+  DateTime? _pendingConsentGivenAt;
 
   UserData get user => _user;
   String get userId => _user.id;
@@ -256,6 +258,7 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
     required String country,
     required String phone,
     String email = '',
+    DateTime? consentGivenAt,
   }) async {
     _setLoading(true);
     try {
@@ -268,6 +271,7 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pendingPhone = phone;
       _pendingSignupName = fullName;
       _pendingSignupCountry = country;
+      _pendingConsentGivenAt = consentGivenAt ?? DateTime.now().toUtc();
       _errorMessage = null;
       return true;
     } catch (error) {
@@ -324,9 +328,11 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
     required String fullName,
     required String country,
     required String email,
+    DateTime? consentGivenAt,
   }) async {
     _pendingSignupName = fullName;
     _pendingSignupCountry = country;
+    _pendingConsentGivenAt = consentGivenAt ?? DateTime.now().toUtc();
     _setLoading(true);
     try {
       final res = await _apiClient.post('/api/auth/send-email-otp', body: {
@@ -376,6 +382,8 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
         'language': preferredLanguage,
         ...?(_pendingSignupName == null ? null : {'name': _pendingSignupName!}),
         ...?(_pendingSignupCountry == null ? null : {'country': _pendingSignupCountry!}),
+        if (_pendingConsentGivenAt != null)
+          'consent_given_at': _pendingConsentGivenAt!.toIso8601String(),
       };
 
       final response = await _apiClient.post('/api/auth/verify-email-otp', body: body);
@@ -392,6 +400,7 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
       _pendingEmail = _user.email;
       _pendingSignupName = null;
       _pendingSignupCountry = null;
+      _pendingConsentGivenAt = null;
 
       await _syncStoredLanguagePreference();
       unawaited(_registerFcmToken());
@@ -419,6 +428,8 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
         // The backend uses their presence to decide signup vs login.
         ...?(_pendingSignupName == null ? null : {'name': _pendingSignupName!}),
         ...?(_pendingSignupCountry == null ? null : {'country': _pendingSignupCountry!}),
+        if (_pendingConsentGivenAt != null)
+          'consent_given_at': _pendingConsentGivenAt!.toIso8601String(),
       };
 
       final response = await _apiClient.post('/api/auth/verify-otp', body: body);
@@ -437,6 +448,7 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
       // Clear signup state after successful verification
       _pendingSignupName = null;
       _pendingSignupCountry = null;
+      _pendingConsentGivenAt = null;
 
       await _syncStoredLanguagePreference();
       unawaited(_registerFcmToken());

@@ -187,6 +187,8 @@ def verify_otp():
       429:
         description: Rate limit exceeded
     """
+    from datetime import datetime, timezone as tz
+
     data = request.get_json(silent=True) or {}
     phone = sanitize_phone(data.get('phone', ''))
     code = data.get('code', '')
@@ -194,6 +196,14 @@ def verify_otp():
     signup_country = str(data.get('country', '')).strip()
     signup_email = str(data.get('email', '')).strip()
     signup_language = data.get('language') if data.get('language') in ('ar', 'en') else 'en'
+    # GDPR: client sends ISO-8601 timestamp of when user checked the consent box.
+    raw_consent = data.get('consent_given_at')
+    consent_given_at = None
+    if raw_consent:
+        try:
+            consent_given_at = datetime.fromisoformat(str(raw_consent).replace('Z', '+00:00'))
+        except ValueError:
+            consent_given_at = datetime.now(tz.utc)
 
     if not is_valid_phone(phone):
         return error_response('Invalid phone number', 400)
@@ -222,6 +232,7 @@ def verify_otp():
             country=signup_country,
             email=signup_email,
             language=signup_language,
+            consent_given_at=consent_given_at,
         )
         is_new_user = True
     else:
@@ -350,12 +361,21 @@ def verify_email_otp():
       429:
         description: Rate limit exceeded
     """
+    from datetime import datetime, timezone as tz
+
     data = request.get_json(silent=True) or {}
     email = str(data.get('email', '')).strip().lower()
     code = str(data.get('code', '')).strip()
     signup_name = str(data.get('name', '')).strip()
     signup_country = str(data.get('country', '')).strip()
     signup_language = data.get('language') if data.get('language') in ('ar', 'en') else 'en'
+    raw_consent = data.get('consent_given_at')
+    consent_given_at = None
+    if raw_consent:
+        try:
+            consent_given_at = datetime.fromisoformat(str(raw_consent).replace('Z', '+00:00'))
+        except ValueError:
+            consent_given_at = datetime.now(tz.utc)
 
     if not email or not _EMAIL_RE.match(email):
         return error_response('Invalid email address', 400)
@@ -382,6 +402,7 @@ def verify_email_otp():
             country=signup_country,
             email=email,
             language=signup_language,
+            consent_given_at=consent_given_at,
         )
         is_new_user = True
     else:
@@ -659,3 +680,49 @@ def delete_account():
         return error_response('Account deletion failed. Please try again or contact support.', 500)
 
     return success_response(message='Your account and all associated data have been permanently deleted.')
+
+
+@auth_bp.route('/api/auth/export-data', methods=['GET'])
+@require_auth
+def export_data():
+    """GDPR data portability — export all data belonging to the current user.
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: JSON bundle containing profile, farms, and scans
+      401:
+        description: Unauthorized
+    """
+    from app.models.db import scans_col, farms_col
+    from bson import ObjectId
+
+    user_id = str(g.current_user['_id'])
+    uid_obj = ObjectId(user_id)
+
+    def _serialize_doc(doc: dict) -> dict:
+        """Convert ObjectId fields to strings for JSON output."""
+        out = {}
+        for k, v in doc.items():
+            if isinstance(v, ObjectId):
+                out[k] = str(v)
+            elif isinstance(v, list):
+                out[k] = [str(i) if isinstance(i, ObjectId) else i for i in v]
+            else:
+                out[k] = v.isoformat() if hasattr(v, 'isoformat') else v
+        return out
+
+    profile = user_model.serialize(g.current_user)
+    farms = [_serialize_doc(f) for f in farms_col().find({'user_id': uid_obj})]
+    scans = [_serialize_doc(s) for s in scans_col().find({'user_id': uid_obj}, {'gradcam_overlay': 0})]
+
+    audit_model.log_action(user_id, 'data_export_requested', ip_address=request.remote_addr)
+
+    return success_response({
+        'profile': profile,
+        'farms': farms,
+        'scans': scans,
+    }, 'Data export complete')

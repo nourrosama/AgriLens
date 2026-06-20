@@ -165,6 +165,38 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                   ? _EmptyState(lang: lang)
                   : Column(
                       children: [
+                        // AI disclaimer banner
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFCD34D)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.info_outline,
+                                  size: 16, color: Color(0xFFB45309)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  lang.isRTL
+                                      ? 'هذه النتائج مُولَّدة بالذكاء الاصطناعي. للقرارات الزراعية الحرجة، يُرجى استشارة مهندس زراعي متخصص.'
+                                      : 'AI-generated results. For critical crop decisions, consult a certified agronomist.',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF92400E),
+                                      height: 1.4),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
                         // 1. Grad-CAM
                         if (result.gradcamOverlay != null) ...[
                           _GradCamCard(result: result, lang: lang),
