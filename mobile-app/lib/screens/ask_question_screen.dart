@@ -231,7 +231,7 @@ class _FieldLabel extends StatelessWidget {
   }
 }
 
-class _TagSection extends StatelessWidget {
+class _TagSection extends StatefulWidget {
   const _TagSection({
     required this.title,
     required this.hint,
@@ -251,40 +251,71 @@ class _TagSection extends StatelessWidget {
   final void Function(String) onRemove;
 
   @override
+  State<_TagSection> createState() => _TagSectionState();
+}
+
+class _TagSectionState extends State<_TagSection> {
+  final _focusNode = FocusNode();
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _FieldLabel(title),
+        _FieldLabel(widget.title),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
               child: TextField(
-                controller: controller,
-                decoration: InputDecoration(hintText: hint),
-                onSubmitted: (_) => onAdd(),
+                controller: widget.controller,
+                focusNode: _focusNode,
+                textInputAction: TextInputAction.done,
+                decoration: InputDecoration(hintText: widget.hint),
+                onSubmitted: (_) => widget.onAdd(),
               ),
             ),
             const SizedBox(width: 8),
-            IconButton(
-              icon: Icon(Icons.add_circle_rounded, color: color),
-              onPressed: onAdd,
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: widget.controller,
+              builder: (_, value, _) {
+                final hasText = value.text.trim().isNotEmpty;
+                return IconButton(
+                  icon: Icon(
+                    Icons.add_circle_rounded,
+                    color: hasText ? widget.color : const Color(0xFFBDBDBD),
+                  ),
+                  onPressed: () {
+                    if (hasText) {
+                      widget.onAdd();
+                    } else {
+                      _focusNode.requestFocus();
+                    }
+                  },
+                );
+              },
             ),
           ],
         ),
-        if (tags.isNotEmpty) ...[
+        if (widget.tags.isNotEmpty) ...[
           const SizedBox(height: 8),
           Wrap(
             spacing: 6,
-            children: tags
+            children: widget.tags
                 .map(
                   (tag) => Chip(
                     label: Text('#$tag'),
-                    backgroundColor: color.withValues(alpha: 0.1),
-                    labelStyle: TextStyle(color: color, fontSize: 12),
-                    deleteIcon: Icon(Icons.close, size: 14, color: color),
-                    onDeleted: () => onRemove(tag),
+                    backgroundColor: widget.color.withValues(alpha: 0.1),
+                    labelStyle: TextStyle(color: widget.color, fontSize: 12),
+                    deleteIcon:
+                        Icon(Icons.close, size: 14, color: widget.color),
+                    onDeleted: () => widget.onRemove(tag),
                   ),
                 )
                 .toList(),

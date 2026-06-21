@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -881,9 +882,11 @@ class _FieldLocationPickerState extends State<_FieldLocationPicker> {
   final _searchCtrl = TextEditingController();
   List<Map<String, dynamic>> _searchResults = [];
   bool _searching = false;
+  Timer? _debounce;
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
   }
@@ -981,7 +984,18 @@ class _FieldLocationPickerState extends State<_FieldLocationPicker> {
                     ),
                   ),
                   onSubmitted: _search,
-                  onChanged: (v) => setState(() {}),
+                  onChanged: (v) {
+                    setState(() {});
+                    _debounce?.cancel();
+                    if (v.trim().isEmpty) {
+                      setState(() => _searchResults = []);
+                      return;
+                    }
+                    _debounce = Timer(
+                      const Duration(milliseconds: 500),
+                      () => _search(v),
+                    );
+                  },
                 ),
                 if (_searchResults.isNotEmpty)
                   Container(

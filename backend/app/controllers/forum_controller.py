@@ -32,6 +32,8 @@ def _notify_forum_interaction(
     title_ar: str,
     message_ar: str,
     metadata: dict,
+    actor_name: str = '',
+    actor_photo_url: str = '',
 ) -> None:
     if not recipient_id or recipient_id == actor_id:
         return
@@ -45,6 +47,8 @@ def _notify_forum_interaction(
         message_en=message_en,
         title_ar=title_ar,
         message_ar=message_ar,
+        actor_name=actor_name,
+        actor_photo_url=actor_photo_url,
     )
     user = user_model.find_by_id(recipient_id)
     if not user:
@@ -54,7 +58,8 @@ def _notify_forum_interaction(
         user=user,
         title=title_ar if lang == 'ar' else title_en,
         body=message_ar if lang == 'ar' else message_en,
-        data={**metadata, 'category': 'forum'},
+        data={**metadata, 'category': 'forum',
+              'actor_name': actor_name, 'actor_photo_url': actor_photo_url},
     )
 
 
@@ -343,6 +348,22 @@ def toggle_like(post_id):
     result = post_model.toggle_like(post_id, user_id)
     if result is None:
         return error_response('Post not found', 404)
+    if result['liked']:
+        post = post_model.get_post_by_id(post_id)
+        if post:
+            actor_name = (g.current_user.get('name') or g.current_user.get('email') or 'Someone').strip()
+            actor_photo_url = g.current_user.get('photo_url', '')
+            _notify_forum_interaction(
+                recipient_id=str(post.get('author_id', '')),
+                actor_id=user_id,
+                title_en=f'{actor_name} liked your post',
+                message_en=f'{actor_name} liked your post.',
+                title_ar=f'أعجب {actor_name} بمنشورك',
+                message_ar=f'أعجب {actor_name} بمنشورك.',
+                metadata={'post_id': post_id},
+                actor_name=actor_name,
+                actor_photo_url=actor_photo_url,
+            )
     return success_response(result)
 
 
@@ -407,14 +428,18 @@ def add_comment(post_id):
     comment = post_model.add_comment(post_id, user_id, body)
     post = post_model.get_post_by_id(post_id)
     if post:
+        actor_name = (g.current_user.get('name') or g.current_user.get('email') or 'Someone').strip()
+        actor_photo_url = g.current_user.get('photo_url', '')
         _notify_forum_interaction(
             recipient_id=str(post.get('author_id', '')),
             actor_id=user_id,
-            title_en='New comment',
-            message_en='Someone commented on your forum post.',
-            title_ar='تعليق جديد',
-            message_ar='قام أحد المستخدمين بالتعليق على منشورك في المنتدى.',
+            title_en=f'{actor_name} commented on your post',
+            message_en=f'{actor_name}: "{body[:60]}"',
+            title_ar=f'علّق {actor_name} على منشورك',
+            message_ar=f'{actor_name}: "{body[:60]}"',
             metadata={'post_id': post_id, 'comment_id': str(comment.get('_id', ''))},
+            actor_name=actor_name,
+            actor_photo_url=actor_photo_url,
         )
     return success_response(
         {'comment': post_model.serialize_comment(comment)},
@@ -580,14 +605,18 @@ def post_answer(question_id):
 
     user_id = str(g.current_user['_id'])
     answer = question_model.create_answer(question_id, user_id, body)
+    actor_name = (g.current_user.get('name') or g.current_user.get('email') or 'Someone').strip()
+    actor_photo_url = g.current_user.get('photo_url', '')
     _notify_forum_interaction(
         recipient_id=str(question.get('author_id', '')),
         actor_id=user_id,
-        title_en='New answer',
-        message_en='Someone answered your question.',
-        title_ar='إجابة جديدة',
-        message_ar='قام أحد المستخدمين بالإجابة على سؤالك.',
+        title_en=f'{actor_name} answered your question',
+        message_en=f'{actor_name}: "{body[:60]}"',
+        title_ar=f'أجاب {actor_name} على سؤالك',
+        message_ar=f'{actor_name}: "{body[:60]}"',
         metadata={'question_id': question_id, 'answer_id': str(answer.get('_id', ''))},
+        actor_name=actor_name,
+        actor_photo_url=actor_photo_url,
     )
     return success_response(
         {'answer': question_model.serialize_answer(answer)},

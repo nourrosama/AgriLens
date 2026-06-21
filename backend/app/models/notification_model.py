@@ -17,6 +17,8 @@ def create_notification(
     message_en: str = '',
     title_ar: str = '',
     message_ar: str = '',
+    actor_name: str = '',
+    actor_photo_url: str = '',
 ) -> dict:
     """Create and store a notification."""
     doc = {
@@ -30,6 +32,8 @@ def create_notification(
         'category': category,
         'related_scan_id': ObjectId(related_scan_id) if related_scan_id else None,
         'metadata': metadata or {},
+        'actor_name': actor_name,
+        'actor_photo_url': actor_photo_url,
         'is_read': False,
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
@@ -95,6 +99,8 @@ def serialize(notification: dict) -> dict:
         'category': notification.get('category', 'info'),
         'related_scan_id': str(notification.get('related_scan_id')) if notification.get('related_scan_id') else None,
         'metadata': notification.get('metadata', {}),
+        'actor_name': notification.get('actor_name', ''),
+        'actor_photo_url': notification.get('actor_photo_url', ''),
         'is_read': notification.get('is_read', False),
         'created_at': notification.get('created_at', '').isoformat() if notification.get('created_at') else None,
         'updated_at': notification.get('updated_at', '').isoformat() if notification.get('updated_at') else None,

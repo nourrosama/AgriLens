@@ -260,13 +260,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     Expanded(
                       child: _stat(
-                        '${fieldsProvider.fields.length}',
+                        lang.localizeNum(fieldsProvider.fields.length),
                         lang.t('nav.fields'),
                       ),
                     ),
                     Expanded(
                       child: _stat(
-                        '${scanProvider.totalScans > 0 ? ((scanProvider.totalScans - scanProvider.activeDiseasesCount) / scanProvider.totalScans * 100).round() : 100}${lang.t('units.percent')}',
+                        '${lang.localizeNum(scanProvider.totalScans > 0 ? ((scanProvider.totalScans - scanProvider.activeDiseasesCount) / scanProvider.totalScans * 100).round() : 100)}${lang.t('units.percent')}',
                         lang.t('fields.healthScore'),
                       ),
                     ),

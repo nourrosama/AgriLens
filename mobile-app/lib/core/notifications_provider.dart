@@ -4,6 +4,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'language_provider.dart';
+
 import 'api_client.dart';
 import 'fcm_service.dart';
 import 'offline_sync_notification.dart';
@@ -20,6 +22,8 @@ class NotificationData {
     required this.bgColor,
     this.isRead = false,
     this.scanId,
+    this.actorName = '',
+    this.actorPhotoUrl = '',
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -33,6 +37,8 @@ class NotificationData {
   final Color bgColor;
   bool isRead;
   final String? scanId;
+  final String actorName;
+  final String actorPhotoUrl;
   final DateTime createdAt;
 
   /// Computes a human-readable relative time label at call time so it always
@@ -72,6 +78,8 @@ class NotificationData {
       bgColor: _bgColorFor(category),
       isRead: json['is_read'] == true,
       scanId: scanId,
+      actorName: json['actor_name']?.toString() ?? '',
+      actorPhotoUrl: json['actor_photo_url']?.toString() ?? '',
       createdAt: createdAt,
     );
   }
@@ -86,14 +94,20 @@ class NotificationData {
     }
     if (diff.inMinutes < 60) {
       final m = diff.inMinutes;
-      return arabic ? 'منذ $m دقيقة' : '${m}m ago';
+      return arabic
+          ? 'منذ ${localizeDigitsStatic(m.toString(), true)} دقيقة'
+          : '${m}m ago';
     }
     if (diff.inHours < 24) {
       final h = diff.inHours;
-      return arabic ? 'منذ $h ساعة' : '${h}h ago';
+      return arabic
+          ? 'منذ ${localizeDigitsStatic(h.toString(), true)} ساعة'
+          : '${h}h ago';
     }
     final d = diff.inDays;
-    return arabic ? 'منذ $d يوم' : '${d}d ago';
+    return arabic
+        ? 'منذ ${localizeDigitsStatic(d.toString(), true)} يوم'
+        : '${d}d ago';
   }
 
   static IconData _iconFor(String category) {
@@ -102,6 +116,10 @@ class NotificationData {
         return Icons.eco;
       case 'sync':
         return Icons.sync_rounded;
+      case 'forum':
+        return Icons.forum_rounded;
+      case 'support':
+        return Icons.support_agent_rounded;
       default:
         return Icons.notifications_active;
     }
@@ -113,6 +131,10 @@ class NotificationData {
         return const Color(0xFFF44336);
       case 'sync':
         return const Color(0xFF1976D2);
+      case 'forum':
+        return const Color(0xFF2196F3);
+      case 'support':
+        return const Color(0xFF9C27B0);
       default:
         return const Color(0xFF4CAF50);
     }
@@ -124,6 +146,10 @@ class NotificationData {
         return const Color(0xFFFFEBEE);
       case 'sync':
         return const Color(0xFFE3F2FD);
+      case 'forum':
+        return const Color(0xFFE3F2FD);
+      case 'support':
+        return const Color(0xFFF3E5F5);
       default:
         return const Color(0xFFE8F5E9);
     }
@@ -272,6 +298,8 @@ class NotificationsProvider extends ChangeNotifier {
       color: NotificationData._colorFor(category),
       bgColor: NotificationData._bgColorFor(category),
       scanId: scanId,
+      actorName: data['actor_name'] as String? ?? '',
+      actorPhotoUrl: data['actor_photo_url'] as String? ?? '',
     );
     _notifications.insert(0, item);
     notifyListeners();

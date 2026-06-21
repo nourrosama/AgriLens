@@ -386,14 +386,14 @@ class MyFieldsScreen extends StatelessWidget {
                     width: cardWidth,
                     child: _statBox(
                   lang.t('fields.totalArea'),
-                  '${provider.totalArea.toStringAsFixed(1)} ${lang.t('units.feddan')}',
+                  '${lang.localizeNum(provider.totalArea, decimals: 1)} ${lang.t('units.feddan')}',
                 ),
                   ),
                   SizedBox(
                     width: cardWidth,
                     child: _statBox(
                   lang.t('fields.avgHealth'),
-                  '${provider.averageHealth}${lang.t('units.percent')}',
+                  '${lang.localizeDigits(provider.averageHealth.toString())}${lang.t('units.percent')}',
                 ),
                   ),
                 ],

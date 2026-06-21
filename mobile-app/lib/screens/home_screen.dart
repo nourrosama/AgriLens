@@ -51,6 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = context.watch<UserProvider>();
     final scans = context.watch<ScanHistoryProvider>();
     final notifications = context.watch<NotificationsProvider>();
+    final unreadAlerts = notifications.notifications
+        .where((n) => !n.isRead)
+        .take(2)
+        .toList();
     final weather = context.watch<WeatherProvider>();
 
     // Compute health from scan data
@@ -226,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(width: 16),
                                 Text(
-                                  '$healthPercent${lang.t('units.percent')}',
+                                  '${lang.localizeNum(healthPercent)}${lang.t('units.percent')}',
                                   style: const TextStyle(
                                     color: Color(0xFF4CAF50),
                                     fontSize: 20,
@@ -336,34 +340,42 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                             const SizedBox(height: 16),
-                            // First alert: most recent notification, or empty state
-                            if (notifications.notifications.isNotEmpty)
+                            // First unread alert, or empty state
+                            if (unreadAlerts.isNotEmpty)
                               _buildAlertBubble(
                                 lang.isRTL
-                                    ? notifications.notifications.first.titleAr
-                                    : notifications.notifications.first.titleEn,
+                                    ? (unreadAlerts.first.titleAr.isNotEmpty
+                                        ? unreadAlerts.first.titleAr
+                                        : unreadAlerts.first.titleEn)
+                                    : unreadAlerts.first.titleEn,
                                 lang.isRTL
-                                    ? notifications.notifications.first.messageAr
-                                    : notifications.notifications.first.messageEn,
-                                notifications.notifications.first.bgColor,
-                                notifications.notifications.first.icon,
-                                notifications.notifications.first.color,
+                                    ? (unreadAlerts.first.messageAr.isNotEmpty
+                                        ? unreadAlerts.first.messageAr
+                                        : unreadAlerts.first.messageEn)
+                                    : unreadAlerts.first.messageEn,
+                                unreadAlerts.first.bgColor,
+                                unreadAlerts.first.icon,
+                                unreadAlerts.first.color,
                               )
                             else
                               _buildEmptyAlerts(lang),
-                            // Second alert: second notification if available
-                            if (notifications.notifications.length > 1) ...[
+                            // Second unread alert if available
+                            if (unreadAlerts.length > 1) ...[
                               const SizedBox(height: 12),
                               _buildAlertBubble(
                                 lang.isRTL
-                                    ? notifications.notifications[1].titleAr
-                                    : notifications.notifications[1].titleEn,
+                                    ? (unreadAlerts[1].titleAr.isNotEmpty
+                                        ? unreadAlerts[1].titleAr
+                                        : unreadAlerts[1].titleEn)
+                                    : unreadAlerts[1].titleEn,
                                 lang.isRTL
-                                    ? notifications.notifications[1].messageAr
-                                    : notifications.notifications[1].messageEn,
-                                notifications.notifications[1].bgColor,
-                                notifications.notifications[1].icon,
-                                notifications.notifications[1].color,
+                                    ? (unreadAlerts[1].messageAr.isNotEmpty
+                                        ? unreadAlerts[1].messageAr
+                                        : unreadAlerts[1].messageEn)
+                                    : unreadAlerts[1].messageEn,
+                                unreadAlerts[1].bgColor,
+                                unreadAlerts[1].icon,
+                                unreadAlerts[1].color,
                               ),
                             ],
                           ],
@@ -397,46 +409,54 @@ class _HomeScreenState extends State<HomeScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      '${weather.temperature}${lang.t('units.celsius')}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF2E7D32),
-                                        fontSize: 36,
-                                        fontWeight: FontWeight.w500,
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${weather.temperature}${lang.t('units.celsius')}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF2E7D32),
+                                          fontSize: 36,
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      weather.condition(lang.isRTL).isNotEmpty
-                                          ? weather.condition(lang.isRTL)
-                                          : lang.t('home.partlyCloudy'),
-                                      style: const TextStyle(
-                                        color: Color(0xFF424242),
-                                        fontSize: 16,
+                                      Text(
+                                        weather.condition(lang.isRTL).isNotEmpty
+                                            ? weather.condition(lang.isRTL)
+                                            : lang.t('home.partlyCloudy'),
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF424242),
+                                          fontSize: 16,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: [
-                                    Text(
-                                      '${lang.t('home.humidity')}: ${weather.humidity}${lang.t('units.percent')}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF424242),
-                                        fontSize: 14,
+                                const SizedBox(width: 8),
+                                Flexible(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        '${lang.t('home.humidity')}: ${weather.humidity}${lang.t('units.percent')}',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF424242),
+                                          fontSize: 14,
+                                        ),
                                       ),
-                                    ),
-                                    Text(
-                                      '${lang.t('home.wind')}: ${weather.wind} ${lang.t('units.kmh')}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF424242),
-                                        fontSize: 14,
+                                      Text(
+                                        '${lang.t('home.wind')}: ${weather.wind} ${lang.t('units.kmh')}',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF424242),
+                                          fontSize: 14,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -519,9 +539,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     const SizedBox(height: 12),
                                     Text(
                                       lang.t('home.scanHistory'),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: Color(0xFF2E7D32),
-                                        fontSize: 18,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -574,11 +596,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                     const SizedBox(height: 12),
                                     Text(
                                       lang.t('home.myFields'),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                       style: TextStyle(
                                         color: user.plan == 'professional'
                                             ? const Color(0xFF2E7D32)
                                             : const Color(0xFF9E9E9E),
-                                        fontSize: 18,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -604,9 +628,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                     const SizedBox(height: 12),
                                     Text(
                                       lang.t('reports.title'),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: Color(0xFF2E7D32),
-                                        fontSize: 18,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),

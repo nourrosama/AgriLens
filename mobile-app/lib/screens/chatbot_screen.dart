@@ -699,19 +699,20 @@ class _SessionTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  String _dateLabel(DateTime dt) {
+  String _dateLabel(DateTime dt, {bool isArabic = false}) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final d = DateTime(dt.year, dt.month, dt.day);
     final diff = today.difference(d).inDays;
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Yesterday';
+    if (diff == 0) return isArabic ? 'اليوم' : 'Today';
+    if (diff == 1) return isArabic ? 'أمس' : 'Yesterday';
     if (diff < 7) return DateFormat('EEEE').format(dt);
-    return DateFormat('MMM d').format(dt);
+    return localizeDigitsStatic(DateFormat('MMM d').format(dt), isArabic);
   }
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = context.watch<LanguageProvider>().isRTL;
     return Dismissible(
       key: ValueKey(session.apiId ?? 'local_${session.id}'),
       direction: DismissDirection.endToStart,
@@ -785,7 +786,7 @@ class _SessionTile extends StatelessWidget {
             ),
           ),
           subtitle: Text(
-            _dateLabel(session.updatedAt),
+            _dateLabel(session.updatedAt, isArabic: isArabic),
             style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
