@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agrilens/core/crop_provider.dart';
+import 'package:agrilens/core/disease_local_db.dart';
 import 'package:agrilens/core/forum_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -513,6 +515,13 @@ class _TrendingTabState extends State<_TrendingTab> {
 
   Future<void> _load() async {
     final data = await context.read<ForumProvider>().getTrending();
+    final diseases = (data['top_diseases'] as List<dynamic>? ?? [])
+        .cast<Map<String, dynamic>>();
+    for (final d in diseases) {
+      final local = await DiseaseLocalDb.instance
+          .findByName(d['disease']?.toString() ?? '');
+      if (local != null) d['_nameAr'] = local.nameAr;
+    }
     if (mounted) setState(() { _data = data; _loading = false; });
   }
 
@@ -556,7 +565,11 @@ class _TrendingTabState extends State<_TrendingTab> {
           else
             ...topCrops.map(
               (c) => _TrendingRow(
-                label: c['crop']?.toString() ?? '',
+                label: isRTL
+                    ? context
+                        .read<CropProvider>()
+                        .getLabel(c['crop']?.toString() ?? '', isRTL: true)
+                    : c['crop']?.toString() ?? '',
                 count: (c['scan_count'] as num?)?.toInt() ?? 0,
                 suffix: isRTL ? 'فحص' : 'scans',
                 color: AppColors.primary,
@@ -574,7 +587,9 @@ class _TrendingTabState extends State<_TrendingTab> {
           else
             ...topDiseases.map(
               (d) => _TrendingRow(
-                label: d['disease']?.toString() ?? '',
+                label: isRTL
+                    ? (d['_nameAr']?.toString() ?? d['disease']?.toString() ?? '')
+                    : d['disease']?.toString() ?? '',
                 count: (d['count'] as num?)?.toInt() ?? 0,
                 suffix: isRTL ? 'حالة' : 'cases',
                 color: AppColors.warning,
@@ -613,7 +628,8 @@ class _TrendingTabState extends State<_TrendingTab> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${p['likes_count'] ?? 0}',
+                            lang.localizeNum(
+                                (p['likes_count'] as num?)?.toInt() ?? 0),
                             style: const TextStyle(fontSize: 12),
                           ),
                           const SizedBox(width: 12),
@@ -624,7 +640,8 @@ class _TrendingTabState extends State<_TrendingTab> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '${p['comments_count'] ?? 0}',
+                            lang.localizeNum(
+                                (p['comments_count'] as num?)?.toInt() ?? 0),
                             style: const TextStyle(fontSize: 12),
                           ),
                         ],
@@ -702,7 +719,7 @@ class _TrendingRow extends StatelessWidget {
             ),
           ),
           Text(
-            '$count $suffix',
+            '${context.read<LanguageProvider>().localizeNum(count)} $suffix',
             style: TextStyle(
               fontSize: 12,
               color: color,

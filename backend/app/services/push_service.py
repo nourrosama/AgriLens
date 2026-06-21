@@ -70,9 +70,13 @@ def send_push_to_user(user: dict, title: str, body: str, data: dict | None = Non
     try:
         from firebase_admin import messaging
 
+        actor_photo = (data or {}).get('actor_photo_url', '')
         messages = [
             messaging.Message(
                 notification=messaging.Notification(title=title, body=body),
+                android=messaging.AndroidConfig(
+                    notification=messaging.AndroidNotification(image=actor_photo),
+                ) if actor_photo else None,
                 data={k: str(v) for k, v in (data or {}).items()},
                 token=token,
             )

@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/app_config.dart';
 import 'package:agrilens/core/crop_provider.dart';
+import 'package:agrilens/core/favourites_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/user_provider.dart';
@@ -234,6 +235,15 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                           severityColor: severityColor,
                           severityLabel: severityLabel,
                         ),
+
+                        // Favourites toggle (diseases only)
+                        if (result.hasDetection &&
+                            !result.isHealthy &&
+                            result.diseaseNameEn.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          _FavouriteToggleButton(
+                              diseaseId: result.diseaseNameEn, lang: lang),
+                        ],
 
                         // 3. Top predictions
                         if (result.hasDetection && result.topPredictions.isNotEmpty) ...[
@@ -1939,6 +1949,54 @@ class _MetricBar extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _FavouriteToggleButton extends StatelessWidget {
+  const _FavouriteToggleButton(
+      {required this.diseaseId, required this.lang});
+  final String diseaseId;
+  final LanguageProvider lang;
+
+  @override
+  Widget build(BuildContext context) {
+    final favs = context.watch<FavouritesProvider>();
+    final isFav = favs.isFavourite(diseaseId);
+    return GestureDetector(
+      onTap: () => favs.toggle(diseaseId),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isFav ? const Color(0xFFFFC107) : const Color(0xFFE0E0E0),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              isFav ? Icons.star_rounded : Icons.star_border_rounded,
+              color: isFav ? const Color(0xFFFFC107) : const Color(0xFF9E9E9E),
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              isFav
+                  ? (lang.isRTL ? 'تمت الإضافة إلى المفضلة' : 'Saved to Favourites')
+                  : (lang.isRTL ? 'إضافة إلى المفضلة' : 'Save to Favourites'),
+              style: TextStyle(
+                color: isFav ? const Color(0xFFFFC107) : const Color(0xFF757575),
+                fontWeight: FontWeight.w500,
+                fontSize: 15,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -22,6 +22,8 @@ class NotificationData {
     required this.bgColor,
     this.isRead = false,
     this.scanId,
+    this.actorName = '',
+    this.actorPhotoUrl = '',
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -35,6 +37,8 @@ class NotificationData {
   final Color bgColor;
   bool isRead;
   final String? scanId;
+  final String actorName;
+  final String actorPhotoUrl;
   final DateTime createdAt;
 
   /// Computes a human-readable relative time label at call time so it always
@@ -74,6 +78,8 @@ class NotificationData {
       bgColor: _bgColorFor(category),
       isRead: json['is_read'] == true,
       scanId: scanId,
+      actorName: json['actor_name']?.toString() ?? '',
+      actorPhotoUrl: json['actor_photo_url']?.toString() ?? '',
       createdAt: createdAt,
     );
   }
@@ -110,6 +116,10 @@ class NotificationData {
         return Icons.eco;
       case 'sync':
         return Icons.sync_rounded;
+      case 'forum':
+        return Icons.forum_rounded;
+      case 'support':
+        return Icons.support_agent_rounded;
       default:
         return Icons.notifications_active;
     }
@@ -121,6 +131,10 @@ class NotificationData {
         return const Color(0xFFF44336);
       case 'sync':
         return const Color(0xFF1976D2);
+      case 'forum':
+        return const Color(0xFF2196F3);
+      case 'support':
+        return const Color(0xFF9C27B0);
       default:
         return const Color(0xFF4CAF50);
     }
@@ -132,6 +146,10 @@ class NotificationData {
         return const Color(0xFFFFEBEE);
       case 'sync':
         return const Color(0xFFE3F2FD);
+      case 'forum':
+        return const Color(0xFFE3F2FD);
+      case 'support':
+        return const Color(0xFFF3E5F5);
       default:
         return const Color(0xFFE8F5E9);
     }
@@ -280,6 +298,8 @@ class NotificationsProvider extends ChangeNotifier {
       color: NotificationData._colorFor(category),
       bgColor: NotificationData._bgColorFor(category),
       scanId: scanId,
+      actorName: data['actor_name'] as String? ?? '',
+      actorPhotoUrl: data['actor_photo_url'] as String? ?? '',
     );
     _notifications.insert(0, item);
     notifyListeners();

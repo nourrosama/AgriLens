@@ -157,11 +157,7 @@ class NotificationsScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            n.icon,
-            size: 24,
-            color: isRead ? const Color(0xFFBDBDBD) : n.color,
-          ),
+          _buildLeadingIcon(n, isRead),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -221,10 +217,49 @@ class NotificationsScreen extends StatelessWidget {
       ),
     );
     final scanId = n.scanId;
-    if (scanId == null || scanId.isEmpty) return card;
     return GestureDetector(
-      onTap: () => context.push('/scan-result', extra: scanId),
+      onTap: () {
+        context.read<NotificationsProvider>().markAsRead(n.id);
+        if (scanId != null && scanId.isNotEmpty) {
+          context.push('/scan-result', extra: scanId);
+        }
+      },
       child: card,
+    );
+  }
+
+  Widget _buildLeadingIcon(NotificationData n, bool isRead) {
+    if (n.actorName.isNotEmpty) {
+      final hasPhoto = n.actorPhotoUrl.isNotEmpty;
+      final initial = n.actorName[0].toUpperCase();
+      return CircleAvatar(
+        radius: 20,
+        backgroundColor: isRead ? const Color(0xFFE0E0E0) : n.bgColor,
+        backgroundImage: hasPhoto ? NetworkImage(n.actorPhotoUrl) : null,
+        child: hasPhoto
+            ? null
+            : Text(
+                initial,
+                style: TextStyle(
+                  color: isRead ? const Color(0xFF9E9E9E) : n.color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+      );
+    }
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: isRead ? const Color(0xFFF5F5F5) : n.bgColor,
+        shape: BoxShape.circle,
+      ),
+      child: Icon(
+        n.icon,
+        size: 20,
+        color: isRead ? const Color(0xFFBDBDBD) : n.color,
+      ),
     );
   }
 }
