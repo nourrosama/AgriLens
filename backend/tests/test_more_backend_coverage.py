@@ -244,7 +244,7 @@ def test_scan_video_list_get_and_callback_routes(client_for, auth_headers, curre
     client = client_for(scan_bp)
     upload = client.post(
         "/api/scans",
-        data={"video": (BytesIO(b"video"), "clip.mp4")},
+        data={"video": (BytesIO(b'\x00\x00\x00\x20' + b'ftypisom' + b'\x00' * 100), "clip.mp4")},
         content_type="multipart/form-data",
         headers=auth_headers,
     )
@@ -274,7 +274,7 @@ def test_scan_upload_handles_storage_and_detection_failures(client_for, auth_hea
     )
     storage_error = client.post(
         "/api/scans",
-        data={"image": (BytesIO(b"image"), "leaf.jpg")},
+        data={"image": (BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 100), "leaf.jpg")},
         content_type="multipart/form-data",
         headers=auth_headers,
     )
@@ -291,7 +291,7 @@ def test_scan_upload_handles_storage_and_detection_failures(client_for, auth_hea
     monkeypatch.setattr(scan_controller.event_publisher, "scan_created", lambda *args: None)
     detection_error = client.post(
         "/api/scans",
-        data={"image": (BytesIO(b"image"), "leaf.jpg")},
+        data={"image": (BytesIO(b'\xff\xd8\xff\xe0' + b'\x00' * 100), "leaf.jpg")},
         content_type="multipart/form-data",
         headers=auth_headers,
     )

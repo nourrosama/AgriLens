@@ -19,9 +19,10 @@ jobs:
           script: |
             cd /home/ec2-user/AgriLens
             git pull origin main
-            VERSION=$(grep '^version:' mobile-app/pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+            VERSION=$(grep '^version:' mobile-app/pubspec.yaml | sed 's/version: //' | tr '+' 'b')
             sed -i "s|APP_VERSION=.*|APP_VERSION=$VERSION|" backend/.env || echo "APP_VERSION=$VERSION" >> backend/.env
             sudo docker-compose up -d --build backend detection-service notification-service
+            sudo docker-compose restart nginx
             echo "Deploy complete at $(date) — version $VERSION"
 
   build-apk:
@@ -35,7 +36,7 @@ jobs:
       - name: Get version from pubspec
         id: version
         run: |
-          VERSION=$(grep '^version:' mobile-app/pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          VERSION=$(grep '^version:' mobile-app/pubspec.yaml | sed 's/version: //' | tr '+' 'b')
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Set up Java

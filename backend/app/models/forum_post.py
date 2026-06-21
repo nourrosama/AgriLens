@@ -109,6 +109,7 @@ def get_posts_by_tags(
     crop_tags: list = None,
     disease_tags: list = None,
     content_type: str = '',
+    author_id: str = '',
     page: int = 1,
     per_page: int = 20,
 ) -> list:
@@ -119,6 +120,8 @@ def get_posts_by_tags(
         query['tags.diseases'] = {'$in': [t.lower() for t in disease_tags]}
     if content_type:
         query['tags.content_type'] = content_type
+    if author_id:
+        query['author_id'] = ObjectId(author_id)
     skip = (page - 1) * per_page
     return list(
         forum_posts_col()

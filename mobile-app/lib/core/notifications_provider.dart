@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_client.dart';
 import 'fcm_service.dart';
@@ -167,6 +170,8 @@ class NotificationsProvider extends ChangeNotifier {
     }
   }
 
+  static const _cacheKey = 'cached_notifications_v1';
+
   Future<void> loadNotifications() async {
     _setLoading(true);
     try {
@@ -180,7 +185,24 @@ class NotificationsProvider extends ChangeNotifier {
         ..clear()
         ..addAll(items.map(NotificationData.fromJson));
       _errorMessage = null;
+      // Persist for offline use
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_cacheKey, jsonEncode(items));
     } catch (error) {
+      // Load from cache when offline
+      if (_notifications.isEmpty) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          final cached = prefs.getString(_cacheKey);
+          if (cached != null) {
+            final items = (jsonDecode(cached) as List<dynamic>)
+                .cast<Map<String, dynamic>>();
+            _notifications
+              ..clear()
+              ..addAll(items.map(NotificationData.fromJson));
+          }
+        } catch (_) {}
+      }
       _errorMessage = error.toString();
     } finally {
       _setLoading(false);

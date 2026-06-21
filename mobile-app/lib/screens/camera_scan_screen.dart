@@ -95,7 +95,13 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     try {
       final cameras = await availableCameras();
       if (cameras.isEmpty) {
-        throw StateError('No camera was found on this device.');
+        if (!mounted) return;
+        final lang = context.read<LanguageProvider>();
+        setState(() {
+          _cameraError = lang.isRTL ? 'لم يتم العثور على كاميرا على هذا الجهاز.' : 'No camera was found on this device.';
+          _isCameraLoading = false;
+        });
+        return;
       }
 
       _cameras = cameras;
@@ -151,7 +157,8 @@ class _CameraScanScreenState extends State<CameraScanScreen>
     }
 
     if (!_cameraReady) {
-      _showError('Camera is still loading. Please wait a moment.');
+      final lang = context.read<LanguageProvider>();
+      _showError(lang.isRTL ? 'الكاميرا قيد التحميل. يرجى الانتظار قليلاً.' : 'Camera is still loading. Please wait a moment.');
       return;
     }
 
@@ -177,12 +184,13 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Future<void> _capturePhoto() async {
     final controller = _cameraController;
     if (controller == null || !controller.value.isInitialized) return;
+    final isRTL = context.read<LanguageProvider>().isRTL;
 
     try {
       final photo = await controller.takePicture();
       await _submitScan(io.File(photo.path));
     } catch (error) {
-      _showError('Failed to capture photo: $error');
+      _showError(isRTL ? 'فشل التقاط الصورة.' : 'Failed to capture photo: $error');
     }
   }
 
@@ -194,6 +202,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       _goToCropSelect();
       return;
     }
+    final isRTL = context.read<LanguageProvider>().isRTL;
 
     if (kIsWeb) {
       await _pickFromGalleryWeb();
@@ -212,18 +221,19 @@ class _CameraScanScreenState extends State<CameraScanScreen>
       );
       if (video != null) await _submitVideo(io.File(video.path));
     } catch (error) {
-      _showError('Failed to open gallery: $error');
+      _showError(isRTL ? 'فشل فتح المعرض.' : 'Failed to open gallery: $error');
     }
   }
 
   Future<void> _pickFromGalleryWeb() async {
+    final isRTL = context.read<LanguageProvider>().isRTL;
     try {
       final result = await web_picker.pickImageFromWeb();
       if (result == null) return;
       final (bytes, name) = result;
       await _submitScanWeb(bytes, name);
     } catch (error) {
-      _showError('Failed to open file picker: $error');
+      _showError(isRTL ? 'فشل فتح منتقي الملفات.' : 'Failed to open file picker: $error');
     }
   }
 
@@ -256,6 +266,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
   Future<void> _startVideoRecording() async {
     final controller = _cameraController;
     if (controller == null || !controller.value.isInitialized) return;
+    final isRTL = context.read<LanguageProvider>().isRTL;
 
     try {
       await controller.startVideoRecording();
@@ -277,13 +288,14 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         _recordingTime = 0;
       });
     } catch (error) {
-      _showError('Failed to start video recording: $error');
+      _showError(isRTL ? 'فشل بدء تسجيل الفيديو.' : 'Failed to start video recording: $error');
     }
   }
 
   Future<void> _stopVideoRecording() async {
     final controller = _cameraController;
     if (controller == null || !controller.value.isRecordingVideo) return;
+    final isRTL = context.read<LanguageProvider>().isRTL;
 
     try {
       final video = await controller.stopVideoRecording();
@@ -299,7 +311,7 @@ class _CameraScanScreenState extends State<CameraScanScreen>
         _isRecording = false;
         _recordingTime = 0;
       });
-      _showError('Failed to stop video recording: $error');
+      _showError(isRTL ? 'فشل إيقاف تسجيل الفيديو.' : 'Failed to stop video recording: $error');
     }
   }
 
@@ -662,9 +674,9 @@ class _CameraScanScreenState extends State<CameraScanScreen>
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                const Text(
-                                  'REC',
-                                  style: TextStyle(
+                                Text(
+                                  lang.isRTL ? 'تسجيل' : 'REC',
+                                  style: const TextStyle(
                                     color: Colors.white,
                                     fontWeight: FontWeight.bold,
                                   ),

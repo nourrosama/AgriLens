@@ -14,8 +14,10 @@ def create_user(
     email: str = '',
     country: str = '',
     photo_url: str = '',
+    consent_given_at: datetime | None = None,
 ) -> dict:
     """Insert a new user. Returns the created document."""
+    now = datetime.now(timezone.utc)
     doc = {
         'name': name,
         'language': language,
@@ -27,8 +29,10 @@ def create_user(
         'profile_completed': bool(name or country),
         'farms': [],
         'fcm_tokens': [],
-        'created_at': datetime.now(timezone.utc),
-        'updated_at': datetime.now(timezone.utc),
+        # GDPR: explicit consent timestamp; required before data is processed.
+        'consent_given_at': consent_given_at or now,
+        'created_at': now,
+        'updated_at': now,
     }
     # Store phone only when provided — the sparse unique index skips null/missing
     # values, so email-only users (phone='') don't collide with each other.
@@ -125,6 +129,7 @@ def serialize(user: dict) -> dict:
         'profile_completed': user.get('profile_completed', False),
         'farms': [str(f) for f in user.get('farms', [])],
         'fcm_tokens': user.get('fcm_tokens', []),
+        'consent_given_at': user.get('consent_given_at', '').isoformat() if user.get('consent_given_at') else None,
         'created_at': user.get('created_at', '').isoformat() if user.get('created_at') else None,
         'updated_at': user.get('updated_at', '').isoformat() if user.get('updated_at') else None,
     }

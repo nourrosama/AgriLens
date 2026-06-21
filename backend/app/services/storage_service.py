@@ -102,6 +102,17 @@ def upload_profile_image(file_obj, filename: str = None) -> str:
     )
 
 
+def upload_field_image(file_obj, filename: str = None) -> str:
+    """Upload a field photo and return the public URL/path."""
+    return _upload_media(
+        file_obj,
+        folder='agrilens/fields',
+        default_ext='jpg',
+        resource_type='image',
+        filename=filename,
+    )
+
+
 def upload_video(file_obj, filename: str = None) -> str:
     """Upload a video file and return the public URL/path."""
     return _upload_media(

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/app_config.dart';
+import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/user_provider.dart';
@@ -28,6 +29,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   bool _reportLoading = false;
   bool _reportFailed = false;
   bool _reportExpanded = false; // only shown after button tap
+  String? _reportLang; // language code used when the report was last fetched
 
   @override
   void initState() {
@@ -43,6 +45,21 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         });
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_reportExpanded || _report == null) return;
+    final currentLang = context.read<LanguageProvider>().isRTL ? 'ar' : 'en';
+    if (_reportLang != null && _reportLang != currentLang) {
+      setState(() {
+        _report = null;
+        _reportFailed = false;
+        _reportLang = null;
+      });
+      _fetchReport();
+    }
   }
 
   ScanResult? _resolveResult() {
@@ -88,6 +105,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       setState(() {
         _report = report as Map<String, dynamic>?;
         _reportLoading = false;
+        _reportLang = lang.isRTL ? 'ar' : 'en';
       });
     } catch (_) {
       if (!mounted) return;
@@ -165,8 +183,41 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
                   ? _EmptyState(lang: lang)
                   : Column(
                       children: [
-                        // 1. Grad-CAM
-                        if (result.gradcamOverlay != null) ...[
+                        // AI disclaimer banner
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFFBEB),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFFCD34D)),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Icon(Icons.info_outline,
+                                  size: 16, color: Color(0xFFB45309)),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  lang.isRTL
+                                      ? 'هذه النتائج مُولَّدة بالذكاء الاصطناعي. للقرارات الزراعية الحرجة، يُرجى استشارة مهندس زراعي متخصص.'
+                                      : 'AI-generated results. For critical crop decisions, consult a certified agronomist.',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF92400E),
+                                      height: 1.4),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // 1. Grad-CAM (base64 from live result OR URL from history)
+                        if (result.gradcamOverlay != null ||
+                            (result.gradcamUrl != null && !result.isHealthy)) ...[
                           _GradCamCard(result: result, lang: lang),
                           const SizedBox(height: 16),
                         ],
@@ -1218,6 +1269,7 @@ class _MediaPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.read<LanguageProvider>();
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1229,13 +1281,13 @@ class _MediaPreview extends StatelessWidget {
         child: SizedBox(
           width: double.infinity,
           height: 220,
-          child: result.isVideo ? _buildVideoPlaceholder() : _buildImage(),
+          child: result.isVideo ? _buildVideoPlaceholder(lang) : _buildImage(),
         ),
       ),
     );
   }
 
-  Widget _buildVideoPlaceholder() {
+  Widget _buildVideoPlaceholder(LanguageProvider lang) {
     if (result.selectedFrames.isNotEmpty) {
       final firstFrame = result.selectedFrames.first;
       return Stack(
@@ -1255,14 +1307,14 @@ class _MediaPreview extends StatelessWidget {
                 color: Colors.black.withValues(alpha: 0.55),
                 borderRadius: BorderRadius.circular(999),
               ),
-              child: const Row(
+              child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.videocam_rounded, color: Colors.white, size: 16),
-                  SizedBox(width: 6),
+                  const Icon(Icons.videocam_rounded, color: Colors.white, size: 16),
+                  const SizedBox(width: 6),
                   Text(
-                    'Video scan',
-                    style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                    lang.isRTL ? 'فحص بالفيديو' : 'Video scan',
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
@@ -1274,13 +1326,13 @@ class _MediaPreview extends StatelessWidget {
 
     return Container(
       color: const Color(0xFF102A43),
-      child: const Column(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.videocam_rounded, size: 72, color: Colors.white),
-          SizedBox(height: 12),
-          Text('Video scan uploaded',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+          const Icon(Icons.videocam_rounded, size: 72, color: Colors.white),
+          const SizedBox(height: 12),
+          Text(lang.isRTL ? 'تم رفع فحص الفيديو' : 'Video scan uploaded',
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -1331,6 +1383,7 @@ class _SelectedVideoFramesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.read<LanguageProvider>();
     final frames = result.selectedFrames;
     return Container(
       width: double.infinity,
@@ -1343,13 +1396,13 @@ class _SelectedVideoFramesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.photo_library_outlined, color: Color(0xFF2E7D32), size: 20),
-              SizedBox(width: 8),
+              const Icon(Icons.photo_library_outlined, color: Color(0xFF2E7D32), size: 20),
+              const SizedBox(width: 8),
               Text(
-                'Selected analyzed frames',
-                style: TextStyle(
+                lang.isRTL ? 'الإطارات المحللة المختارة' : 'Selected analyzed frames',
+                style: const TextStyle(
                   color: Color(0xFF2E7D32),
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
@@ -1384,6 +1437,7 @@ class _SelectedVideoFrameTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.read<LanguageProvider>();
     final showGradcam = !frame.isHealthy && frame.hasGradcam;
     final imageUrl = showGradcam ? frame.gradcamUrl! : frame.displayUrl;
     return ClipRRect(
@@ -1419,7 +1473,7 @@ class _SelectedVideoFrameTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    frame.isHealthy ? 'Healthy frame' : frame.disease,
+                    frame.isHealthy ? (lang.isRTL ? 'إطار صحي' : 'Healthy frame') : frame.disease,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
@@ -1430,7 +1484,7 @@ class _SelectedVideoFrameTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(frame.confidence * 100).round()}% confidence',
+                    '${(frame.confidence * 100).round()}${lang.isRTL ? "% ثقة" : "% confidence"}',
                     style: const TextStyle(color: Color(0xFF757575), fontSize: 12),
                   ),
                 ],
@@ -1472,7 +1526,10 @@ class _GradCamCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isAr = lang.isRTL;
-    final overlayBytes = base64Decode(result.gradcamOverlay!);
+    // Prefer the in-memory base64 overlay (fresh scan); fall back to the
+    // persistent URL stored after the first detection.
+    final hasOverlay = result.gradcamOverlay != null;
+    final overlayBytes = hasOverlay ? base64Decode(result.gradcamOverlay!) : null;
 
     return Container(
       width: double.infinity,
@@ -1506,23 +1563,30 @@ class _GradCamCard extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // ── Stacked view: original photo + RGBA heatmap overlay ────────────
-          // The heatmap is fully transparent where the plant is healthy and
-          // orange/red where the model detected disease — so the real photo
-          // shows through everywhere except the flagged region.
+          // ── Grad-CAM visualisation ─────────────────────────────────────────
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: AspectRatio(
               aspectRatio: 4 / 3,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // Layer 1 — original leaf photo (full-size, fills the card)
-                  _buildLeafPhoto(),
-                  // Layer 2 — transparent RGBA heatmap: opaque only at hotspot
-                  Image.memory(overlayBytes, fit: BoxFit.cover),
-                ],
-              ),
+              child: hasOverlay
+                  // Fresh scan: stack original photo + transparent RGBA overlay.
+                  ? Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _buildLeafPhoto(),
+                        Image.memory(overlayBytes!, fit: BoxFit.cover),
+                      ],
+                    )
+                  // History: show the composited image uploaded to storage.
+                  : Image.network(
+                      result.gradcamUrl!,
+                      fit: BoxFit.cover,
+                      headers: const {'ngrok-skip-browser-warning': 'true'},
+                      errorBuilder: (_, _, _) => const Center(
+                        child: Icon(Icons.image_not_supported_outlined,
+                            color: Color(0xFF9E9E9E)),
+                      ),
+                    ),
             ),
           ),
 
@@ -1631,8 +1695,12 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final crops = context.read<CropProvider>();
     final confidencePercent = (result.confidence * 100).round();
-    final scannedAt = result.scannedAt.toLocal().toString().replaceFirst('.000', '');
+    final dt = result.scannedAt.toLocal();
+    final scannedAt = lang.isRTL
+        ? '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
+        : '${dt.month}/${dt.day}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
     return Container(
       width: double.infinity,
@@ -1654,8 +1722,8 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       result.hasDetection
-                          ? (result.isHealthy ? lang.t('scan.healthy') : result.diseaseNameEn)
-                          : result.diseaseNameEn,
+                          ? (result.isHealthy ? lang.t('scan.healthy') : (lang.isRTL ? result.diseaseNameAr : result.diseaseNameEn))
+                          : (lang.isRTL ? result.diseaseNameAr : result.diseaseNameEn),
                       style: const TextStyle(
                         color: Color(0xFF2E7D32),
                         fontSize: 22,
@@ -1682,12 +1750,16 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          _InfoRow(label: 'Crop', value: result.cropType.isEmpty ? 'tomato' : result.cropType),
-          _InfoRow(label: 'Media', value: result.mediaType),
-          _InfoRow(label: 'Status', value: result.status),
-          _InfoRow(label: 'Scanned At', value: scannedAt),
-          if (result.modelVersion.isNotEmpty)
-            _InfoRow(label: 'Model', value: result.modelVersion),
+          _InfoRow(
+            label: lang.isRTL ? 'المحصول' : 'Crop',
+            value: crops.getLabel(result.cropType.isEmpty ? 'tomato' : result.cropType, isRTL: lang.isRTL),
+          ),
+          _InfoRow(
+            label: lang.isRTL ? 'الوسيط' : 'Media',
+            value: result.mediaType == 'video' ? lang.t('scan.mediaVideo') : lang.t('scan.mediaPhoto'),
+          ),
+          _InfoRow(label: lang.isRTL ? 'الحالة' : 'Status', value: _localizedStatus(result.status, lang)),
+          _InfoRow(label: lang.isRTL ? 'وقت الفحص' : 'Scanned At', value: scannedAt),
           if (result.hasDetection) ...[
             const SizedBox(height: 12),
             _MetricBar(
@@ -1704,7 +1776,7 @@ class _SummaryCard extends StatelessWidget {
               color: const Color(0xFF4CAF50),
             ),
             const SizedBox(height: 14),
-            _InfoRow(label: 'Risk Level', value: result.riskLevel),
+            _InfoRow(label: lang.isRTL ? 'مستوى المخاطرة' : 'Risk Level', value: _localizedRisk(result.riskLevel, lang)),
           ] else ...[
             const SizedBox(height: 18),
             _NoDetectionBanner(result: result),
@@ -1726,12 +1798,32 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
+String _localizedStatus(String status, LanguageProvider lang) {
+  switch (status) {
+    case 'completed': return lang.t('scan.statusCompleted');
+    case 'processing': return lang.t('scan.statusProcessing');
+    case 'pending': return lang.t('scan.statusPending');
+    case 'failed': return lang.t('scan.statusFailed');
+    default: return status;
+  }
+}
+
+String _localizedRisk(String risk, LanguageProvider lang) {
+  switch (risk) {
+    case 'high': return lang.t('scan.riskHigh');
+    case 'medium': return lang.t('scan.riskMedium');
+    case 'low': return lang.t('scan.riskLow');
+    default: return risk;
+  }
+}
+
 class _TopPredictionsCard extends StatelessWidget {
   const _TopPredictionsCard({required this.result});
   final ScanResult result;
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.read<LanguageProvider>();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
@@ -1743,8 +1835,8 @@ class _TopPredictionsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Top Predictions',
-              style: TextStyle(color: Color(0xFF2E7D32), fontSize: 18, fontWeight: FontWeight.w700)),
+          Text(lang.isRTL ? 'أفضل التنبؤات' : 'Top Predictions',
+              style: const TextStyle(color: Color(0xFF2E7D32), fontSize: 18, fontWeight: FontWeight.w700)),
           const SizedBox(height: 14),
           ...result.topPredictions.map((p) {
             final percent = (p.confidence * 100).round();

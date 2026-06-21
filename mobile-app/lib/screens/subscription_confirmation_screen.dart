@@ -28,6 +28,7 @@ class _SubscriptionConfirmationScreenState
   late final AnimationController _ctrl;
   late final Animation<double> _scaleAnim;
   late final Animation<double> _fadeAnim;
+  bool _subscribeError = false;
 
   @override
   void initState() {
@@ -37,11 +38,15 @@ class _SubscriptionConfirmationScreenState
     _scaleAnim = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
     _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
 
-    // Activate subscription on backend / local state
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-      await context.read<UserProvider>().subscribe(widget.planKey);
-      if (mounted) _ctrl.forward();
+      final ok = await context.read<UserProvider>().subscribe(widget.planKey);
+      if (!mounted) return;
+      if (ok) {
+        _ctrl.forward();
+      } else {
+        setState(() => _subscribeError = true);
+      }
     });
   }
 
@@ -59,6 +64,66 @@ class _SubscriptionConfirmationScreenState
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>();
+
+    if (_subscribeError) {
+      final userProvider = context.read<UserProvider>();
+      return Scaffold(
+        backgroundColor: AppColors.background,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 72),
+                const SizedBox(height: 24),
+                Text(
+                  lang.isRTL ? 'فشل تفعيل الاشتراك' : 'Subscription Failed',
+                  style: const TextStyle(
+                    color: AppColors.primaryDark,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  userProvider.errorMessage ??
+                      (lang.isRTL
+                          ? 'تعذّر الاتصال بالخادم. تأكد من تشغيل الخادم وحاول مجدداً.'
+                          : 'Could not reach the server. Make sure the backend is running and try again.'),
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 15,
+                    height: 1.5,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => context.go('/subscription-plans'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: Text(
+                      lang.isRTL ? 'حاول مجدداً' : 'Try Again',
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,

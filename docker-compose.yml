@@ -74,7 +74,7 @@ services:
       COTTON_LABELS_PATH: /models/cotton_label_mapping.json
       CROP_VALIDATOR_MODEL_PATH: /models/crop_validator.pt
       CROP_VALIDATOR_LABELS_PATH: /models/crop_validator_labels.json
-      CROP_VALIDATOR_ENABLED: "false"
+      CROP_VALIDATOR_ENABLED: "true"
       CROP_VALIDATOR_NOT_PLANT_THRESHOLD: "0.35"
       CROP_VALIDATOR_SUPPORTED_THRESHOLD: "0.65"
       MIN_PLANT_CONFIDENCE: "0.40"
@@ -156,6 +156,58 @@ services:
       retries: 10
       start_period: 20s
 
+  # ── Observability stack ────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - backend
+
+  loki:
+    image: grafana/loki:2.9.0
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./deployment/loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    entrypoint:
+      - sh
+      - -c
+      - "mkdir -p /loki/chunks /loki/rules /loki/tsdb-shipper-active /loki/tsdb-shipper-cache && /usr/bin/loki -config.file=/etc/loki/local-config.yaml"
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    volumes:
+      - /var/log:/var/log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: agrilens2025
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./deployment/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+
 volumes:
   backend_uploads:
   mongo_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

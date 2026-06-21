@@ -489,10 +489,10 @@ class _ArticleLink extends StatelessWidget {
 
   Future<void> _open() async {
     final uri = Uri.tryParse(article.url);
-    if (uri == null) return;
-    if (await canLaunchUrl(uri)) {
+    if (uri == null || article.url.isEmpty) return;
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    } catch (_) {}
   }
 
   @override
@@ -689,9 +689,10 @@ class _SearchResults extends StatelessWidget {
                 size: 16, color: AppColors.textSecondary),
             onTap: () async {
               final uri = Uri.tryParse(hit.article.url);
-              if (uri != null && await canLaunchUrl(uri)) {
+              if (uri == null || hit.article.url.isEmpty) return;
+              try {
                 await launchUrl(uri, mode: LaunchMode.externalApplication);
-              }
+              } catch (_) {}
             },
           ),
         );

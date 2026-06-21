@@ -704,28 +704,32 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final savedPath = await saveExportFile(filename, content);
 
       if (mounted) {
-        // Show friendly folder name: "Downloads" on Android, "Documents" on iOS
-        final folderParts = savedPath.split('/');
-        final folderIdx = folderParts.indexWhere(
+        final pathParts = savedPath.split('/');
+        final fileName = pathParts.isNotEmpty ? pathParts.last : savedPath;
+        final folderIdx = pathParts.indexWhere(
           (p) => p.toLowerCase() == 'downloads' || p.toLowerCase() == 'documents',
         );
-        final folderLabel = folderIdx != -1
-            ? folderParts[folderIdx]
-            : folderParts.length > 1
-                ? folderParts[folderParts.length - 2]
-                : 'Files';
-        final fileName = folderParts.last;
-
+        final detectedFolder = folderIdx != -1
+            ? pathParts[folderIdx].toLowerCase()
+            : (savedPath.toLowerCase().contains('download') ? 'downloads' : 'documents');
+        final isDownloads = detectedFolder == 'downloads';
+        final locationLabel = lang.isRTL
+            ? (isDownloads ? 'مجلد التنزيلات' : 'مجلد المستندات')
+            : (isDownloads ? 'Downloads folder' : 'Documents folder');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.primaryDark,
+            duration: const Duration(seconds: 6),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lang.isRTL ? 'تم الحفظ في $folderLabel' : 'Saved to $folderLabel',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                  lang.isRTL
+                      ? 'تم الحفظ في $locationLabel'
+                      : 'Saved to $locationLabel',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 Text(
                   fileName,
@@ -739,7 +743,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 ),
               ],
             ),
-            duration: const Duration(seconds: 6),
           ),
         );
       }

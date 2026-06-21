@@ -60,6 +60,7 @@ def add_field(
     season: str = '',
     health_score: float = 0,
     risk_level: str = 'low',
+    photo_url: str = '',
 ) -> dict:
     """Add a field sub-document to a farm."""
     field = {
@@ -73,6 +74,7 @@ def add_field(
         'season': season,
         'health_score': health_score,
         'risk_level': risk_level,
+        'photo_url': photo_url,
         'weather_snapshot': {},
         'created_at': datetime.now(timezone.utc),
         'updated_at': datetime.now(timezone.utc),
@@ -131,6 +133,7 @@ def serialize_field(field: dict) -> dict:
         'season': field.get('season', ''),
         'health_score': field.get('health_score', 0),
         'risk_level': field.get('risk_level', 'low'),
+        'photo_url': field.get('photo_url', ''),
         'weather_snapshot': field.get('weather_snapshot', {}),
         'created_at': field.get('created_at', '').isoformat() if field.get('created_at') else None,
         'updated_at': field.get('updated_at', '').isoformat() if field.get('updated_at') else None,

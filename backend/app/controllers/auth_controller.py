@@ -7,6 +7,7 @@ Supports two OTP channels:
 import re
 
 from flask import Blueprint, current_app, request, g
+from app.extensions import limiter
 from app.services import auth_service
 from app.services import storage_service
 from app.models import user_model, audit_model
@@ -20,6 +21,7 @@ _EMAIL_RE = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
 
 
 @auth_bp.route('/api/auth/send-otp', methods=['POST'])
+@limiter.limit('5 per minute')
 def send_otp():
     """Send OTP to phone via Twilio Verify.
     ---
@@ -138,6 +140,7 @@ def register():
 
 
 @auth_bp.route('/api/auth/verify-otp', methods=['POST'])
+@limiter.limit('10 per minute')
 def verify_otp():
     """Verify OTP — handles both login and new-user signup.
 
@@ -184,6 +187,8 @@ def verify_otp():
       429:
         description: Rate limit exceeded
     """
+    from datetime import datetime, timezone as tz
+
     data = request.get_json(silent=True) or {}
     phone = sanitize_phone(data.get('phone', ''))
     code = data.get('code', '')
@@ -191,6 +196,14 @@ def verify_otp():
     signup_country = str(data.get('country', '')).strip()
     signup_email = str(data.get('email', '')).strip()
     signup_language = data.get('language') if data.get('language') in ('ar', 'en') else 'en'
+    # GDPR: client sends ISO-8601 timestamp of when user checked the consent box.
+    raw_consent = data.get('consent_given_at')
+    consent_given_at = None
+    if raw_consent:
+        try:
+            consent_given_at = datetime.fromisoformat(str(raw_consent).replace('Z', '+00:00'))
+        except ValueError:
+            consent_given_at = datetime.now(tz.utc)
 
     if not is_valid_phone(phone):
         return error_response('Invalid phone number', 400)
@@ -219,6 +232,7 @@ def verify_otp():
             country=signup_country,
             email=signup_email,
             language=signup_language,
+            consent_given_at=consent_given_at,
         )
         is_new_user = True
     else:
@@ -245,6 +259,7 @@ def verify_otp():
 
 
 @auth_bp.route('/api/auth/send-email-otp', methods=['POST'])
+@limiter.limit('5 per minute')
 def send_email_otp():
     """Send a 6-digit OTP to the user's email address via Resend.
     ---
@@ -306,6 +321,7 @@ def send_email_otp():
 
 
 @auth_bp.route('/api/auth/verify-email-otp', methods=['POST'])
+@limiter.limit('10 per minute')
 def verify_email_otp():
     """Verify an email OTP — handles login and new-user signup via email.
 
@@ -345,12 +361,21 @@ def verify_email_otp():
       429:
         description: Rate limit exceeded
     """
+    from datetime import datetime, timezone as tz
+
     data = request.get_json(silent=True) or {}
     email = str(data.get('email', '')).strip().lower()
     code = str(data.get('code', '')).strip()
     signup_name = str(data.get('name', '')).strip()
     signup_country = str(data.get('country', '')).strip()
     signup_language = data.get('language') if data.get('language') in ('ar', 'en') else 'en'
+    raw_consent = data.get('consent_given_at')
+    consent_given_at = None
+    if raw_consent:
+        try:
+            consent_given_at = datetime.fromisoformat(str(raw_consent).replace('Z', '+00:00'))
+        except ValueError:
+            consent_given_at = datetime.now(tz.utc)
 
     if not email or not _EMAIL_RE.match(email):
         return error_response('Invalid email address', 400)
@@ -377,6 +402,7 @@ def verify_email_otp():
             country=signup_country,
             email=email,
             language=signup_language,
+            consent_given_at=consent_given_at,
         )
         is_new_user = True
     else:
@@ -601,10 +627,10 @@ def update_profile():
     return success_response({'user': user_model.serialize(user)}, 'Profile updated')
 
 
-@auth_bp.route('/api/auth/me', methods=['DELETE'])
+@auth_bp.route('/api/auth/account', methods=['DELETE'])
 @require_auth
 def delete_account():
-    """Permanently delete the current user's account and all associated data.
+    """Permanently delete the authenticated user's account and all associated data.
     ---
     tags:
       - Auth
@@ -612,29 +638,91 @@ def delete_account():
       - Bearer: []
     responses:
       200:
-        description: Account deleted
+        description: Account and all data deleted
       401:
         description: Unauthorized
     """
+    from bson import ObjectId
     from app.models.db import (
         scans_col, farms_col, notifications_col,
-        forum_posts_col, forum_comments_col, forum_questions_col, forum_answers_col,
+        chat_sessions_col, chat_messages_col,
+        forum_posts_col, forum_comments_col,
+        forum_questions_col, forum_answers_col,
+        users_col,
     )
-    user_id_str = str(g.current_user['_id'])
+
+    user_id = str(g.current_user['_id'])
+    uid_obj = ObjectId(user_id)
+
+    try:
+        scans_col().delete_many({'user_id': uid_obj})
+        farms_col().delete_many({'user_id': uid_obj})
+        notifications_col().delete_many({'user_id': uid_obj})
+        sessions = list(chat_sessions_col().find({'user_id': user_id}, {'_id': 1}))
+        session_ids = [s['_id'] for s in sessions]
+        if session_ids:
+            chat_messages_col().delete_many({'session_id': {'$in': [str(sid) for sid in session_ids]}})
+        chat_sessions_col().delete_many({'user_id': user_id})
+        forum_posts_col().delete_many({'author_id': uid_obj})
+        forum_comments_col().delete_many({'author_id': uid_obj})
+        forum_questions_col().delete_many({'author_id': uid_obj})
+        forum_answers_col().delete_many({'author_id': uid_obj})
+        users_col().delete_one({'_id': uid_obj})
+
+        audit_model.log_action(
+            user_id,
+            'account_deleted',
+            ip_address=request.remote_addr,
+        )
+        current_app.logger.info('account_deleted', extra={'event': 'account_deleted', 'user_id': user_id})
+    except Exception as exc:
+        current_app.logger.exception('Account deletion failed for user %s: %s', user_id, exc)
+        return error_response('Account deletion failed. Please try again or contact support.', 500)
+
+    return success_response(message='Your account and all associated data have been permanently deleted.')
+
+
+@auth_bp.route('/api/auth/export-data', methods=['GET'])
+@require_auth
+def export_data():
+    """GDPR data portability — export all data belonging to the current user.
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: JSON bundle containing profile, farms, and scans
+      401:
+        description: Unauthorized
+    """
+    from app.models.db import scans_col, farms_col
     from bson import ObjectId
-    user_oid = ObjectId(user_id_str)
 
-    # Remove all user data
-    scans_col().delete_many({'user_id': user_oid})
-    farms_col().delete_many({'owner_id': user_oid})
-    notifications_col().delete_many({'user_id': user_oid})
-    forum_posts_col().delete_many({'author_id': user_oid})
-    forum_comments_col().delete_many({'author_id': user_oid})
-    forum_questions_col().delete_many({'author_id': user_oid})
-    forum_answers_col().delete_many({'author_id': user_oid})
+    user_id = str(g.current_user['_id'])
+    uid_obj = ObjectId(user_id)
 
-    # Delete the user document last
-    user_model.delete_user(user_id_str)
+    def _serialize_doc(doc: dict) -> dict:
+        """Convert ObjectId fields to strings for JSON output."""
+        out = {}
+        for k, v in doc.items():
+            if isinstance(v, ObjectId):
+                out[k] = str(v)
+            elif isinstance(v, list):
+                out[k] = [str(i) if isinstance(i, ObjectId) else i for i in v]
+            else:
+                out[k] = v.isoformat() if hasattr(v, 'isoformat') else v
+        return out
 
-    audit_model.log_action(user_id_str, 'account_deleted')
-    return success_response(message='Account deleted successfully')
+    profile = user_model.serialize(g.current_user)
+    farms = [_serialize_doc(f) for f in farms_col().find({'user_id': uid_obj})]
+    scans = [_serialize_doc(s) for s in scans_col().find({'user_id': uid_obj}, {'gradcam_overlay': 0})]
+
+    audit_model.log_action(user_id, 'data_export_requested', ip_address=request.remote_addr)
+
+    return success_response({
+        'profile': profile,
+        'farms': farms,
+        'scans': scans,
+    }, 'Data export complete')

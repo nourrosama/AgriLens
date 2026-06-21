@@ -95,9 +95,27 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      await history.addBotMessage(
-        'Unable to reach AgriBot right now. Please try again in a moment.',
-      );
+      final lang = context.read<LanguageProvider>();
+      String errorMsg;
+      if (e is ApiException && e.statusCode == 403) {
+        // Plan gate: backend rejected because DB plan != premium.
+        errorMsg = lang.isRTL
+            ? 'AgriBot متاح لمشتركي Premium فقط. يرجى ترقية خطتك.'
+            : 'AgriBot is available for Premium subscribers only. Please upgrade your plan.';
+      } else if (e is ApiException && e.statusCode == 429) {
+        errorMsg = lang.isRTL
+            ? 'لقد تجاوزت الحد المسموح من الرسائل. انتظر قليلاً ثم حاول مجدداً.'
+            : 'Too many messages. Please wait a moment and try again.';
+      } else if (e is ApiException && e.isConnectivityError) {
+        errorMsg = lang.isRTL
+            ? 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت.'
+            : 'Cannot connect to the server. Check your internet connection.';
+      } else {
+        errorMsg = lang.isRTL
+            ? 'حدث خطأ غير متوقع. يرجى المحاولة مجدداً.'
+            : 'An unexpected error occurred. Please try again.';
+      }
+      await history.addBotMessage(errorMsg);
     } finally {
       if (mounted) setState(() => _isTyping = false);
       _scrollToBottom();
@@ -569,6 +587,7 @@ class _HistoryDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final history = context.watch<ChatHistoryProvider>();
+    final lang = context.watch<LanguageProvider>();
     final sessions = history.sessions;
 
     return Drawer(
@@ -584,10 +603,10 @@ class _HistoryDrawer extends StatelessWidget {
                 children: [
                   const Icon(Icons.chat_bubble_outline, color: AppColors.primary, size: 22),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Chat History',
-                      style: TextStyle(
+                      lang.isRTL ? 'سجل المحادثات' : 'Chat History',
+                      style: const TextStyle(
                         color: AppColors.primaryDark,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -610,7 +629,7 @@ class _HistoryDrawer extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onNewChat,
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('New Chat'),
+                label: Text(lang.isRTL ? 'محادثة جديدة' : 'New Chat'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: AppColors.primary,
                   side: const BorderSide(color: AppColors.primary),
@@ -627,13 +646,15 @@ class _HistoryDrawer extends StatelessWidget {
             // Session list
             Expanded(
               child: sessions.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Padding(
-                        padding: EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(24),
                         child: Text(
-                          'No previous chats yet.\nStart a conversation!',
+                          lang.isRTL
+                              ? 'لا توجد محادثات سابقة.\nابدأ محادثة!'
+                              : 'No previous chats yet.\nStart a conversation!',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
                         ),
                       ),
                     )
@@ -704,19 +725,21 @@ class _SessionTile extends StatelessWidget {
         child: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
       ),
       confirmDismiss: (_) async {
+        final lang = context.read<LanguageProvider>();
+        final isRTL = lang.isRTL;
         return await showDialog<bool>(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Delete chat?'),
-            content: const Text('This conversation will be permanently removed.'),
+            title: Text(isRTL ? 'حذف المحادثة؟' : 'Delete chat?'),
+            content: Text(isRTL ? 'سيتم حذف هذه المحادثة بشكل دائم.' : 'This conversation will be permanently removed.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(false),
-                child: const Text('Cancel'),
+                child: Text(isRTL ? 'إلغاء' : 'Cancel'),
               ),
               TextButton(
                 onPressed: () => Navigator.of(ctx).pop(true),
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                child: Text(isRTL ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.red)),
               ),
             ],
           ),

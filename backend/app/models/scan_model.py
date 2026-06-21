@@ -90,8 +90,17 @@ def get_scans_by_user(user_id: str, page: int = 1, per_page: int = 20) -> list:
 
 
 def count_scans_by_user(user_id: str) -> int:
-    """Return the total number of scans for a user (no pagination)."""
-    return scans_col().count_documents({'user_id': ObjectId(user_id)})
+    """Return the total number of completed scans for a user (no pagination)."""
+    return scans_col().count_documents({
+        'user_id': ObjectId(user_id),
+        'status': {'$nin': ['validation_failed', 'failed']},
+    })
+
+
+def delete_scan(scan_id: str) -> bool:
+    """Permanently remove a scan document."""
+    result = scans_col().delete_one({'_id': ObjectId(scan_id)})
+    return result.deleted_count > 0
 
 
 def get_scans_by_farm(farm_id: str, page: int = 1, per_page: int = 20) -> list:
@@ -120,7 +129,10 @@ def get_scans_filtered(
 ) -> list:
     """Paginated scan list for a user with optional farm, field, and crop filters."""
     skip = (page - 1) * per_page
-    query = {'user_id': ObjectId(user_id)}
+    query = {
+        'user_id': ObjectId(user_id),
+        'status': {'$nin': ['validation_failed', 'failed']},
+    }
     if farm_id:
         query['farm_id'] = ObjectId(farm_id)
     if field_id:
@@ -157,6 +169,7 @@ def serialize(scan: dict) -> dict:
         'media_type': scan.get('media_type', 'image'),
         'status': scan.get('status', 'pending'),
         'detection_result': det,
+        'gradcam_url': (det or {}).get('gradcam_url', ''),
         'device_info': scan.get('device_info', {}),
         'created_at': scan.get('created_at', '').isoformat() if scan.get('created_at') else None,
         'updated_at': scan.get('updated_at', '').isoformat() if scan.get('updated_at') else None,

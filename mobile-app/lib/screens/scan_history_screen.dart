@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/theme.dart';
@@ -96,6 +97,7 @@ class _HistoryLimitBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>();
     final user = context.watch<UserProvider>();
     const rankMap = {'free': 0, 'premium': 1, 'professional': 2};
     final currentRank = rankMap[user.plan] ?? 0;
@@ -105,9 +107,9 @@ class _HistoryLimitBanner extends StatelessWidget {
     // Label for the upgrade button depends on current plan
     String upgradeLabel;
     if (user.plan == 'premium') {
-      upgradeLabel = 'Upgrade to Professional';
+      upgradeLabel = lang.isRTL ? 'ترقية إلى الاحترافي' : 'Upgrade to Professional';
     } else {
-      upgradeLabel = 'Upgrade to Premium';
+      upgradeLabel = lang.isRTL ? 'ترقية إلى بريميوم' : 'Upgrade to Premium';
     }
 
     return Container(
@@ -127,9 +129,9 @@ class _HistoryLimitBanner extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Limited History',
-                  style: TextStyle(
+                Text(
+                  lang.isRTL ? 'سجل محدود' : 'Limited History',
+                  style: const TextStyle(
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF6D4C00),
                     fontSize: 14,
@@ -139,7 +141,7 @@ class _HistoryLimitBanner extends StatelessWidget {
                 Text(
                   reason.isNotEmpty
                       ? reason
-                      : 'Free plan: showing your last 3 scans this week.',
+                      : (lang.isRTL ? 'الخطة المجانية: تعرض آخر 3 فحوصات هذا الأسبوع.' : 'Free plan: showing your last 3 scans this week.'),
                   style: const TextStyle(color: Color(0xFF6D4C00), fontSize: 13),
                 ),
                 if (canUpgrade) ...[
@@ -271,7 +273,7 @@ class _ScanTile extends StatelessWidget {
                         if (scan.cropType.isNotEmpty) ...[
                           Flexible(
                             child: Text(
-                              scan.cropType,
+                              context.read<CropProvider>().getLabel(scan.cropType, isRTL: lang.isRTL),
                               style: const TextStyle(color: Color(0xFF757575), fontSize: 13),
                               overflow: TextOverflow.ellipsis,
                             ),

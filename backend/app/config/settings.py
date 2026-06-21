@@ -98,7 +98,7 @@ class Config:
         limit.strip()
         for limit in os.getenv(
             'GLOBAL_RATE_LIMITS',
-            '200 per minute,2000 per hour',
+            '50000 per minute,500000 per hour',
         ).split(',')
         if limit.strip()
     ]
