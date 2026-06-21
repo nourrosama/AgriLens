@@ -74,7 +74,7 @@ services:
       COTTON_LABELS_PATH: /models/cotton_label_mapping.json
       CROP_VALIDATOR_MODEL_PATH: /models/crop_validator.pt
       CROP_VALIDATOR_LABELS_PATH: /models/crop_validator_labels.json
-      CROP_VALIDATOR_ENABLED: "false"
+      CROP_VALIDATOR_ENABLED: "true"
       CROP_VALIDATOR_NOT_PLANT_THRESHOLD: "0.35"
       CROP_VALIDATOR_SUPPORTED_THRESHOLD: "0.65"
       MIN_PLANT_CONFIDENCE: "0.40"
