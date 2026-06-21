@@ -345,7 +345,10 @@ class _ScanTile extends StatelessWidget {
     final now = DateTime.now();
     final diff = now.difference(dt);
     if (diff.inDays == 0) {
-      if (diff.inHours < 1) return isRTL ? 'الآن' : 'Just now';
+      if (diff.inSeconds < 60) return isRTL ? 'الآن' : 'Just now';
+      if (diff.inMinutes < 60) {
+        return isRTL ? 'منذ ${diff.inMinutes} دقيقة' : '${diff.inMinutes}m ago';
+      }
       return isRTL ? 'منذ ${diff.inHours} ساعة' : '${diff.inHours}h ago';
     }
     if (diff.inDays == 1) return isRTL ? 'أمس' : 'Yesterday';

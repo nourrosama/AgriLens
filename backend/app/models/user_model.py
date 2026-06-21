@@ -128,3 +128,9 @@ def serialize(user: dict) -> dict:
         'created_at': user.get('created_at', '').isoformat() if user.get('created_at') else None,
         'updated_at': user.get('updated_at', '').isoformat() if user.get('updated_at') else None,
     }
+
+
+def delete_user(user_id: str) -> bool:
+    """Permanently delete a user document. Returns True if deleted."""
+    result = users_col().delete_one({'_id': ObjectId(user_id)})
+    return result.deleted_count > 0

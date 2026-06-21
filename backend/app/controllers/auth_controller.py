@@ -599,3 +599,42 @@ def update_profile():
 
     user = user_model.find_by_id(str(g.current_user['_id']))
     return success_response({'user': user_model.serialize(user)}, 'Profile updated')
+
+
+@auth_bp.route('/api/auth/me', methods=['DELETE'])
+@require_auth
+def delete_account():
+    """Permanently delete the current user's account and all associated data.
+    ---
+    tags:
+      - Auth
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Account deleted
+      401:
+        description: Unauthorized
+    """
+    from app.models.db import (
+        scans_col, farms_col, notifications_col,
+        forum_posts_col, forum_comments_col, forum_questions_col, forum_answers_col,
+    )
+    user_id_str = str(g.current_user['_id'])
+    from bson import ObjectId
+    user_oid = ObjectId(user_id_str)
+
+    # Remove all user data
+    scans_col().delete_many({'user_id': user_oid})
+    farms_col().delete_many({'owner_id': user_oid})
+    notifications_col().delete_many({'user_id': user_oid})
+    forum_posts_col().delete_many({'author_id': user_oid})
+    forum_comments_col().delete_many({'author_id': user_oid})
+    forum_questions_col().delete_many({'author_id': user_oid})
+    forum_answers_col().delete_many({'author_id': user_oid})
+
+    # Delete the user document last
+    user_model.delete_user(user_id_str)
+
+    audit_model.log_action(user_id_str, 'account_deleted')
+    return success_response(message='Account deleted successfully')

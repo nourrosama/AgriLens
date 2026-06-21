@@ -704,7 +704,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final savedPath = await saveExportFile(filename, content);
 
       if (mounted) {
-        final displayName = savedPath.split('/').last.split(r'\').last;
+        // Show friendly folder name: "Downloads" on Android, "Documents" on iOS
+        final folderParts = savedPath.split('/');
+        final folderIdx = folderParts.indexWhere(
+          (p) => p.toLowerCase() == 'downloads' || p.toLowerCase() == 'documents',
+        );
+        final folderLabel = folderIdx != -1
+            ? folderParts[folderIdx]
+            : folderParts.length > 1
+                ? folderParts[folderParts.length - 2]
+                : 'Files';
+        final fileName = folderParts.last;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.primaryDark,
@@ -713,16 +724,22 @@ class _ReportsScreenState extends State<ReportsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lang.isRTL ? 'تم الحفظ بنجاح' : 'Saved successfully',
+                  lang.isRTL ? 'تم الحفظ في $folderLabel' : 'Saved to $folderLabel',
                   style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 Text(
-                  displayName,
+                  fileName,
                   style: const TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+                Text(
+                  savedPath,
+                  style: const TextStyle(fontSize: 10, color: Colors.white54),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 6),
           ),
         );
       }

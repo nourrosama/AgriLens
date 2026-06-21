@@ -8,8 +8,12 @@ from bson import ObjectId
 from app.middleware.admin_middleware import require_admin
 from app.models import user_model, article_model, audit_model
 from app.models.db import (
-    users_col, scans_col, farms_col, articles_col, audit_col, notifications_col
+    users_col, scans_col, farms_col, articles_col, audit_col, notifications_col,
+    forum_posts_col, forum_comments_col, forum_questions_col, forum_answers_col,
 )
+from app.models import forum_post as post_model
+from app.models import forum_question as question_model
+from app.services import push_service
 from app.models.scan_model import count_scans_by_user, serialize as serialize_scan
 from app.views.responses import success_response, error_response
 
@@ -269,21 +273,31 @@ def broadcast_notification():
     if role:
         query['role'] = role
 
-    user_ids = [str(u['_id']) for u in users_col().find(query, {'_id': 1})]
+    users = list(users_col().find(query))
 
     docs = [
         {
-            'user_id': ObjectId(uid),
+            'user_id': u['_id'],
             'title': title,
             'message': message,
             'type': 'broadcast',
             'is_read': False,
             'created_at': datetime.now(timezone.utc),
         }
-        for uid in user_ids
+        for u in users
     ]
     if docs:
         notifications_col().insert_many(docs)
+
+    # Send FCM heads-up push to every user device
+    for u in users:
+        lang = u.get('language', 'en')
+        push_service.send_push_to_user(
+            user=u,
+            title=title,
+            body=message,
+            data={'category': 'broadcast'},
+        )
 
     audit_model.log_action(
         str(g.current_user['_id']),
@@ -321,3 +335,135 @@ def list_audit_logs():
         'page': page,
         'pages': -(-total // per_page),
     })
+
+
+# ── Forum moderation (admin) ──────────────────────────────────────────────────
+
+@admin_bp.route('/posts', methods=['POST'])
+@require_admin
+def admin_create_post():
+    """Admin creates a community post on behalf of themselves."""
+    from datetime import datetime, timezone
+    data = request.get_json(silent=True) or {}
+    body = str(data.get('body', '')).strip()
+    if not body:
+        return error_response('body is required', 400)
+
+    post = post_model.create_post(
+        author_id=str(g.current_user['_id']),
+        body=body,
+        content_type=data.get('content_type', 'post'),
+        media_url=data.get('media_url', ''),
+        crop_tags=data.get('crop_tags') or [],
+        disease_tags=data.get('disease_tags') or [],
+    )
+    audit_model.log_action(str(g.current_user['_id']), 'admin_create_post', details={'post_id': str(post['_id'])})
+    return success_response({'post': post_model.serialize_post(post, str(g.current_user['_id']))}, 'Post created', 201)
+
+
+@admin_bp.route('/posts/<post_id>', methods=['PUT'])
+@require_admin
+def admin_edit_post(post_id):
+    """Admin edits any community post."""
+    from datetime import datetime, timezone
+    try:
+        oid = ObjectId(post_id)
+    except Exception:
+        return error_response('Invalid post ID', 400)
+
+    data = request.get_json(silent=True) or {}
+    allowed = {}
+    if 'body' in data:
+        allowed['body'] = str(data['body']).strip()
+    if 'content_type' in data:
+        allowed['content_type'] = str(data['content_type']).strip()
+    if 'media_url' in data:
+        allowed['media_url'] = str(data['media_url']).strip()
+    if not allowed:
+        return error_response('Nothing to update', 400)
+
+    allowed['updated_at'] = datetime.now(timezone.utc)
+    result = forum_posts_col().find_one_and_update(
+        {'_id': oid}, {'$set': allowed}, return_document=True
+    )
+    if not result:
+        return error_response('Post not found', 404)
+
+    audit_model.log_action(str(g.current_user['_id']), 'admin_edit_post', details={'post_id': post_id})
+    return success_response({'post': post_model.serialize_post(result, str(g.current_user['_id']))}, 'Post updated')
+
+
+@admin_bp.route('/posts/<post_id>', methods=['DELETE'])
+@require_admin
+def admin_delete_post(post_id):
+    """Admin deletes any community post and its comments."""
+    try:
+        oid = ObjectId(post_id)
+    except Exception:
+        return error_response('Invalid post ID', 400)
+
+    result = forum_posts_col().delete_one({'_id': oid})
+    if result.deleted_count == 0:
+        return error_response('Post not found', 404)
+
+    forum_comments_col().delete_many({'post_id': post_id})
+    audit_model.log_action(str(g.current_user['_id']), 'admin_delete_post', details={'post_id': post_id})
+    return success_response({'deleted': True}, 'Post deleted')
+
+
+@admin_bp.route('/posts/<post_id>/comments/<comment_id>', methods=['DELETE'])
+@require_admin
+def admin_delete_comment(post_id, comment_id):
+    """Admin deletes a specific comment on a post."""
+    try:
+        oid = ObjectId(comment_id)
+    except Exception:
+        return error_response('Invalid comment ID', 400)
+
+    result = forum_comments_col().delete_one({'_id': oid})
+    if result.deleted_count == 0:
+        return error_response('Comment not found', 404)
+
+    # Decrement comments_count on the post
+    try:
+        forum_posts_col().update_one({'_id': ObjectId(post_id)}, {'$inc': {'comments_count': -1}})
+    except Exception:
+        pass
+
+    audit_model.log_action(str(g.current_user['_id']), 'admin_delete_comment', details={'post_id': post_id, 'comment_id': comment_id})
+    return success_response({'deleted': True}, 'Comment deleted')
+
+
+@admin_bp.route('/questions/<question_id>', methods=['DELETE'])
+@require_admin
+def admin_delete_question(question_id):
+    """Admin deletes any Q&A question and its answers."""
+    try:
+        oid = ObjectId(question_id)
+    except Exception:
+        return error_response('Invalid question ID', 400)
+
+    result = forum_questions_col().delete_one({'_id': oid})
+    if result.deleted_count == 0:
+        return error_response('Question not found', 404)
+
+    forum_answers_col().delete_many({'question_id': question_id})
+    audit_model.log_action(str(g.current_user['_id']), 'admin_delete_question', details={'question_id': question_id})
+    return success_response({'deleted': True}, 'Question deleted')
+
+
+@admin_bp.route('/questions/<question_id>/answers/<answer_id>', methods=['DELETE'])
+@require_admin
+def admin_delete_answer(question_id, answer_id):
+    """Admin deletes a specific answer to a question."""
+    try:
+        oid = ObjectId(answer_id)
+    except Exception:
+        return error_response('Invalid answer ID', 400)
+
+    result = forum_answers_col().delete_one({'_id': oid})
+    if result.deleted_count == 0:
+        return error_response('Answer not found', 404)
+
+    audit_model.log_action(str(g.current_user['_id']), 'admin_delete_answer', details={'question_id': question_id, 'answer_id': answer_id})
+    return success_response({'deleted': True}, 'Answer deleted')
