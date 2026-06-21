@@ -624,11 +624,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
       final savedPath = await saveExportFile(filename, content);
 
       if (mounted) {
-        final isDownloads = savedPath.contains('/Download');
+        final pathParts = savedPath.split('/');
+        final fileName = pathParts.isNotEmpty ? pathParts.last : savedPath;
+        final folderIdx = pathParts.indexWhere(
+          (p) => p.toLowerCase() == 'downloads' || p.toLowerCase() == 'documents',
+        );
+        final detectedFolder = folderIdx != -1
+            ? pathParts[folderIdx].toLowerCase()
+            : (savedPath.toLowerCase().contains('download') ? 'downloads' : 'documents');
+        final isDownloads = detectedFolder == 'downloads';
         final locationLabel = lang.isRTL
             ? (isDownloads ? 'مجلد التنزيلات' : 'مجلد المستندات')
             : (isDownloads ? 'Downloads folder' : 'Documents folder');
-        final filename2 = savedPath.split('/').last.split(r'\').last;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             backgroundColor: AppColors.primaryDark,
@@ -638,12 +645,21 @@ class _ReportsScreenState extends State<ReportsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lang.isRTL ? 'تم الحفظ في $locationLabel' : 'Saved to $locationLabel',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                  lang.isRTL
+                      ? 'تم الحفظ في $locationLabel'
+                      : 'Saved to $locationLabel',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 Text(
-                  filename2,
+                  fileName,
                   style: const TextStyle(fontSize: 12, color: Colors.white70),
+                ),
+                Text(
+                  savedPath,
+                  style: const TextStyle(fontSize: 10, color: Colors.white54),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

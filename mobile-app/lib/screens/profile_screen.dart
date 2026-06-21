@@ -151,6 +151,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _menuOptions(context, lang, userProvider),
                           const SizedBox(height: 24),
                           _logoutBtn(context, lang, userProvider),
+                          const SizedBox(height: 12),
+                          _deleteAccountBtn(context, lang, userProvider),
                           const SizedBox(height: 80),
                         ],
                       ),
@@ -650,4 +652,78 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+  Widget _deleteAccountBtn(
+    BuildContext context,
+    LanguageProvider lang,
+    UserProvider userProvider,
+  ) {
+    return GestureDetector(
+      onTap: () => _confirmDeleteAccount(context, lang, userProvider),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFFFCDD2)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.delete_forever_outlined, size: 24, color: Color(0xFFF44336)),
+            const SizedBox(width: 8),
+            Text(
+              lang.isRTL ? 'حذف الحساب' : 'Delete Account',
+              style: const TextStyle(color: Color(0xFFF44336), fontSize: 18),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteAccount(
+    BuildContext context,
+    LanguageProvider lang,
+    UserProvider userProvider,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(lang.isRTL ? 'حذف الحساب' : 'Delete Account'),
+        content: Text(
+          lang.isRTL
+              ? 'هل أنت متأكد؟ سيتم حذف جميع بياناتك نهائياً ولا يمكن استرجاعها.'
+              : 'Are you sure? All your data will be permanently deleted and cannot be recovered.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(lang.isRTL ? 'إلغاء' : 'Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFFF44336)),
+            child: Text(lang.isRTL ? 'نعم، احذف حسابي' : 'Yes, delete my account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final apiClient = ApiClient();
+      await apiClient.delete('/api/auth/me', auth: true);
+      await userProvider.logout();
+      if (mounted) context.go('/');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(lang.isRTL ? 'فشل حذف الحساب: $e' : 'Failed to delete account: $e')),
+        );
+      }
+    }
+  }
+
 }
