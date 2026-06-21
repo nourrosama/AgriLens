@@ -539,30 +539,23 @@ class UserProvider extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Activates a paid plan by calling the backend, then updates local state.
-  /// Falls back to a local-only update when the backend is unreachable so
-  /// the UI is never left in a broken state after a simulated payment.
   Future<bool> subscribe(String planKey) async {
     _setLoading(true);
     try {
       final response = await _apiClient.post(
-        '/api/subscriptions/subscribe',
+        '/api/subscription/upgrade',
         auth: true,
         body: {'plan': planKey},
       );
-      final userJson =
-          (response['data'] as Map<String, dynamic>)['user']
-              as Map<String, dynamic>;
-      _user = UserData.fromJson(userJson);
-      await _sessionStorage.saveUser(userJson);
-      _errorMessage = null;
-      return true;
-    } catch (_) {
-      // Backend not available — update plan locally so the UI reflects the
-      // subscription immediately (matches demo / offline-first behaviour).
-      _user = _user.copyWith(plan: planKey);
+      final data = response['data'] as Map<String, dynamic>;
+      final confirmedPlan = data['plan']?.toString() ?? planKey;
+      _user = _user.copyWith(plan: confirmedPlan);
       await _sessionStorage.saveUser(_user.toJson());
       _errorMessage = null;
       return true;
+    } catch (e) {
+      _errorMessage = e.toString();
+      return false;
     } finally {
       _setLoading(false);
     }
