@@ -96,11 +96,26 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     } catch (e) {
       if (!mounted) return;
       final lang = context.read<LanguageProvider>();
-      await history.addBotMessage(
-        lang.isRTL
-            ? 'لا يمكن الوصول إلى AgriBot الآن. يرجى المحاولة مجدداً.'
-            : 'Unable to reach AgriBot right now. Please try again in a moment.',
-      );
+      String errorMsg;
+      if (e is ApiException && e.statusCode == 403) {
+        // Plan gate: backend rejected because DB plan != premium.
+        errorMsg = lang.isRTL
+            ? 'AgriBot متاح لمشتركي Premium فقط. يرجى ترقية خطتك.'
+            : 'AgriBot is available for Premium subscribers only. Please upgrade your plan.';
+      } else if (e is ApiException && e.statusCode == 429) {
+        errorMsg = lang.isRTL
+            ? 'لقد تجاوزت الحد المسموح من الرسائل. انتظر قليلاً ثم حاول مجدداً.'
+            : 'Too many messages. Please wait a moment and try again.';
+      } else if (e is ApiException && e.isConnectivityError) {
+        errorMsg = lang.isRTL
+            ? 'تعذّر الاتصال بالخادم. تحقق من اتصالك بالإنترنت.'
+            : 'Cannot connect to the server. Check your internet connection.';
+      } else {
+        errorMsg = lang.isRTL
+            ? 'حدث خطأ غير متوقع. يرجى المحاولة مجدداً.'
+            : 'An unexpected error occurred. Please try again.';
+      }
+      await history.addBotMessage(errorMsg);
     } finally {
       if (mounted) setState(() => _isTyping = false);
       _scrollToBottom();
