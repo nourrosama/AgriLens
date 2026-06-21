@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/app_config.dart';
+import 'package:agrilens/core/crop_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
 import 'package:agrilens/core/scan_history_provider.dart';
 import 'package:agrilens/core/user_provider.dart';
@@ -28,6 +29,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
   bool _reportLoading = false;
   bool _reportFailed = false;
   bool _reportExpanded = false; // only shown after button tap
+  String? _reportLang; // language code used when the report was last fetched
 
   @override
   void initState() {
@@ -43,6 +45,21 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
         });
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_reportExpanded || _report == null) return;
+    final currentLang = context.read<LanguageProvider>().isRTL ? 'ar' : 'en';
+    if (_reportLang != null && _reportLang != currentLang) {
+      setState(() {
+        _report = null;
+        _reportFailed = false;
+        _reportLang = null;
+      });
+      _fetchReport();
+    }
   }
 
   ScanResult? _resolveResult() {
@@ -88,6 +105,7 @@ class _ScanResultScreenState extends State<ScanResultScreen> {
       setState(() {
         _report = report as Map<String, dynamic>?;
         _reportLoading = false;
+        _reportLang = lang.isRTL ? 'ar' : 'en';
       });
     } catch (_) {
       if (!mounted) return;
@@ -1677,8 +1695,12 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final crops = context.read<CropProvider>();
     final confidencePercent = (result.confidence * 100).round();
-    final scannedAt = result.scannedAt.toLocal().toString().replaceFirst('.000', '');
+    final dt = result.scannedAt.toLocal();
+    final scannedAt = lang.isRTL
+        ? '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
+        : '${dt.month}/${dt.day}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
     return Container(
       width: double.infinity,
@@ -1700,8 +1722,8 @@ class _SummaryCard extends StatelessWidget {
                   children: [
                     Text(
                       result.hasDetection
-                          ? (result.isHealthy ? lang.t('scan.healthy') : result.diseaseNameEn)
-                          : result.diseaseNameEn,
+                          ? (result.isHealthy ? lang.t('scan.healthy') : (lang.isRTL ? result.diseaseNameAr : result.diseaseNameEn))
+                          : (lang.isRTL ? result.diseaseNameAr : result.diseaseNameEn),
                       style: const TextStyle(
                         color: Color(0xFF2E7D32),
                         fontSize: 22,
@@ -1728,12 +1750,16 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          _InfoRow(label: lang.isRTL ? 'المحصول' : 'Crop', value: result.cropType.isEmpty ? 'tomato' : result.cropType),
-          _InfoRow(label: lang.isRTL ? 'الوسيط' : 'Media', value: result.mediaType),
-          _InfoRow(label: lang.isRTL ? 'الحالة' : 'Status', value: result.status),
+          _InfoRow(
+            label: lang.isRTL ? 'المحصول' : 'Crop',
+            value: crops.getLabel(result.cropType.isEmpty ? 'tomato' : result.cropType, isRTL: lang.isRTL),
+          ),
+          _InfoRow(
+            label: lang.isRTL ? 'الوسيط' : 'Media',
+            value: result.mediaType == 'video' ? lang.t('scan.mediaVideo') : lang.t('scan.mediaPhoto'),
+          ),
+          _InfoRow(label: lang.isRTL ? 'الحالة' : 'Status', value: _localizedStatus(result.status, lang)),
           _InfoRow(label: lang.isRTL ? 'وقت الفحص' : 'Scanned At', value: scannedAt),
-          if (result.modelVersion.isNotEmpty)
-            _InfoRow(label: lang.isRTL ? 'النموذج' : 'Model', value: result.modelVersion),
           if (result.hasDetection) ...[
             const SizedBox(height: 12),
             _MetricBar(
@@ -1750,7 +1776,7 @@ class _SummaryCard extends StatelessWidget {
               color: const Color(0xFF4CAF50),
             ),
             const SizedBox(height: 14),
-            _InfoRow(label: lang.isRTL ? 'مستوى المخاطرة' : 'Risk Level', value: result.riskLevel),
+            _InfoRow(label: lang.isRTL ? 'مستوى المخاطرة' : 'Risk Level', value: _localizedRisk(result.riskLevel, lang)),
           ] else ...[
             const SizedBox(height: 18),
             _NoDetectionBanner(result: result),
@@ -1769,6 +1795,25 @@ class _SummaryCard extends StatelessWidget {
       default:
         return 0.25;
     }
+  }
+}
+
+String _localizedStatus(String status, LanguageProvider lang) {
+  switch (status) {
+    case 'completed': return lang.t('scan.statusCompleted');
+    case 'processing': return lang.t('scan.statusProcessing');
+    case 'pending': return lang.t('scan.statusPending');
+    case 'failed': return lang.t('scan.statusFailed');
+    default: return status;
+  }
+}
+
+String _localizedRisk(String risk, LanguageProvider lang) {
+  switch (risk) {
+    case 'high': return lang.t('scan.riskHigh');
+    case 'medium': return lang.t('scan.riskMedium');
+    case 'low': return lang.t('scan.riskLow');
+    default: return risk;
   }
 }
 
