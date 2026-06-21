@@ -231,6 +231,7 @@ class _DiseaseDetailsScreenState extends State<DiseaseDetailsScreen> {
   }
 
   Widget _overviewCard({required ScanResult result}) {
+    final lang = context.read<LanguageProvider>();
     final icon = result.isHealthy ? Icons.check_circle : Icons.biotech_rounded;
     final iconColor = result.isHealthy
         ? const Color(0xFF4CAF50)
@@ -279,7 +280,7 @@ class _DiseaseDetailsScreenState extends State<DiseaseDetailsScreen> {
               _chip('Crop: ${result.cropType.isEmpty ? 'tomato' : result.cropType}'),
               _chip('Severity: ${result.severity}'),
               _chip('Risk: ${result.riskLevel}'),
-              _chip('Confidence: ${(result.confidence * 100).round()}%'),
+              _chip('Confidence: ${lang.localizeNum((result.confidence * 100).round())}%'),
             ],
           ),
         ],
@@ -349,6 +350,7 @@ class _DiseaseDetailsScreenState extends State<DiseaseDetailsScreen> {
   }
 
   Widget _predictionsCard({required ScanResult result}) {
+    final lang = context.read<LanguageProvider>();
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,7 +385,7 @@ class _DiseaseDetailsScreenState extends State<DiseaseDetailsScreen> {
                         ),
                       ),
                       Text(
-                        '${(prediction.confidence * 100).round()}%',
+                        '${lang.localizeNum((prediction.confidence * 100).round())}%',
                         style: const TextStyle(
                           color: AppColors.primaryDark,
                           fontSize: 15,

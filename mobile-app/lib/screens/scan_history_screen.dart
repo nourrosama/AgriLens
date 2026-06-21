@@ -288,7 +288,7 @@ class _ScanTile extends StatelessWidget {
                           const Text('  ·  ', style: TextStyle(color: Color(0xFFBDBDBD))),
                           Flexible(
                             child: Text(
-                              '${(scan.confidence * 100).round()}% ${lang.t('scan.confidence')}',
+                              '${lang.localizeNum((scan.confidence * 100).round())}% ${lang.t('scan.confidence')}',
                               style: TextStyle(
                                 color: statusColor,
                                 fontSize: 13,

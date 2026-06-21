@@ -430,7 +430,7 @@ class _FieldOverviewScreenState extends State<FieldOverviewScreen> {
                                                 ),
                                               ),
                                               Text(
-                                                '${(scan.confidence * 100).round()}${lang.t('units.percent')}',
+                                                '${lang.localizeNum((scan.confidence * 100).round())}${lang.t('units.percent')}',
                                                 style: const TextStyle(
                                                   color:
                                                       AppColors.textSecondary,

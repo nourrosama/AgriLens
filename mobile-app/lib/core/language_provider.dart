@@ -51,4 +51,33 @@ class LanguageProvider extends ChangeNotifier {
   }
 
   String t(String key) => _strings[key] ?? key;
+
+  /// Converts ASCII digits to Arabic-Indic numerals when in RTL (Arabic) mode.
+  String localizeDigits(String s) {
+    if (!isRTL) return s;
+    const western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    const arabic  = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    var result = s;
+    for (var i = 0; i < western.length; i++) {
+      result = result.replaceAll(western[i], arabic[i]);
+    }
+    return result;
+  }
+
+  /// Formats [n] as a localized number string (integer or fixed-decimal).
+  String localizeNum(num n, {int? decimals}) => localizeDigits(
+        decimals != null ? n.toStringAsFixed(decimals) : n.round().toString(),
+      );
+}
+
+/// Standalone helper for static/non-widget contexts (e.g. NotificationData).
+String localizeDigitsStatic(String s, bool isArabic) {
+  if (!isArabic) return s;
+  const western = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  const arabic  = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+  var result = s;
+  for (var i = 0; i < western.length; i++) {
+    result = result.replaceAll(western[i], arabic[i]);
+  }
+  return result;
 }

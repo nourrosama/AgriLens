@@ -159,8 +159,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         padding: const EdgeInsets.all(24),
                         child: Column(
                           children: [
-                            _summaryCards(lang, scanHistory),
-                            const SizedBox(height: 24),
                             _scansChart(lang, scanHistory),
                             const SizedBox(height: 24),
                             _donutChart(lang, scanHistory),
@@ -219,84 +217,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
         return s.scannedAt.year == now.year;
       }
     }).toList();
-  }
-
-  Widget _summaryCards(LanguageProvider lang, ScanHistoryProvider history) {
-    final scans = _filteredScans(history);
-    final totalScans = scans.length;
-    final diseasesFound = scans.where((s) => !s.isHealthy).length;
-    final avgHealth = scans.isEmpty
-        ? 0
-        : (scans.where((s) => s.isHealthy).length / scans.length * 100).round();
-    final alerts = scans
-        .where((s) => s.riskLevel == 'high' || s.severity == 'high')
-        .length;
-
-    final items = [
-      (
-        label: lang.isRTL ? 'إجمالي الفحوصات' : 'Total Scans',
-        value: '$totalScans',
-        sub: _periodSubLabel(lang),
-        color: AppColors.primary,
-      ),
-      (
-        label: lang.isRTL ? 'أمراض مكتشفة' : 'Diseases Found',
-        value: '$diseasesFound',
-        sub: lang.isRTL ? 'حالات نشطة' : 'Active cases',
-        color: const Color(0xFFE53935),
-      ),
-      (
-        label: lang.isRTL ? 'متوسط الصحة' : 'Avg Health',
-        value: '$avgHealth%',
-        sub: avgHealth >= 80
-            ? (lang.isRTL ? 'حالة جيدة' : 'Good condition')
-            : (lang.isRTL ? 'يحتاج انتباه' : 'Needs attention'),
-        color: AppColors.primary,
-      ),
-      (
-        label: lang.isRTL ? 'تنبيهات' : 'Alerts Sent',
-        value: '$alerts',
-        sub: _periodSubLabel(lang),
-        color: const Color(0xFFFFC107),
-      ),
-    ];
-
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 6,
-      children: items
-          .map((item) => Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(item.label,
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 13)),
-                    const SizedBox(height: 4),
-                    Text(item.value,
-                        style: TextStyle(
-                          color: item.color,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        )),
-                    Text(item.sub,
-                        style: TextStyle(color: item.color, fontSize: 11)),
-                  ],
-                ),
-              ))
-          .toList(),
-    );
   }
 
   Widget _scansChart(LanguageProvider lang, ScanHistoryProvider history) {
@@ -480,7 +400,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                               style: const TextStyle(
                                   color: AppColors.textSecondary)),
                         ),
-                        Text('$pct%',
+                        Text('${lang.localizeNum(pct)}%',
                             style: TextStyle(
                                 color: color, fontWeight: FontWeight.w600)),
                       ],
@@ -536,7 +456,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                 Column(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: ['100', '75', '50', '25', '0']
-                      .map((l) => Text(l,
+                      .map((l) => Text(lang.localizeDigits(l),
                           style: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 9)))
                       .toList(),
@@ -739,15 +659,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
-  }
-
-  String _periodSubLabel(LanguageProvider lang) {
-    if (_selectedPeriod == 'weekly') {
-      return lang.isRTL ? 'هذا الأسبوع' : 'This week';
-    } else if (_selectedPeriod == 'monthly') {
-      return lang.isRTL ? 'هذا الشهر' : 'This month';
-    }
-    return lang.isRTL ? 'هذا العام' : 'This year';
   }
 
   Widget _errorState(LanguageProvider lang) {

@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(width: 16),
                                 Text(
-                                  '$healthPercent${lang.t('units.percent')}',
+                                  '${lang.localizeNum(healthPercent)}${lang.t('units.percent')}',
                                   style: const TextStyle(
                                     color: Color(0xFF4CAF50),
                                     fontSize: 20,

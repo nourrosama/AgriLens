@@ -133,7 +133,6 @@ class _FeedTabState extends State<_FeedTab> {
   bool _filterLoading = false;
 
   Future<void> _loadFiltered() async {
-    setState(() => _filterLoading = true);
     final posts = await context
         .read<ForumProvider>()
         .getFilteredPosts(filter: _filter);
@@ -169,7 +168,12 @@ class _FeedTabState extends State<_FeedTab> {
               selected: _filter,
               isRTL: isRTL,
               onSelected: (value) {
-                setState(() => _filter = value);
+                setState(() {
+                  _filter = value;
+                  if (value.isNotEmpty) {
+                    _filterLoading = true;
+                  }
+                });
                 if (value.isEmpty) {
                   forum.loadFeed(refresh: true);
                 } else {
@@ -421,7 +425,7 @@ class _QaTabState extends State<_QaTab> {
                 ),
               ),
               subtitle: Text(
-                '${q.answerCount} ${isRTL ? "إجابة" : "answers"}',
+                '${lang.localizeNum(q.answerCount)} ${isRTL ? "إجابة" : "answers"}',
                 style: const TextStyle(fontSize: 12),
               ),
               trailing: const Icon(

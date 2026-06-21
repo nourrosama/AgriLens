@@ -1484,7 +1484,7 @@ class _SelectedVideoFrameTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${(frame.confidence * 100).round()}${lang.isRTL ? "% ثقة" : "% confidence"}',
+                    '${lang.localizeNum((frame.confidence * 100).round())}${lang.isRTL ? "% ثقة" : "% confidence"}',
                     style: const TextStyle(color: Color(0xFF757575), fontSize: 12),
                   ),
                 ],
@@ -1698,8 +1698,9 @@ class _SummaryCard extends StatelessWidget {
     final crops = context.read<CropProvider>();
     final confidencePercent = (result.confidence * 100).round();
     final dt = result.scannedAt.toLocal();
+    String pad(int n) => lang.localizeDigits(n.toString().padLeft(2, '0'));
     final scannedAt = lang.isRTL
-        ? '${dt.day}/${dt.month}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}'
+        ? '${lang.localizeNum(dt.day)}/${lang.localizeNum(dt.month)}/${lang.localizeNum(dt.year)}  ${pad(dt.hour)}:${pad(dt.minute)}'
         : '${dt.month}/${dt.day}/${dt.year}  ${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
     return Container(
@@ -1771,7 +1772,7 @@ class _SummaryCard extends StatelessWidget {
             const SizedBox(height: 14),
             _MetricBar(
               label: lang.t('scan.confidence'),
-              value: '$confidencePercent${lang.t('units.percent')}',
+              value: '${lang.localizeNum(confidencePercent)}${lang.t('units.percent')}',
               percent: result.confidence.clamp(0, 1).toDouble(),
               color: const Color(0xFF4CAF50),
             ),
@@ -1854,7 +1855,7 @@ class _TopPredictionsCard extends StatelessWidget {
                               color: Color(0xFF424242), fontSize: 15, fontWeight: FontWeight.w600),
                         ),
                       ),
-                      Text('$percent%',
+                      Text('${lang.localizeNum(percent)}%',
                           style: const TextStyle(
                               color: Color(0xFF2E7D32), fontSize: 14, fontWeight: FontWeight.w700)),
                     ],

@@ -4,6 +4,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'language_provider.dart';
+
 import 'api_client.dart';
 import 'fcm_service.dart';
 import 'offline_sync_notification.dart';
@@ -86,14 +88,20 @@ class NotificationData {
     }
     if (diff.inMinutes < 60) {
       final m = diff.inMinutes;
-      return arabic ? 'منذ $m دقيقة' : '${m}m ago';
+      return arabic
+          ? 'منذ ${localizeDigitsStatic(m.toString(), true)} دقيقة'
+          : '${m}m ago';
     }
     if (diff.inHours < 24) {
       final h = diff.inHours;
-      return arabic ? 'منذ $h ساعة' : '${h}h ago';
+      return arabic
+          ? 'منذ ${localizeDigitsStatic(h.toString(), true)} ساعة'
+          : '${h}h ago';
     }
     final d = diff.inDays;
-    return arabic ? 'منذ $d يوم' : '${d}d ago';
+    return arabic
+        ? 'منذ ${localizeDigitsStatic(d.toString(), true)} يوم'
+        : '${d}d ago';
   }
 
   static IconData _iconFor(String category) {
