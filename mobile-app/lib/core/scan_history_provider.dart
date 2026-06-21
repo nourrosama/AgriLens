@@ -645,6 +645,7 @@ class ScanHistoryProvider extends ChangeNotifier {
 
   Future<void> syncQueuedScans({bool notifyStart = true}) async {
     if (_isSyncingQueuedScans) return;
+    await _queueStore.resetStaleSyncingItems();
     final queued = await _queueStore.listQueuedScans();
     if (queued.isEmpty) {
       await _refreshQueuedCount();
@@ -657,67 +658,67 @@ class ScanHistoryProvider extends ChangeNotifier {
     _lastOfflineSyncMessage = 'Syncing queued scans...';
     notifyListeners();
 
-    if (notifyStart) {
-      await _notifySyncStarted(queued.length);
-    }
-
-    for (final item in queued) {
-      final file = io.File(item.mediaPath);
-      if (!file.existsSync()) {
-        await _queueStore.removeQueuedScan(item.id);
-        _lastSyncFailedCount += 1;
-        continue;
+    try {
+      if (notifyStart) {
+        await _notifySyncStarted(queued.length);
       }
 
-      await _queueStore.markQueuedScanSyncing(item.id);
-      final outcome = await _uploadMedia(
-        file: file,
-        mediaType: item.mediaType,
-        cropType: item.cropType,
-        farmId: item.farmId,
-        fieldId: item.fieldId,
-        queueOnConnectivityFailure: false,
-      );
-
-      if (outcome.scan != null) {
-        await _queueStore.removeQueuedScan(item.id);
-        await _refreshQueuedCount();
-        await _deleteQueuedMedia(file);
-        _lastSyncCompletedCount += 1;
-        final scan = outcome.scan!;
-        if (scan.mediaType != 'video') {
-          await _notifyQueuedImageCompleted(scan);
-        } else {
-          _emitInAppNotification(
-            id: 'offline-video-uploaded-${scan.id}',
-            titleEn: 'Video uploaded',
-            titleAr: 'تم رفع الفيديو',
-            messageEn:
-                'Analysis is processing. We will notify you when it is complete.',
-            messageAr: 'جاري تحليل الفيديو. سنخبرك عند اكتمال التحليل.',
-            scanId: scan.id,
-          );
+      for (final item in queued) {
+        final file = io.File(item.mediaPath);
+        if (!file.existsSync()) {
+          await _queueStore.removeQueuedScan(item.id);
+          _lastSyncFailedCount += 1;
+          continue;
         }
-      } else if (outcome.validationFailed) {
-        await _queueStore.removeQueuedScan(item.id);
-        await _refreshQueuedCount();
-        await _deleteQueuedMedia(file);
-        _lastSyncFailedCount += 1;
-      } else {
-        await _queueStore.markQueuedScanFailed(
-          item.id,
-          outcome.error ?? 'Sync failed',
-        );
-        _lastSyncFailedCount += 1;
-      }
-    }
 
-    await _refreshQueuedCount();
-    _isSyncingQueuedScans = false;
-    _lastOfflineSyncMessage = _lastSyncFailedCount > 0
-        ? 'Some offline scans could not sync. They will retry later.'
-        : 'Offline scans synced successfully.';
-    notifyListeners();
+        await _queueStore.markQueuedScanSyncing(item.id);
+        final outcome = await _uploadMedia(
+          file: file,
+          mediaType: item.mediaType,
+          cropType: item.cropType,
+          farmId: item.farmId,
+          fieldId: item.fieldId,
+          queueOnConnectivityFailure: false,
+        );
+
+        if (outcome.scan != null) {
+          await _queueStore.removeQueuedScan(item.id);
+          await _deleteQueuedMedia(file);
+          _lastSyncCompletedCount += 1;
+          final scan = outcome.scan!;
+          if (scan.mediaType != 'video') {
+            await _notifyQueuedImageCompleted(scan);
+          } else {
+            _emitInAppNotification(
+              id: 'offline-video-uploaded-${scan.id}',
+              titleEn: 'Video uploaded',
+              titleAr: 'تم رفع الفيديو',
+              messageEn:
+                  'Analysis is processing. We will notify you when it is complete.',
+              messageAr: 'جاري تحليل الفيديو. سنخبرك عند اكتمال التحليل.',
+              scanId: scan.id,
+            );
+          }
+        } else if (outcome.validationFailed) {
+          await _queueStore.removeQueuedScan(item.id);
+          await _deleteQueuedMedia(file);
+          _lastSyncFailedCount += 1;
+        } else {
+          await _queueStore.markQueuedScanFailed(
+            item.id,
+            outcome.error ?? 'Sync failed',
+          );
+          _lastSyncFailedCount += 1;
+        }
+      }
+    } finally {
+      await _refreshQueuedCount();
+      _isSyncingQueuedScans = false;
+      _lastOfflineSyncMessage = _lastSyncFailedCount > 0
+          ? 'Some offline scans could not sync. They will retry later.'
+          : 'Offline scans synced successfully.';
+      notifyListeners();
+    }
   }
 
   Future<void> _notifySyncStarted(int count) async {

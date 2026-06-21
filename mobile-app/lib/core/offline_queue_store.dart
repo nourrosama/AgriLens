@@ -70,9 +70,24 @@ class OfflineQueueStore {
     });
   }
 
-  Future<List<QueuedScanPayload>> listQueuedScans() async {
+  Future<void> resetStaleSyncingItems() async {
     final db = await _db();
-    final rows = await db.query(queuedScansTable, orderBy: 'created_at ASC');
+    await db.update(
+      queuedScansTable,
+      {'sync_status': 'pending', 'last_error': null},
+      where: 'sync_status = ?',
+      whereArgs: ['syncing'],
+    );
+  }
+
+  Future<List<QueuedScanPayload>> listQueuedScans({int maxRetries = 5}) async {
+    final db = await _db();
+    final rows = await db.query(
+      queuedScansTable,
+      where: 'retry_count < ?',
+      whereArgs: [maxRetries],
+      orderBy: 'created_at ASC',
+    );
     return rows
         .map(
           (row) => QueuedScanPayload(
