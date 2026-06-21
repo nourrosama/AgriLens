@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
+import 'package:agrilens/core/api_client.dart';
 import 'package:agrilens/core/app_config.dart';
 import 'package:agrilens/core/fields_provider.dart';
 import 'package:agrilens/core/language_provider.dart';
